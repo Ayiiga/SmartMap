@@ -14,6 +14,7 @@ defaults:
 
 jobs:
   deploy:
+    if: ${{ secrets.VERCEL_TOKEN != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -56,3 +57,13 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  skip:
+    if: ${{ secrets.VERCEL_TOKEN == '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip Actions deploy (Vercel Git integration active)
+        run: |
+          echo "VERCEL_TOKEN is not configured — skipping GitHub Actions deploy."
+          echo "Production deploys via Vercel Git integration on push to main."
+          echo "See gigalearn/docs/DEPLOY_VERCEL.md to enable token-based CI deploy."
