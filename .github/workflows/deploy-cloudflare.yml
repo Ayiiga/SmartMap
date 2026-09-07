@@ -9,8 +9,23 @@ defaults:
     working-directory: gigalearn
 
 jobs:
+  secrets-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      cloudflare_configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.cloudflare_configured == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -39,7 +54,8 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   skip:
-    if: ${{ secrets.CLOUDFLARE_API_TOKEN == '' }}
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.cloudflare_configured != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Cloudflare deploy not configured

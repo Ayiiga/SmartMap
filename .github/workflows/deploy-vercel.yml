@@ -13,8 +13,23 @@ defaults:
     working-directory: gigalearn
 
 jobs:
+  secrets-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      vercel_configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
-    if: ${{ secrets.VERCEL_TOKEN != '' }}
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.vercel_configured == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -59,7 +74,8 @@ jobs:
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
   skip:
-    if: ${{ secrets.VERCEL_TOKEN == '' }}
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.vercel_configured != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Skip Actions deploy (Vercel Git integration active)
