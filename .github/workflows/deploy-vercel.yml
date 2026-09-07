@@ -9,10 +9,6 @@ on:
       - ".github/workflows/deploy-vercel.yml"
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: gigalearn
-
 jobs:
   secrets-gate:
     runs-on: ubuntu-latest
@@ -32,6 +28,9 @@ jobs:
     needs: secrets-gate
     if: needs.secrets-gate.outputs.vercel_configured == 'true'
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gigalearn
     permissions:
       contents: read
       deployments: write

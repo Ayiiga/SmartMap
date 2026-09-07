@@ -4,10 +4,6 @@ name: Deploy GigaLearn to Cloudflare
 on:
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: gigalearn
-
 jobs:
   secrets-gate:
     runs-on: ubuntu-latest
