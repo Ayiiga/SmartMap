@@ -1,4 +1,5 @@
 name: Deploy GigaLearn to Vercel
+# Skips when VERCEL_TOKEN is unset; production uses Vercel Git integration.
 
 on:
   push:
