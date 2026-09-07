@@ -79,6 +79,8 @@ Workflow: `.github/workflows/deploy-vercel.yml`
 
 Secrets: `VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`, Supabase env vars.
 
+When `VERCEL_TOKEN` is unset, the workflow **skips** instead of failing — production still deploys via Vercel Git integration on push to `main`.
+
 **Project ID (GigaLearn):** `prj_fueH7SVjqymh14dzrvCGoHIKSfcg`
 
 Link locally:
