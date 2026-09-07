@@ -20,6 +20,7 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    if: ${{ vars.ENABLE_GITHUB_PAGES_DEPLOY == 'true' }}
     defaults:
       run:
         working-directory: gigalearn
@@ -51,6 +52,7 @@ jobs:
 
   deploy:
     needs: build
+    if: ${{ vars.ENABLE_GITHUB_PAGES_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
