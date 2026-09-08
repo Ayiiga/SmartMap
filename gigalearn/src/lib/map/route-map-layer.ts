@@ -77,9 +77,40 @@ function lineFeature(
     properties: props,
     geometry: {
       type: "LineString",
-      coordinates: polyline.map((p) => [p.lng, p.lat]),
+      coordinates: densifyPolyline(polyline).map((p) => [p.lng, p.lat]),
     },
   };
+}
+
+/** Smooth corridor for Google Maps–style route rendering. */
+function densifyPolyline(points: Coordinates[], segments = 24): Coordinates[] {
+  if (points.length < 2) return points;
+  const dense: Coordinates[] = [];
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    for (let step = 0; step < segments; step++) {
+      const t = step / segments;
+      dense.push({
+        lat: a.lat + (b.lat - a.lat) * t,
+        lng: a.lng + (b.lng - a.lng) * t,
+      });
+    }
+  }
+  dense.push(points[points.length - 1]);
+  return dense;
+}
+
+function styleHasLayers(map: MapLibreMapType): boolean {
+  return Boolean(map.getStyle()?.layers?.length);
+}
+
+function whenStyleReady(map: MapLibreMapType, run: () => void): void {
+  if (styleHasLayers(map)) {
+    run();
+    return;
+  }
+  map.once("styledata", () => whenStyleReady(map, run));
 }
 
 function removeLayerIfExists(map: MapLibreMapType, id: string): void {
@@ -165,54 +196,54 @@ export function renderRoutesOnMap(
   activeRouteId: string | null,
   options: RenderRoutesOptions = {},
 ): void {
-  if (!map.isStyleLoaded()) return;
+  whenStyleReady(map, () => {
+    clearRouteLineLayers(map);
+    clearRouteMarkers();
+    clearEtaMarkers();
 
-  clearRouteLineLayers(map);
-  clearRouteMarkers();
-  clearEtaMarkers();
+    if (routes.length === 0) return;
 
-  if (routes.length === 0) return;
+    ensureRouteLineLayers(map);
 
-  ensureRouteLineLayers(map);
+    const active = routes.find((r) => r.id === activeRouteId) ?? routes[0];
+    const alternatives = routes.filter((r) => r.id !== active.id);
 
-  const active = routes.find((r) => r.id === activeRouteId) ?? routes[0];
-  const alternatives = routes.filter((r) => r.id !== active.id);
-
-  const altSource = map.getSource(ALT_SOURCE) as GeoJSONSource;
-  altSource.setData({
-    type: "FeatureCollection",
-    features: alternatives.map((route) => lineFeature(route.polyline, { id: route.id })),
-  });
-
-  const activeSource = map.getSource(ACTIVE_SOURCE) as GeoJSONSource;
-  activeSource.setData({
-    type: "FeatureCollection",
-    features: [lineFeature(active.polyline, { id: active.id, active: true })],
-  });
-
-  const origin = options.origin ?? active.from.coordinates;
-  const destination = options.destination ?? active.to.coordinates;
-  renderRouteMarkers(map, routes, activeRouteId, origin, destination);
-  renderEtaBubbles(map, routes, activeRouteId);
-
-  if (options.fit !== false) {
-    const bounds = new LngLatBounds(
-      [origin.lng, origin.lat],
-      [destination.lng, destination.lat],
-    );
-    for (const route of routes) {
-      route.polyline.forEach((p) => bounds.extend([p.lng, p.lat]));
-    }
-    map.fitBounds(bounds, {
-      padding: { top: 100, bottom: 300, left: 40, right: 40 },
-      maxZoom: routes.some((r) => r.distanceKm > 80) ? 8 : 13,
-      duration: 900,
+    const altSource = map.getSource(ALT_SOURCE) as GeoJSONSource;
+    altSource.setData({
+      type: "FeatureCollection",
+      features: alternatives.map((route) => lineFeature(route.polyline, { id: route.id })),
     });
-  }
+
+    const activeSource = map.getSource(ACTIVE_SOURCE) as GeoJSONSource;
+    activeSource.setData({
+      type: "FeatureCollection",
+      features: [lineFeature(active.polyline, { id: active.id, active: true })],
+    });
+
+    const origin = options.origin ?? active.from.coordinates;
+    const destination = options.destination ?? active.to.coordinates;
+    renderRouteMarkers(map, routes, activeRouteId, origin, destination);
+    renderEtaBubbles(map, routes, activeRouteId);
+
+    if (options.fit !== false) {
+      const bounds = new LngLatBounds(
+        [origin.lng, origin.lat],
+        [destination.lng, destination.lat],
+      );
+      for (const route of routes) {
+        route.polyline.forEach((p) => bounds.extend([p.lng, p.lat]));
+      }
+      map.fitBounds(bounds, {
+        padding: { top: 100, bottom: 300, left: 40, right: 40 },
+        maxZoom: routes.some((r) => r.distanceKm > 80) ? 8 : 13,
+        duration: 900,
+      });
+    }
+  });
 }
 
 export function clearRoutesFromMap(map: MapLibreMapType): void {
-  if (!map.isStyleLoaded()) return;
+  if (!styleHasLayers(map)) return;
   clearRouteLineLayers(map);
   clearRouteMarkers();
   clearEtaMarkers();

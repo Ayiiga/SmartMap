@@ -113,11 +113,26 @@ export function MapView({
     map.on("zoomstart", () => useMapStore.getState().setFollowUser(false));
 
     const markReady = () => setReady(true);
-    map.on("load", markReady);
+    const syncMapSize = () => {
+      map.resize();
+    };
+    map.on("load", () => {
+      syncMapSize();
+      markReady();
+    });
     map.on("idle", markReady);
     map.on("error", () => setReady(true));
-    const readyFallback = window.setTimeout(markReady, 2500);
+    const readyFallback = window.setTimeout(() => {
+      syncMapSize();
+      markReady();
+    }, 2500);
     mapRef.current = map;
+
+    const resizeObserver =
+      typeof ResizeObserver !== "undefined" && containerRef.current
+        ? new ResizeObserver(() => syncMapSize())
+        : null;
+    resizeObserver?.observe(containerRef.current);
 
     map.on("click", async (e) => {
       const mode = useMapStore.getState().pickOnMapMode;
@@ -156,6 +171,7 @@ export function MapView({
     });
 
     return () => {
+      resizeObserver?.disconnect();
       window.clearTimeout(readyFallback);
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
@@ -296,7 +312,9 @@ export function MapView({
       className={`relative h-full w-full overflow-hidden ${className}`}
       style={{ cursor: pickOnMapMode ? "crosshair" : undefined }}
     >
-      <div ref={containerRef} className="absolute inset-0 touch-pan-x touch-pan-y" />
+      <div className="absolute inset-0 touch-pan-x touch-pan-y">
+        <div ref={containerRef} className="h-full w-full min-h-[240px]" />
+      </div>
       {pickOnMapMode && (
         <div className="pointer-events-none absolute inset-x-0 top-3 z-30 flex justify-center">
           <p className="rounded-full bg-sm-primary px-4 py-2 text-xs font-bold text-white shadow-lg">

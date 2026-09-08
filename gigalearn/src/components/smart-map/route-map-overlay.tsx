@@ -39,15 +39,18 @@ export function RouteMapOverlay({
       if (!map || cancelled) return;
 
       const onStyle = () => draw(map);
+      const onResize = () => draw(map);
       map.on("styledata", onStyle);
       map.on("idle", onStyle);
+      map.on("resize", onResize);
       detachMapListeners = () => {
         map.off("styledata", onStyle);
         map.off("idle", onStyle);
+        map.off("resize", onResize);
       };
 
-      if (map.isStyleLoaded()) draw(map);
-      else map.once("load", () => draw(map));
+      draw(map);
+      map.once("idle", () => draw(map));
     };
 
     bindMap(getRegisteredMap());
