@@ -1,11 +1,7 @@
 name: Deploy GigaLearn to GitHub Pages
 
+# Optional static export host. Vercel is the primary production path (see gigalearn/docs/DEPLOY_VERCEL.md).
 on:
-  push:
-    branches: [main, master]
-    paths:
-      - "gigalearn/**"
-      - ".github/workflows/deploy-github-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -20,7 +16,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    if: ${{ vars.ENABLE_GITHUB_PAGES_DEPLOY == 'true' }}
     defaults:
       run:
         working-directory: gigalearn
@@ -52,7 +47,6 @@ jobs:
 
   deploy:
     needs: build
-    if: ${{ vars.ENABLE_GITHUB_PAGES_DEPLOY == 'true' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
