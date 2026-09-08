@@ -5,8 +5,10 @@ import {
   ArrowUpDown,
   ChevronDown,
   ChevronUp,
+  FastForward,
   Leaf,
   Navigation,
+  Plus,
   Route,
   ShieldAlert,
 } from "lucide-react";
@@ -41,6 +43,9 @@ interface NavigateBottomSheetProps {
   multiModeEta: Record<TravelMode, AdvancedRoutePlan> | null;
   safety: Array<{ id: string; label: string; message: string }>;
   navigating: boolean;
+  previewMode?: boolean;
+  onSwap: () => void;
+  onPreview: () => void;
   onStartNavigation: () => void;
   modes: { id: TravelMode; label: string; icon: typeof Navigation }[];
 }
@@ -56,6 +61,9 @@ export function NavigateBottomSheet({
   multiModeEta,
   safety,
   navigating,
+  previewMode = false,
+  onSwap,
+  onPreview,
   onStartNavigation,
   modes,
 }: NavigateBottomSheetProps) {
@@ -105,7 +113,12 @@ export function NavigateBottomSheet({
                 {origin.label} → {dest.label}
               </p>
             </div>
-            <button type="button" className="rounded-full p-1 text-slate-400" aria-label="Swap endpoints">
+            <button
+              type="button"
+              onClick={onSwap}
+              className="rounded-full p-1 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/10"
+              aria-label="Swap endpoints"
+            >
               <ArrowUpDown className="h-4 w-4" />
             </button>
           </div>
@@ -228,11 +241,28 @@ export function NavigateBottomSheet({
             <button
               type="button"
               disabled={!active}
+              onClick={onPreview}
+              className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-2xl bg-[#0D9488] px-4 py-3 text-sm font-bold text-white disabled:opacity-40"
+            >
+              <FastForward className="h-4 w-4" />
+              Preview
+            </button>
+            <button
+              type="button"
+              disabled={!active}
               onClick={onStartNavigation}
               className="inline-flex min-h-[48px] flex-1 items-center justify-center gap-2 rounded-2xl bg-sm-primary px-4 py-3 text-sm font-bold text-white disabled:opacity-40"
             >
               <Navigation className="h-4 w-4" />
-              {navigating ? "Navigating…" : "Start navigation"}
+              {navigating ? "Navigating…" : previewMode ? "Start" : "Navigate"}
+            </button>
+            <button
+              type="button"
+              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-[#1A73E8]/10 px-4 py-3 text-sm font-bold text-[#1A73E8]"
+              aria-label="Add stops"
+            >
+              <Plus className="h-4 w-4" />
+              Add stops
             </button>
             <RouteShareButton routeLabel={active.label} disabled={!active} />
           </div>

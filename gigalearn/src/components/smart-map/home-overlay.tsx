@@ -1,74 +1,43 @@
 "use client";
 
-import Link from "next/link";
-import { MapPin } from "lucide-react";
-import { SmartMapLogo } from "@/components/smart-map/logo";
-import { PlaceSheet } from "@/components/smart-map/place-sheet";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { UserMenu } from "@/components/auth/user-menu";
-import { LocationHud, LocationPermissionCard } from "@/components/smart-map/location-hud";
-import { LiveEmergencyPanel } from "@/components/smart-map/live-emergency-panel";
-import { LiveLayerToggles } from "@/components/smart-map/live-layer-toggles";
-import { SafetyStatusCard } from "@/components/smart-map/safety-status-card";
-import { WeatherIntelligenceCard } from "@/components/smart-map/weather-intelligence-card";
-import { OfflineBanner } from "@/components/smart-map/offline-banner";
-import { OfflineReadyBadge } from "@/components/smart-map/offline-ready-badge";
-import { AddToHomeScreenPrompt } from "@/components/smart-map/a2hs-prompt";
-import { BRAND } from "@/lib/brand";
+import dynamic from "next/dynamic";
+import { useEffect } from "react";
+import { MapAttributionFooter } from "@/components/smart-map/map-attribution-footer";
+import { useMapStore } from "@/stores/map-store";
 import { usePublicSafetyEnabled } from "@/lib/features/use-feature-flag";
+import { PlaceSheet } from "@/components/smart-map/place-sheet";
+
+const SmartMapTopBar = dynamic(() => import("@/components/smart-map/smart-map-top-bar").then((m) => m.SmartMapTopBar), { ssr: false });
+const SmartMapLocationSidebar = dynamic(() => import("@/components/smart-map/smart-map-location-sidebar").then((m) => m.SmartMapLocationSidebar), { ssr: false });
+const TransportModeBar = dynamic(() => import("@/components/smart-map/transport-mode-bar").then((m) => m.TransportModeBar), { ssr: false });
+const MapMinimapInset = dynamic(() => import("@/components/smart-map/map-minimap-inset").then((m) => m.MapMinimapInset), { ssr: false });
 
 export function HomeOverlay() {
   const publicSafety = usePublicSafetyEnabled();
+  const mapStyle = useMapStore((s) => s.mapStyle);
+  const setMapStyle = useMapStore((s) => s.setMapStyle);
+  const setSelectedPlaceId = useMapStore((s) => s.setSelectedPlaceId);
+  const countryCode = useMapStore((s) => s.countryCode);
+
+  useEffect(() => {
+    if (mapStyle === "streets" && countryCode === "GH") setMapStyle("satellite");
+    setSelectedPlaceId("gh-bedomase");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <>
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 max-h-[100dvh] overflow-x-hidden overflow-y-auto p-3 sm:p-4">
-        <div className="pointer-events-auto mx-auto flex w-full max-w-3xl flex-col gap-3 pb-32">
-          {/* Header */}
-          <div className="flex min-w-0 items-center gap-2">
-            <Link
-              href="/"
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-white/30 bg-white/90 px-3 py-2.5 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#0B1220]/90"
-            >
-              <SmartMapLogo size="sm" />
-              <div className="min-w-0">
-                <p className="truncate font-display text-base font-extrabold leading-tight text-[#0B1220] dark:text-white sm:text-lg">
-                  {BRAND.name}
-                </p>
-                <p className="truncate text-[10px] font-medium text-slate-500 dark:text-slate-300 sm:text-[11px]">
-                  Explore · Connect · Stay Safe
-                </p>
-              </div>
-            </Link>
-            <ThemeToggle />
-            <UserMenu />
-          </div>
-
-          <OfflineBanner />
-          <div className="flex flex-wrap items-center gap-2">
-            <OfflineReadyBadge />
-          </div>
-          <AddToHomeScreenPrompt />
-
-          <Link
-            href="/search"
-            className="flex min-h-[48px] items-center gap-3 rounded-2xl border border-white/30 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#0B1220]/95"
-          >
-            <MapPin className="h-5 w-5 shrink-0 text-[#0F5B8D]" />
-            <span className="truncate text-sm font-medium text-slate-500 dark:text-slate-300">
-              Search worldwide — cities, streets, hospitals, airports…
-            </span>
-          </Link>
-
-          <LocationPermissionCard />
-          <LocationHud />
-          <SafetyStatusCard />
-          <WeatherIntelligenceCard />
-          <LiveEmergencyPanel />
-          <LiveLayerToggles />
-        </div>
+      <SmartMapTopBar />
+      <div className="pointer-events-none absolute z-20 hidden p-4 lg:flex" style={{ top: "calc(4.5rem + env(safe-area-inset-top))", left: 0 }}>
+        <SmartMapLocationSidebar />
       </div>
-
+      <div className="pointer-events-none absolute inset-x-3 z-20 lg:hidden" style={{ top: "calc(4.5rem + env(safe-area-inset-top))" }}>
+        <SmartMapLocationSidebar className="max-h-[36vh]" />
+      </div>
+      <div className="pointer-events-none absolute inset-x-0 z-20 flex justify-center px-3" style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
+        <TransportModeBar />
+      </div>
+      <MapMinimapInset />
+      <MapAttributionFooter />
       <PlaceSheet showVerification={publicSafety} />
     </>
   );

@@ -15,7 +15,7 @@ import { getCategoryMeta } from "@/content/smart-map/categories";
 import { MAP_STYLE_URLS, DEFAULT_CENTER, DEFAULT_ZOOM, applyMapStyle, initialMapStyle, mapStyleKey } from "@/lib/map/styles";
 import { useMapStore } from "@/stores/map-store";
 import { getCountry } from "@/content/smart-map/countries";
-import type { Place } from "@/types/smart-map";
+import type { Place, Coordinates } from "@/types/smart-map";
 import type { NavEndpoint } from "@/lib/geo/types";
 import { registerMapForScreenshot } from "@/lib/map/map-screenshot";
 
@@ -23,6 +23,9 @@ interface MapViewProps {
   places?: Place[];
   className?: string;
   interactive?: boolean;
+  initialCenter?: Coordinates;
+  initialZoom?: number;
+  hideDefaultControls?: boolean;
   onPlaceSelect?: (place: Place) => void;
   /** Extra markers (e.g. live emergency POIs) */
   extraMarkers?: Array<{
@@ -38,6 +41,9 @@ export function MapView({
   places = PLACES,
   className = "",
   interactive = true,
+  initialCenter,
+  initialZoom,
+  hideDefaultControls = false,
   onPlaceSelect,
   extraMarkers = [],
 }: MapViewProps) {
@@ -70,13 +76,14 @@ export function MapView({
     if (!containerRef.current || mapRef.current) return;
 
     const country = getCountry(countryCode);
-    const initial = userLocation ?? country.center ?? DEFAULT_CENTER;
+    const initial = userLocation ?? initialCenter ?? country.center ?? DEFAULT_CENTER;
+    const zoom = userLocation ? 15 : initialZoom ?? country.zoom ?? DEFAULT_ZOOM;
     const initialStyle = initialMapStyle(mapStyle);
     const map = new MapLibreMap({
       container: containerRef.current,
       style: initialStyle,
       center: [initial.lng, initial.lat],
-      zoom: userLocation ? 15 : country.zoom || DEFAULT_ZOOM,
+      zoom,
       attributionControl: { compact: true },
       interactive,
       canvasContextAttributes: { preserveDrawingBuffer: true },
@@ -84,16 +91,18 @@ export function MapView({
     appliedStyleRef.current = mapStyleKey(mapStyle);
     registerMapForScreenshot(map);
 
-    map.addControl(new NavigationControl({ visualizePitch: true }), "bottom-right");
-    const geolocate = new GeolocateControl({
-      positionOptions: { enableHighAccuracy: true },
-      trackUserLocation: true,
-      showAccuracyCircle: true,
-      showUserLocation: false, // custom blue marker
-    });
-    geolocateRef.current = geolocate;
-    map.addControl(geolocate, "bottom-right");
-    map.addControl(new ScaleControl({ maxWidth: 100 }), "bottom-left");
+    if (!hideDefaultControls) {
+      map.addControl(new NavigationControl({ visualizePitch: true }), "bottom-right");
+      const geolocate = new GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: true,
+        showAccuracyCircle: true,
+        showUserLocation: false,
+      });
+      geolocateRef.current = geolocate;
+      map.addControl(geolocate, "bottom-right");
+      map.addControl(new ScaleControl({ maxWidth: 100 }), "bottom-left");
+    }
 
     map.touchZoomRotate.enable();
     map.dragPan.enable();

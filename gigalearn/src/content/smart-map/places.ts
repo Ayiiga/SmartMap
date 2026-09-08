@@ -1,7 +1,16 @@
 import type { Place } from "@/types/smart-map";
 
+export const ASHANTI_SHOWCASE: Place[] = [
+  { id: "gh-bedomase", name: "Bedomase", category: "attraction", coordinates: { lat: 6.958492, lng: -1.500275 }, address: "Bedomase, Sekyere South", city: "Bedomase", region: "Ashanti", country: "Ghana", countryCode: "GH", rating: 4.6, reviewCount: 42 },
+  { id: "gh-agona-ashanti", name: "Agona", category: "market", coordinates: { lat: 6.994, lng: -1.573 }, address: "Agona, Ashanti Region", city: "Agona", region: "Ashanti", country: "Ghana", countryCode: "GH", rating: 4.4, reviewCount: 88 },
+  { id: "gh-agona-bipoa", name: "Agona-Bipoa", category: "market", coordinates: { lat: 6.978, lng: -1.548 }, address: "Agona-Bipoa, Ashanti", city: "Agona-Bipoa", region: "Ashanti", country: "Ghana", countryCode: "GH", rating: 4.3, reviewCount: 31 },
+  { id: "gh-jamasi", name: "Jamasi", category: "school", coordinates: { lat: 6.932, lng: -1.478 }, address: "Jamasi, Ashanti Region", city: "Jamasi", region: "Ashanti", country: "Ghana", countryCode: "GH", rating: 4.5, reviewCount: 56 },
+  { id: "gh-sda-college-agona", name: "SDA College of Education, Agona", category: "university", coordinates: { lat: 6.991, lng: -1.565 }, address: "Ofinso - Juansa Rd, Agona", city: "Agona", region: "Ashanti", country: "Ghana", countryCode: "GH", rating: 4.7, reviewCount: 124 },
+];
+
 /** Curated Accra / Greater Accra places for launch demo data. */
 export const PLACES: Place[] = [
+  ...ASHANTI_SHOWCASE,
   {
     id: "gh-police-accra-central",
     name: "Accra Central Police Station",

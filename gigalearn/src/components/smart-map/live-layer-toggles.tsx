@@ -5,6 +5,7 @@ import type { MapLayerId } from "@/lib/navigation/types";
 import { useMapStore } from "@/stores/map-store";
 import { cn } from "@/lib/utils";
 import { useState, useTransition } from "react";
+import { MapOverlaySync } from "@/components/smart-map/route-input-card";
 
 const HOME_LAYERS: MapLayerId[] = [
   "standard",
@@ -46,7 +47,11 @@ export function LiveLayerToggles() {
   }
 
   return (
-    <div className="rounded-2xl border border-white/30 bg-white/95 p-3 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#0B1220]/95">
+    <>
+      <MapOverlaySync
+        overlays={active.filter((id) => MAP_LAYERS.find((l) => l.id === id)?.kind === "overlay")}
+      />
+      <div className="rounded-2xl border border-white/30 bg-white/95 p-3 shadow-lg backdrop-blur-xl dark:border-white/10 dark:bg-[#0B1220]/95">
       <p className="text-xs font-semibold uppercase tracking-wide text-[#0F5B8D]">Live map layers</p>
       <div
         className="mt-2 -mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-none"
@@ -77,6 +82,7 @@ export function LiveLayerToggles() {
         })}
       </div>
       {pending && <p className="mt-1 text-[11px] text-slate-500">Updating…</p>}
-    </div>
+      </div>
+    </>
   );
 }

@@ -9,18 +9,20 @@ import {
   Car,
   Footprints,
   Home,
+  Loader2,
   MapPinned,
 } from "lucide-react";
 import { PlaceAutocomplete } from "@/components/smart-map/place-autocomplete";
 import { LocationHud, LocationPermissionCard } from "@/components/smart-map/location-hud";
 import { LiveLayerToggles } from "@/components/smart-map/live-layer-toggles";
+import { RouteInputCard } from "@/components/smart-map/route-input-card";
+import { RoutePreviewBanner } from "@/components/smart-map/route-preview-banner";
 import { useMapStore } from "@/stores/map-store";
 import type { TravelMode } from "@/types/smart-map";
 import type { GeoSearchResult, NavEndpoint } from "@/lib/geo/types";
 import { cn } from "@/lib/utils";
-import {
-  planAdvancedRoutes,
-} from "@/lib/navigation/route-engine";
+import { planAdvancedRoutes } from "@/lib/navigation/route-engine";
+import { useRoutePlanner } from "@/lib/navigation/use-route-planner";
 import { analyzeRouteSafety } from "@/lib/navigation/safety-analysis";
 import { useAi40Enabled } from "@/lib/features/use-feature-flag";
 import Link from "next/link";
@@ -34,7 +36,14 @@ import {
   MapZoomControls,
 } from "@/components/smart-map/map-touch-controls";
 import { NavigateSatelliteToggle } from "@/components/smart-map/navigate-satellite-toggle";
+import { TransportModeBar } from "@/components/smart-map/transport-mode-bar";
+import { MapAttributionFooter } from "@/components/smart-map/map-attribution-footer";
 import { recordSuccessfulNavigation } from "@/lib/offline/navigation-counter";
+import { getPlaceById } from "@/content/smart-map/places";
+
+const SmartMapTopBar = dynamic(() => import("@/components/smart-map/smart-map-top-bar").then((m) => m.SmartMapTopBar), { ssr: false });
+const SmartMapRouteSidebar = dynamic(() => import("@/components/smart-map/smart-map-route-sidebar").then((m) => m.SmartMapRouteSidebar), { ssr: false });
+const MapMinimapInset = dynamic(() => import("@/components/smart-map/map-minimap-inset").then((m) => m.MapMinimapInset), { ssr: false });
 
 const MapView = dynamic(
   () => import("@/components/smart-map/map-view").then((m) => m.MapView),
@@ -83,11 +92,17 @@ export default function NavigatePage() {
     "fastest",
   );
   const [navigating, setNavigating] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const [showInputs, setShowInputs] = useState(true);
   const ai40 = useAi40Enabled();
 
-  // Default From = current GPS. Only write when missing or values actually changed
-  // (avoid Maximum update depth from recreating navOrigin every render / GPS tick).
+  useEffect(() => {
+    const agona = getPlaceById("gh-agona-ashanti");
+    const bedomasеPlace = getPlaceById("gh-bedomase");
+    if (!navOrigin && agona) setNavOrigin({ id: agona.id, label: agona.name, coordinates: agona.coordinates, source: "search", placeId: agona.id, address: agona.address });
+    if (!navDestination && bedomasеPlace) setNavDestination({ id: bedomasеPlace.id, label: bedomasеPlace.name, coordinates: bedomasеPlace.coordinates, source: "search", placeId: bedomasеPlace.id, address: bedomasеPlace.address });
+  }, [navOrigin, navDestination, setNavOrigin, setNavDestination]);
+
   useEffect(() => {
     if (!userLocation) return;
     if (navOrigin && navOrigin.source !== "gps") return;
@@ -116,7 +131,6 @@ export default function NavigatePage() {
     });
   }, [userLocation, resolvedAddress, navOrigin, setNavOrigin]);
 
-  // Sync legacy destination place into navDestination
   useEffect(() => {
     if (destination && !navDestination) {
       setNavDestination({
@@ -134,9 +148,9 @@ export default function NavigatePage() {
   const origin = navOrigin;
   const dest = navDestination;
 
-  const routes = useMemo(() => {
-    if (!origin || !dest) return [];
-    return planAdvancedRoutes({
+  const plannerInput = useMemo(() => {
+    if (!origin || !dest) return null;
+    return {
       from: {
         id: origin.id,
         label: origin.label,
@@ -148,10 +162,22 @@ export default function NavigatePage() {
         coordinates: dest.coordinates,
       },
       mode: travelMode,
-      avoid: { traffic: true, unpaved: true },
-      preferences: ["fastest", "shortest", "safest"],
-    });
+    };
   }, [origin, dest, travelMode]);
+
+  const { routes: liveRoutes, loading: routesLoading, source: routeSource } =
+    useRoutePlanner(plannerInput);
+
+  const routes = liveRoutes.length > 0
+    ? liveRoutes
+    : origin && dest
+      ? planAdvancedRoutes({
+          from: { id: origin.id, label: origin.label, coordinates: origin.coordinates },
+          to: { id: dest.id, label: dest.label, coordinates: dest.coordinates },
+          mode: travelMode,
+          preferences: ["fastest", "shortest", "safest"],
+        })
+      : [];
 
   const active = routes.find((r) => r.preference === selectedPreference) ?? routes[0] ?? null;
 
@@ -200,18 +226,37 @@ export default function NavigatePage() {
     setFromQuery("");
   }
 
+  function swapEndpoints() {
+    if (!origin || !dest) return;
+    setNavOrigin(dest);
+    setNavDestination(origin);
+    setFromQuery("");
+    setToQuery("");
+  }
+
+  const showRouteCard = !showInputs && origin && dest && !previewMode;
+
   return (
-    <div className="relative h-[100dvh] w-full touch-manipulation">
-      <MapView places={[]} />
+    <div className="relative h-[100dvh] w-full touch-manipulation bg-[#0A0E23]">
+      <MapView places={[]} hideDefaultControls />
+      <SmartMapTopBar />
       <RouteMapOverlay
         routes={routes}
         activeRouteId={active?.id ?? null}
         origin={origin?.coordinates}
         destination={dest?.coordinates}
       />
+
+      <RoutePreviewBanner
+        steps={active?.steps ?? []}
+        fromLabel={origin?.label}
+        toLabel={dest?.label}
+        active={previewMode || navigating}
+      />
+
       <div
         className="pointer-events-none absolute right-3 z-20 flex flex-col gap-2"
-        style={{ top: "calc(11rem + env(safe-area-inset-top))" }}
+        style={{ top: previewMode ? "calc(5rem + env(safe-area-inset-top))" : "calc(11rem + env(safe-area-inset-top))" }}
       >
         <div className="pointer-events-auto">
           <NavigateSatelliteToggle />
@@ -220,6 +265,16 @@ export default function NavigatePage() {
       <MapTouchZoomHint />
       <MapRecenterButton />
       <MapZoomControls />
+      {active && origin && dest && (
+        <div className="pointer-events-none absolute z-20 hidden p-4 lg:block" style={{ top: "calc(5rem + env(safe-area-inset-top))", right: 0 }}>
+          <SmartMapRouteSidebar active={active} destLabel={dest.label} navigating={navigating} onStartNavigation={() => { setPreviewMode(false); setNavigating(true); recordSuccessfulNavigation(); }} />
+        </div>
+      )}
+      <div className="pointer-events-none absolute inset-x-0 z-20 flex justify-center px-3" style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
+        <TransportModeBar multiModeEta={multiModeEta} />
+      </div>
+      <MapMinimapInset />
+      <MapAttributionFooter />
       <NavigationHudOverlay active={navigating} />
       <NavigateVoiceRunner
         navigating={navigating}
@@ -227,38 +282,53 @@ export default function NavigatePage() {
         fromLabel={origin?.label}
         toLabel={dest?.label}
       />
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-20 p-3 sm:p-4">
+
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 z-20 p-3 sm:p-4"
+        style={{ paddingTop: previewMode ? "calc(5.5rem + env(safe-area-inset-top))" : undefined }}
+      >
         <div className="pointer-events-auto mx-auto flex max-w-xl flex-col gap-3">
-          {!showInputs && origin && dest ? (
-            <button
-              type="button"
-              onClick={() => setShowInputs(true)}
-              className="rounded-2xl border border-white/30 bg-white/95 px-4 py-3 text-left shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#0B1220]/95"
-            >
-              <p className="text-xs font-semibold text-slate-500">Route</p>
-              <p className="truncate text-sm font-bold">
-                {origin.label} → {dest.label}
-              </p>
-              <p className="mt-1 text-[11px] text-[#1A73E8]">Tap to edit · pinch map to zoom</p>
-            </button>
-          ) : (
+          {showRouteCard ? (
+            <RouteInputCard
+              origin={origin}
+              dest={dest}
+              fromQuery={fromQuery}
+              toQuery={toQuery}
+              onFromQueryChange={setFromQuery}
+              onToQueryChange={setToQuery}
+              onSelectOrigin={(r) => setNavOrigin(endpointFromGeo(r, "search"))}
+              onSelectDest={(r) => setNavDestination(endpointFromGeo(r, "search"))}
+              onSwap={swapEndpoints}
+              onClose={() => setShowInputs(true)}
+              compact
+            />
+          ) : showInputs ? (
             <>
-          <LocationPermissionCard compact />
-          <LocationHud />
+              <LocationPermissionCard compact />
+              <LocationHud />
 
-          <section className="rounded-3xl border border-white/30 bg-white/92 p-4 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#0B3A63]/92">
-            <p className="text-xs font-semibold uppercase tracking-wide text-sm-emerald">
-              From → To navigation
-            </p>
-            <h1 className="mt-1 font-display text-xl font-extrabold sm:text-2xl">Plan your route</h1>
-
-            <div className="mt-3 space-y-3">
-              <div>
-                <p className="text-xs font-bold uppercase text-slate-500">From</p>
-                <p className="mt-1 text-sm font-semibold">
-                  {origin?.label ?? "Set starting point"}
+              <section className="rounded-3xl border border-white/30 bg-white/92 p-4 shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-[#0B3A63]/92">
+                <p className="text-xs font-semibold uppercase tracking-wide text-sm-emerald">
+                  Directions
                 </p>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <h1 className="mt-1 font-display text-xl font-extrabold sm:text-2xl">
+                  Plan your route
+                </h1>
+
+                <RouteInputCard
+                  className="mt-3 border-0 bg-transparent p-0 shadow-none"
+                  origin={origin}
+                  dest={dest}
+                  fromQuery={fromQuery}
+                  toQuery={toQuery}
+                  onFromQueryChange={setFromQuery}
+                  onToQueryChange={setToQuery}
+                  onSelectOrigin={(r) => setNavOrigin(endpointFromGeo(r, "search"))}
+                  onSelectDest={(r) => setNavDestination(endpointFromGeo(r, "search"))}
+                  onSwap={swapEndpoints}
+                />
+
+                <div className="mt-3 flex flex-wrap gap-2">
                   <button
                     type="button"
                     onClick={useCurrentLocation}
@@ -306,40 +376,13 @@ export default function NavigatePage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPickOnMapMode("origin")}
-                    className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold dark:bg-white/10"
-                  >
-                    <MapPinned className="h-3.5 w-3.5" /> Pick on Map
-                  </button>
-                </div>
-                <PlaceAutocomplete
-                  className="mt-2"
-                  value={fromQuery}
-                  onChange={setFromQuery}
-                  placeholder="Search From location worldwide…"
-                  onSelect={(result) => setNavOrigin(endpointFromGeo(result, "search"))}
-                />
-              </div>
-
-              <div>
-                <p className="text-xs font-bold uppercase text-slate-500">To</p>
-                <p className="mt-1 text-sm font-semibold">{dest?.label ?? "Search destination"}</p>
-                <PlaceAutocomplete
-                  className="mt-2"
-                  value={toQuery}
-                  onChange={setToQuery}
-                  placeholder="Search anywhere in the world…"
-                  onSelect={(result) => setNavDestination(endpointFromGeo(result, "search"))}
-                />
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button
-                    type="button"
                     onClick={() => setPickOnMapMode("destination")}
                     className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold dark:bg-white/10"
                   >
                     <MapPinned className="h-3.5 w-3.5" /> Pick on Map
                   </button>
                 </div>
+
                 {recentPlaces.length > 0 && (
                   <div className="mt-2">
                     <p className="text-[11px] font-semibold text-slate-500">Recent</p>
@@ -362,45 +405,56 @@ export default function NavigatePage() {
                     Favorites available from Search / map sheets ({savedPlaceIds.length} saved).
                   </p>
                 )}
-              </div>
-            </div>
 
-            <div className="mt-3 grid grid-cols-5 gap-1.5">
-              {MODES.map(({ id, label, icon: Icon }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setTravelMode(id)}
-                  className={cn(
-                    "flex flex-col items-center gap-1 rounded-2xl px-1 py-2 text-[11px] font-bold",
-                    travelMode === id
-                      ? "bg-sm-primary text-white"
-                      : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white",
-                  )}
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
+                <div className="mt-3 grid grid-cols-5 gap-1.5">
+                  {MODES.map(({ id, label, icon: Icon }) => (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setTravelMode(id)}
+                      className={cn(
+                        "flex flex-col items-center gap-1 rounded-2xl px-1 py-2 text-[11px] font-bold",
+                        travelMode === id
+                          ? "bg-sm-primary text-white"
+                          : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white",
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </button>
+                  ))}
+                </div>
 
-            {ai40 && origin && dest && (
-              <Link
-                href="/smart-safety"
-                className="mt-3 flex items-center justify-between rounded-2xl border border-sm-primary/30 bg-gradient-to-r from-sm-primary/10 to-sm-emerald/10 px-4 py-3 text-sm font-bold text-sm-primary"
-              >
-                <span>✨ View AI 4.0 route scores & predictive safety</span>
-                <span>→</span>
-              </Link>
-            )}
-          </section>
+                {ai40 && origin && dest && (
+                  <Link
+                    href="/smart-safety"
+                    className="mt-3 flex items-center justify-between rounded-2xl border border-sm-primary/30 bg-gradient-to-r from-sm-primary/10 to-sm-emerald/10 px-4 py-3 text-sm font-bold text-sm-primary"
+                  >
+                    <span>✨ View AI 4.0 route scores & predictive safety</span>
+                    <span>→</span>
+                  </Link>
+                )}
+              </section>
 
-          <LiveLayerToggles />
+              <LiveLayerToggles />
             </>
+          ) : null}
+
+          {routesLoading && origin && dest && (
+            <div className="flex items-center gap-2 rounded-2xl bg-white/90 px-4 py-2 text-sm font-semibold text-slate-600 shadow-lg">
+              <Loader2 className="h-4 w-4 animate-spin text-[#1A73E8]" />
+              Finding best routes…
+            </div>
+          )}
+          {routeSource === "osrm" && routes.length > 0 && !routesLoading && (
+            <p className="rounded-full bg-emerald-100 px-3 py-1 text-center text-[11px] font-bold text-emerald-800">
+              Live road routing · {routes.length} route{routes.length > 1 ? "s" : ""}
+            </p>
           )}
         </div>
       </div>
 
+      <div className="lg:hidden">
       <NavigateBottomSheet
         origin={origin}
         dest={dest}
@@ -412,12 +466,20 @@ export default function NavigatePage() {
         multiModeEta={multiModeEta}
         safety={safety}
         navigating={navigating}
+        previewMode={previewMode}
+        onSwap={swapEndpoints}
+        onPreview={() => {
+          setPreviewMode(true);
+          setShowInputs(false);
+        }}
         onStartNavigation={() => {
+          setPreviewMode(false);
           setNavigating(true);
           recordSuccessfulNavigation();
         }}
         modes={MODES}
       />
+      </div>
     </div>
   );
 }

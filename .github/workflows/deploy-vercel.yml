@@ -1,4 +1,5 @@
 name: Deploy GigaLearn to Vercel
+# Skips when VERCEL_TOKEN is unset; production uses Vercel Git integration.
 
 on:
   push:
@@ -8,13 +9,28 @@ on:
       - ".github/workflows/deploy-vercel.yml"
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: gigalearn
-
 jobs:
-  deploy:
+  secrets-gate:
     runs-on: ubuntu-latest
+    outputs:
+      vercel_configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  deploy:
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.vercel_configured == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: gigalearn
     permissions:
       contents: read
       deployments: write
@@ -56,3 +72,14 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+  skip:
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.vercel_configured != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Skip Actions deploy (Vercel Git integration active)
+        run: |
+          echo "VERCEL_TOKEN is not configured — skipping GitHub Actions deploy."
+          echo "Production deploys via Vercel Git integration on push to main."
+          echo "See gigalearn/docs/DEPLOY_VERCEL.md to enable token-based CI deploy."

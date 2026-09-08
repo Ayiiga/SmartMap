@@ -1,7 +1,9 @@
-import { LngLatBounds } from "maplibre-gl";
+import { LngLatBounds, Marker, Popup } from "maplibre-gl";
 import type { GeoJSONSource, Map as MapLibreMapType } from "maplibre-gl";
 import type { Coordinates } from "@/types/smart-map";
 import type { AdvancedRoutePlan } from "@/lib/navigation/types";
+import { formatDuration } from "@/lib/navigation/route-engine";
+import { routeTollLabel } from "@/lib/navigation/route-detail-formatter";
 import { clearRouteMarkers, renderRouteMarkers } from "@/lib/map/route-map-markers";
 
 const ACTIVE_SOURCE = "sm-route-active";
@@ -10,11 +12,61 @@ const ACTIVE_LINE = "sm-route-active-line";
 const ACTIVE_OUTLINE = "sm-route-active-outline";
 const ACTIVE_CASING = "sm-route-active-casing";
 const ALT_LINE = "sm-route-alt-line";
+const ETA_MARKERS: Marker[] = [];
 
 /** Google Maps–style route colors */
 const GOOGLE_ACTIVE = "#1A73E8";
 const GOOGLE_ACTIVE_DARK = "#1558B0";
 const GOOGLE_ALT = "#8AB4F8";
+
+function clearEtaMarkers(): void {
+  ETA_MARKERS.forEach((m) => m.remove());
+  ETA_MARKERS.length = 0;
+}
+
+function midpoint(polyline: Coordinates[]): Coordinates {
+  if (polyline.length === 0) return { lat: 0, lng: 0 };
+  const mid = polyline[Math.floor(polyline.length / 2)];
+  return mid;
+}
+
+function renderEtaBubbles(
+  map: MapLibreMapType,
+  routes: AdvancedRoutePlan[],
+  activeRouteId: string | null,
+): void {
+  clearEtaMarkers();
+  if (routes.length === 0) return;
+
+  const active = routes.find((r) => r.id === activeRouteId) ?? routes[0];
+
+  for (const route of routes) {
+    const isActive = route.id === active.id;
+    const mid = midpoint(route.polyline);
+    const el = document.createElement("button");
+    el.type = "button";
+    el.className = "sm-route-eta-bubble";
+    el.style.cssText = `
+      padding: 6px 10px; border-radius: 999px; font-size: 11px; font-weight: 700;
+      border: 2px solid white; box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+      cursor: pointer; white-space: nowrap; font-family: system-ui, sans-serif;
+      background: ${isActive ? "#1A73E8" : "#ffffff"};
+      color: ${isActive ? "#ffffff" : "#1A73E8"};
+    `;
+    el.innerHTML = `${formatDuration(route.durationMin)}<br/><span style="font-size:9px;opacity:0.9">${routeTollLabel(route)}</span>`;
+    el.title = `${route.label}: ${formatDuration(route.durationMin)}`;
+
+    const marker = new Marker({ element: el, anchor: "center" })
+      .setLngLat([mid.lng, mid.lat])
+      .setPopup(
+        new Popup({ offset: 12, closeButton: false }).setHTML(
+          `<strong>${route.label}</strong><br/>${formatDuration(route.durationMin)} · ${route.distanceKm.toFixed(1)} km`,
+        ),
+      )
+      .addTo(map);
+    ETA_MARKERS.push(marker);
+  }
+}
 
 function lineFeature(
   polyline: Coordinates[],
@@ -147,6 +199,7 @@ export function renderRoutesOnMap(
   whenStyleReady(map, () => {
     clearRouteLineLayers(map);
     clearRouteMarkers();
+    clearEtaMarkers();
 
     if (routes.length === 0) return;
 
@@ -170,6 +223,7 @@ export function renderRoutesOnMap(
     const origin = options.origin ?? active.from.coordinates;
     const destination = options.destination ?? active.to.coordinates;
     renderRouteMarkers(map, routes, activeRouteId, origin, destination);
+    renderEtaBubbles(map, routes, activeRouteId);
 
     if (options.fit !== false) {
       const bounds = new LngLatBounds(
@@ -192,4 +246,5 @@ export function clearRoutesFromMap(map: MapLibreMapType): void {
   if (!styleHasLayers(map)) return;
   clearRouteLineLayers(map);
   clearRouteMarkers();
+  clearEtaMarkers();
 }

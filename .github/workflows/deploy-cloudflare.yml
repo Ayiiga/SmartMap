@@ -1,19 +1,27 @@
 name: Deploy GigaLearn to Cloudflare
 
+# Optional alternate host. Vercel is the primary production path (see gigalearn/docs/DEPLOY_VERCEL.md).
 on:
-  push:
-    branches: [master, main]
-    paths:
-      - "gigalearn/**"
-      - ".github/workflows/deploy-cloudflare.yml"
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: gigalearn
-
 jobs:
+  secrets-gate:
+    runs-on: ubuntu-latest
+    outputs:
+      cloudflare_configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        shell: bash
+        run: |
+          if [ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
   deploy:
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.cloudflare_configured == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,3 +48,13 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+
+  skip:
+    needs: secrets-gate
+    if: needs.secrets-gate.outputs.cloudflare_configured != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Cloudflare deploy not configured
+        run: |
+          echo "CLOUDFLARE_API_TOKEN is not set."
+          echo "Add the token as a repository secret, then re-run this workflow."

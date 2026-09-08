@@ -5,6 +5,7 @@ import { BottomNav } from "@/components/smart-map/bottom-nav";
 import { useLiveLocation } from "@/lib/geo/use-live-location";
 
 const MAP_FULLSCREEN = new Set(["/", "/navigate", "/spacecam"]);
+const HIDE_BOTTOM_NAV = new Set(["/", "/navigate"]);
 const AUTH_ROUTES = new Set(["/login", "/register", "/auth/auth-code-error"]);
 
 function LiveLocationBootstrap() {
@@ -15,6 +16,7 @@ function LiveLocationBootstrap() {
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const fullscreen = MAP_FULLSCREEN.has(pathname ?? "/");
+  const hideBottomNav = HIDE_BOTTOM_NAV.has(pathname ?? "/");
   const authRoute = AUTH_ROUTES.has(pathname ?? "") || (pathname ?? "").startsWith("/auth/");
 
   return (
@@ -29,7 +31,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     >
       <LiveLocationBootstrap />
       {children}
-      {!authRoute && <BottomNav />}
+      {!authRoute && !hideBottomNav && <BottomNav />}
     </div>
   );
 }

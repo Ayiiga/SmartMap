@@ -12,6 +12,8 @@ interface PlaceAutocompleteProps {
   placeholder?: string;
   voiceEnabled?: boolean;
   className?: string;
+  /** Inline style without outer border — for route input cards */
+  minimal?: boolean;
 }
 
 export function PlaceAutocomplete({
@@ -21,6 +23,7 @@ export function PlaceAutocomplete({
   placeholder = "Search anywhere in the world…",
   voiceEnabled = true,
   className,
+  minimal = false,
 }: PlaceAutocompleteProps) {
   const listId = useId();
   const [results, setResults] = useState<GeoSearchResult[]>([]);
@@ -102,20 +105,27 @@ export function PlaceAutocomplete({
 
   return (
     <div className={cn("relative", className)}>
-      <div className="flex items-center gap-2 rounded-2xl border border-sm-border bg-white px-3 py-2.5 dark:border-white/10 dark:bg-black/20">
-        <SearchIcon className="h-4 w-4 shrink-0 text-sm-primary" />
+      <div
+        className={cn(
+          "flex items-center gap-2",
+          minimal
+            ? "bg-transparent"
+            : "rounded-2xl border border-sm-border bg-white px-3 py-2.5 dark:border-white/10 dark:bg-black/20",
+        )}
+      >
+        {!minimal && <SearchIcon className="h-4 w-4 shrink-0 text-sm-primary" />}
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => results.length > 0 && setOpen(true)}
           placeholder={placeholder}
-          className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+          className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none"
           aria-autocomplete="list"
           aria-controls={listId}
           autoComplete="off"
         />
         {pending && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
-        {voiceEnabled && (
+        {voiceEnabled && !minimal && (
           <button
             type="button"
             onClick={startVoice}
