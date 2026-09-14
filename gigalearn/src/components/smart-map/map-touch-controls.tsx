@@ -104,7 +104,7 @@ export function MapZoomControls() {
         type="button"
         onClick={() => zoomBy(1)}
         aria-label="Zoom in"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/95 text-lg font-bold text-[#0F5B8D] shadow-lg backdrop-blur dark:border-white/10 dark:bg-[#0B1220]/95"
+        className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[#1E293B] bg-[#141C2F]/95 text-lg font-bold text-[#60A5FA] shadow-lg backdrop-blur"
       >
         +
       </button>
@@ -112,7 +112,7 @@ export function MapZoomControls() {
         type="button"
         onClick={() => zoomBy(-1)}
         aria-label="Zoom out"
-        className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/95 text-lg font-bold text-[#0F5B8D] shadow-lg backdrop-blur dark:border-white/10 dark:bg-[#0B1220]/95"
+        className="inline-flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-[#1E293B] bg-[#141C2F]/95 text-lg font-bold text-[#60A5FA] shadow-lg backdrop-blur"
       >
         −
       </button>

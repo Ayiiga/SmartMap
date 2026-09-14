@@ -40,6 +40,11 @@ import { TransportModeBar } from "@/components/smart-map/transport-mode-bar";
 import { MapAttributionFooter } from "@/components/smart-map/map-attribution-footer";
 import { recordSuccessfulNavigation } from "@/lib/offline/navigation-counter";
 import { getPlaceById } from "@/content/smart-map/places";
+import { isSameLocation } from "@/lib/geo/same-location";
+import { YouAreHerePanel } from "@/components/smart-map/you-are-here-panel";
+import { RouteSourceIndicator } from "@/components/smart-map/route-source-indicator";
+import { modeEtaMinutes } from "@/lib/navigation/mode-eta";
+import { formatDuration } from "@/lib/navigation/route-engine";
 
 const SmartMapTopBar = dynamic(() => import("@/components/smart-map/smart-map-top-bar").then((m) => m.SmartMapTopBar), { ssr: false });
 const SmartMapRouteSidebar = dynamic(() => import("@/components/smart-map/smart-map-route-sidebar").then((m) => m.SmartMapRouteSidebar), { ssr: false });
@@ -147,9 +152,10 @@ export default function NavigatePage() {
 
   const origin = navOrigin;
   const dest = navDestination;
+  const atSameLocation = isSameLocation(origin, dest);
 
   const plannerInput = useMemo(() => {
-    if (!origin || !dest) return null;
+    if (!origin || !dest || atSameLocation) return null;
     return {
       from: {
         id: origin.id,
@@ -163,12 +169,14 @@ export default function NavigatePage() {
       },
       mode: travelMode,
     };
-  }, [origin, dest, travelMode]);
+  }, [origin, dest, travelMode, atSameLocation]);
 
   const { routes: liveRoutes, loading: routesLoading, source: routeSource } =
     useRoutePlanner(plannerInput);
 
-  const routes = liveRoutes.length > 0
+  const routes = atSameLocation
+    ? []
+    : liveRoutes.length > 0
     ? liveRoutes
     : origin && dest
       ? planAdvancedRoutes({
@@ -182,7 +190,7 @@ export default function NavigatePage() {
   const active = routes.find((r) => r.preference === selectedPreference) ?? routes[0] ?? null;
 
   const multiModeEta = useMemo(() => {
-    if (!origin || !dest) return null;
+    if (!origin || !dest || atSameLocation) return null;
     const modes: TravelMode[] = ["driving", "walking", "cycling", "transit", "motorcycle"];
     return Object.fromEntries(
       modes.map((mode) => {
@@ -195,7 +203,7 @@ export default function NavigatePage() {
         return [mode, plan];
       }),
     ) as Record<TravelMode, (typeof routes)[0]>;
-  }, [origin, dest]);
+  }, [origin, dest, atSameLocation]);
 
   const safety = useMemo(() => {
     if (!active) return [];
@@ -270,9 +278,11 @@ export default function NavigatePage() {
           <SmartMapRouteSidebar active={active} destLabel={dest.label} navigating={navigating} onStartNavigation={() => { setPreviewMode(false); setNavigating(true); recordSuccessfulNavigation(); }} />
         </div>
       )}
-      <div className="pointer-events-none absolute inset-x-0 z-20 flex justify-center px-3" style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
-        <TransportModeBar multiModeEta={multiModeEta} />
-      </div>
+      {!atSameLocation && (
+        <div className="pointer-events-none absolute inset-x-0 z-20 flex justify-center px-3" style={{ bottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
+          <TransportModeBar multiModeEta={multiModeEta} activeRoute={active} />
+        </div>
+      )}
       <MapMinimapInset />
       <MapAttributionFooter />
       <NavigationHudOverlay active={navigating} />
@@ -406,24 +416,38 @@ export default function NavigatePage() {
                   </p>
                 )}
 
-                <div className="mt-3 grid grid-cols-5 gap-1.5">
-                  {MODES.map(({ id, label, icon: Icon }) => (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => setTravelMode(id)}
-                      className={cn(
-                        "flex flex-col items-center gap-1 rounded-2xl px-1 py-2 text-[11px] font-bold",
-                        travelMode === id
-                          ? "bg-sm-primary text-white"
-                          : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white",
-                      )}
-                    >
-                      <Icon className="h-4 w-4" />
-                      {label}
-                    </button>
-                  ))}
-                </div>
+                {!atSameLocation && (
+                  <div className="mt-3 grid grid-cols-5 gap-1.5">
+                    {MODES.map(({ id, label, icon: Icon }) => {
+                      const etaMin = modeEtaMinutes(id, travelMode, active, multiModeEta);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => setTravelMode(id)}
+                          aria-label={`${label}${etaMin != null ? `, ${formatDuration(etaMin)}` : ""}`}
+                          className={cn(
+                            "flex min-h-[44px] flex-col items-center justify-center gap-1 rounded-2xl px-1 py-2 text-[11px] font-bold",
+                            travelMode === id
+                              ? "bg-gradient-to-r from-[#3B82F6] to-[#1E5EB8] text-white"
+                              : "bg-[#0A0F1E] text-[#94A3B8]",
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                          {etaMin != null ? formatDuration(etaMin) : label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {atSameLocation && origin && (
+                  <div className="mt-3 rounded-2xl border border-[#1E293B] bg-[#141C2F] p-4">
+                    <p className="text-xs font-semibold uppercase text-[#60A5FA]">You are here</p>
+                    <p className="mt-1 text-sm text-[#94A3B8]">
+                      Origin and destination are the same place. Pick a different destination to get directions.
+                    </p>
+                  </div>
+                )}
 
                 {ai40 && origin && dest && (
                   <Link
@@ -446,13 +470,23 @@ export default function NavigatePage() {
               Finding best routes…
             </div>
           )}
-          {routeSource === "osrm" && routes.length > 0 && !routesLoading && (
-            <p className="rounded-full bg-emerald-100 px-3 py-1 text-center text-[11px] font-bold text-emerald-800">
-              Live road routing · {routes.length} route{routes.length > 1 ? "s" : ""}
-            </p>
-          )}
+          <RouteSourceIndicator
+            source={routeSource}
+            routeCount={routes.length}
+            loading={routesLoading}
+          />
         </div>
       </div>
+
+      {atSameLocation && origin && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-30 pb-[calc(4.5rem+env(safe-area-inset-bottom))] lg:pb-6"
+        >
+          <div className="pointer-events-auto mx-auto max-w-xl">
+            <YouAreHerePanel coordinates={origin.coordinates} label={origin.label} />
+          </div>
+        </div>
+      )}
 
       <div className="lg:hidden">
       <NavigateBottomSheet

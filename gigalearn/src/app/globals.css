@@ -2,22 +2,25 @@
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 :root {
-  --background: #f4f7fb;
-  --foreground: #0b1220;
+  --background: #0a0f1e;
+  --foreground: #ffffff;
   --sm-primary: #3b82f6;
-  --sm-primary-deep: #0a0e23;
+  --sm-primary-deep: #0a0f1e;
+  --sm-card: #141c2f;
   --sm-emerald: #0e9f6e;
   --sm-safety: #f59e0b;
   --sm-danger: #dc2626;
-  --sm-surface: #ffffff;
-  --sm-muted: #64748b;
-  --sm-border: #d7e2ee;
+  --sm-surface: #141c2f;
+  --sm-muted: #94a3b8;
+  --sm-border: #1e293b;
+  --sm-nav-active: #1e3a5f;
+  --sm-nav-text: #60a5fa;
   --giga-surface: var(--sm-surface);
   --giga-muted: var(--sm-muted);
   --giga-border: var(--sm-border);
-  --giga-border-dark: #1e3a56;
-  --giga-purple-light: #3b82c4;
-  --giga-blue: #0f5b8d;
+  --giga-border-dark: #1e293b;
+  --giga-purple-light: #60a5fa;
+  --giga-blue: #3b82f6;
   --gtv-purple: var(--sm-primary);
   --gtv-cyan: var(--sm-emerald);
   --gtv-gold: var(--sm-safety);
@@ -28,11 +31,11 @@
 }
 
 .dark {
-  --background: #0b1220;
-  --foreground: #eef5fb;
-  --sm-surface: #0b1220;
+  --background: #0a0f1e;
+  --foreground: #ffffff;
+  --sm-surface: #141c2f;
   --sm-muted: #94a3b8;
-  --sm-border: #1e3a56;
+  --sm-border: #1e293b;
   --giga-surface: var(--sm-surface);
   --giga-muted: var(--sm-muted);
   --giga-border: var(--sm-border);
@@ -47,8 +50,11 @@
   --color-sm-safety: var(--sm-safety);
   --color-sm-danger: var(--sm-danger);
   --color-sm-surface: var(--sm-surface);
+  --color-sm-card: var(--sm-card);
   --color-sm-muted: var(--sm-muted);
   --color-sm-border: var(--sm-border);
+  --color-sm-nav-active: var(--sm-nav-active);
+  --color-sm-nav-text: var(--sm-nav-text);
   --color-giga-surface: var(--giga-surface);
   --color-giga-muted: var(--giga-muted);
   --color-giga-border: var(--giga-border);
@@ -85,7 +91,7 @@ body {
 }
 
 .font-display {
-  font-family: var(--font-display), "Segoe UI", sans-serif;
+  font-family: var(--font-body), Inter, "Segoe UI", sans-serif;
   letter-spacing: -0.03em;
 }
 
@@ -156,6 +162,25 @@ html {
 
 .sm-fade-up {
   animation: sm-fade-up 0.55s ease-out both;
+}
+
+@keyframes sm-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.sm-shimmer {
+  background: linear-gradient(90deg, #141c2f 25%, #1e293b 50%, #141c2f 75%);
+  background-size: 200% 100%;
+  animation: sm-shimmer 1.5s ease-in-out infinite;
+}
+
+.sm-btn-primary {
+  @apply inline-flex h-12 items-center justify-center rounded-2xl bg-gradient-to-r from-[#3B82F6] to-[#1E5EB8] px-5 text-sm font-bold text-white transition-opacity hover:opacity-90;
+}
+
+.sm-btn-secondary {
+  @apply inline-flex h-11 items-center justify-center rounded-2xl border border-[#1E293B] bg-[#141C2F] px-5 text-sm font-bold text-white transition-colors hover:bg-[#1E293B];
 }
 
 /* Accessibility preferences */
