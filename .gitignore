@@ -8,8 +8,8 @@ out/
 dist/
 *.log
 .DS_Store
-gigalearn/.wrangler/
-gigalearn/node_modules/
-gigalearn/.next/
-gigalearn/.open-next/
-gigalearn/out/
+smartmap/.wrangler/
+smartmap/node_modules/
+smartmap/.next/
+smartmap/.open-next/
+smartmap/out/

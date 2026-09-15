@@ -1,4 +1,4 @@
-# GigaLearn GitLab Integration
+# Smart Map GitLab Integration
 
 This project is integrated with GitLab project **77966430** ([ayiiga3-group/vibepay](https://gitlab.com/ayiiga3-group/vibepay)).
 
@@ -38,7 +38,7 @@ Enable these in **Settings → CI/CD** for project `77966430`:
 1. Create a service account in Google Cloud with Play Console API access.
 2. Download the JSON key.
 3. In GitLab: **Settings → CI/CD → Variables** → add `SUPPLY_JSON_KEY` with the JSON contents.
-4. Create the app listing in Google Play Console with package name `com.ayiiga3.gigalearn`.
+4. Create the app listing in Google Play Console with package name `com.ayiiga3.smartmap`.
 5. Run `publishInternal` manually after a successful `buildRelease`.
 
 ## Local development parity

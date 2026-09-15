@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Push GigaLearn monorepo to GitHub (creates remote if needed).
+# Push Smart Map monorepo to GitHub (creates remote if needed).
 # Optionally enables GitHub Pages (Actions workflow source).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 GITHUB_OWNER="${GITHUB_OWNER:-Ayiiga}"
-GITHUB_REPO="${GITHUB_REPO:-GigaLearn}"
+GITHUB_REPO="${GITHUB_REPO:-Smart Map}"
 GITHUB_BRANCH="${GITHUB_BRANCH:-main}"
 
 if [ -z "${GITHUB_TOKEN:-}" ] && [ -z "${GH_TOKEN:-}" ]; then
@@ -39,7 +39,7 @@ fi
 if ! gh repo view "${GITHUB_OWNER}/${GITHUB_REPO}" >/dev/null 2>&1; then
   echo "→ Creating GitHub repo ${GITHUB_OWNER}/${GITHUB_REPO}..."
   gh repo create "$GITHUB_REPO" --public --source=. --remote=github --push=false \
-    --description "GigaLearn — offline-first English learning PWA for young learners"
+    --description "Smart Map — offline-first English learning PWA for young learners"
   git remote set-url github "$REMOTE_URL"
 fi
 
@@ -56,5 +56,5 @@ gh api -X POST "repos/${GITHUB_OWNER}/${GITHUB_REPO}/pages" \
 
 echo "✓ GitHub: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}"
 echo "✓ Pages URL (after workflow): https://${GITHUB_OWNER}.github.io/${GITHUB_REPO}/"
-echo "  Configure Actions secrets — see gigalearn/docs/DEPLOY_GITHUB_CLOUDFLARE.md"
-echo "  Vercel deploy: gigalearn/docs/DEPLOY_VERCEL.md"
+echo "  Configure Actions secrets — see smartmap/docs/DEPLOY_GITHUB_CLOUDFLARE.md"
+echo "  Vercel deploy: smartmap/docs/DEPLOY_VERCEL.md"
