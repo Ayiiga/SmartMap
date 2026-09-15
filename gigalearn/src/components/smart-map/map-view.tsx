@@ -18,6 +18,7 @@ import { getCountry } from "@/content/smart-map/countries";
 import type { Place, Coordinates } from "@/types/smart-map";
 import type { NavEndpoint } from "@/lib/geo/types";
 import { registerMapForScreenshot } from "@/lib/map/map-screenshot";
+import { MapLoadingSkeleton } from "@/components/smart-map/map-loading-skeleton";
 
 interface MapViewProps {
   places?: Place[];
@@ -304,14 +305,7 @@ export function MapView({
           </p>
         </div>
       )}
-      {!ready && (
-        <div className="absolute inset-0 z-10 grid place-items-center bg-gradient-to-br from-sm-primary via-[#0B3A63] to-sm-emerald">
-          <div className="flex flex-col items-center gap-3 text-white">
-            <div className="h-12 w-12 animate-pulse rounded-2xl bg-white/20" />
-            <p className="font-display text-lg font-bold tracking-tight">Loading Smart Map…</p>
-          </div>
-        </div>
-      )}
+      {!ready && <MapLoadingSkeleton />}
     </div>
   );
 }

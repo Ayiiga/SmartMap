@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Analytics } from "@vercel/analytics/react";
-import { Manrope, Sora } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ThemeProvider, OnlineStatusProvider } from "@/components/providers/app-providers";
 import { AuthOfflineBridge } from "@/components/providers/auth-offline-bridge";
 import { MonitoringProvider } from "@/components/providers/monitoring-provider";
@@ -8,14 +8,8 @@ import { AppShell } from "@/components/smart-map/app-shell";
 import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
-const bodyFont = Manrope({
+const interFont = Inter({
   variable: "--font-body",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const displayFont = Sora({
-  variable: "--font-display",
   subsets: ["latin"],
   display: "swap",
 });
@@ -76,8 +70,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#0F4C81" },
-    { media: "(prefers-color-scheme: dark)", color: "#071827" },
+    { media: "(prefers-color-scheme: light)", color: "#0A1931" },
+    { media: "(prefers-color-scheme: dark)", color: "#0A1931" },
   ],
   width: "device-width",
   initialScale: 1,
@@ -86,9 +80,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${bodyFont.variable} ${displayFont.variable} antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className={`${interFont.variable} antialiased bg-[#0A0F1E] text-white`} style={{ fontFamily: "var(--font-body), Inter, sans-serif" }}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
           <OnlineStatusProvider>
             <AuthOfflineBridge />
             <MonitoringProvider />

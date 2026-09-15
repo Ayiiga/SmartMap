@@ -19,11 +19,12 @@ import type { NavEndpoint } from "@/lib/geo/types";
 import {
   formatDuration,
 } from "@/lib/navigation/route-engine";
+import { modeEtaMinutes } from "@/lib/navigation/mode-eta";
+import { hapticTap } from "@/lib/haptics";
 import {
   routeEcoLabel,
   routeHasTolls,
   routeSummaryDescription,
-  routeSummaryHeadline,
   routeTollLabel,
 } from "@/lib/navigation/route-detail-formatter";
 import { cn } from "@/lib/utils";
@@ -69,7 +70,8 @@ export function NavigateBottomSheet({
 }: NavigateBottomSheetProps) {
   const [snap, setSnap] = useState<SheetSnap>("half");
 
-  if (!active || !origin || !dest) return null;
+  if (!origin || !dest) return null;
+  if (!active) return null;
 
   const previewSteps = resolveRoutePreviewSteps(active.steps, origin.label, dest.label);
   const tolls = routeHasTolls(active);
@@ -124,26 +126,33 @@ export function NavigateBottomSheet({
           </div>
 
           <div className="mt-3 grid grid-cols-5 gap-1">
-            {modes.map(({ id, label, icon: Icon }) => (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onTravelModeChange(id)}
-                className={cn(
-                  "flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-bold",
-                  travelMode === id
-                    ? "bg-sm-primary text-white"
-                    : "bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-white",
-                )}
-              >
-                <Icon className="h-4 w-4" />
-                {multiModeEta ? formatDuration(multiModeEta[id].durationMin) : label}
-              </button>
-            ))}
+            {modes.map(({ id, label, icon: Icon }) => {
+              const etaMin = modeEtaMinutes(id, travelMode, active, multiModeEta);
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => {
+                    hapticTap();
+                    onTravelModeChange(id);
+                  }}
+                  aria-label={`${label}${etaMin != null ? `, ${formatDuration(etaMin)}` : ""}`}
+                  className={cn(
+                    "flex min-h-[44px] flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-bold",
+                    travelMode === id
+                      ? "bg-gradient-to-r from-[#3B82F6] to-[#1E5EB8] text-white"
+                      : "bg-[#0A0F1E] text-[#94A3B8]",
+                  )}
+                >
+                  <Icon className="h-4 w-4" />
+                  {etaMin != null ? formatDuration(etaMin) : label}
+                </button>
+              );
+            })}
           </div>
 
-          <p className="mt-4 font-display text-3xl font-extrabold text-orange-600 dark:text-orange-400">
-            {routeSummaryHeadline(active)}
+          <p className="mt-4 font-display text-3xl font-extrabold text-orange-400">
+            {formatDuration(active.durationMin)} ({active.distanceKm < 1 ? active.distanceKm.toFixed(1) : active.distanceKm.toFixed(0)} km)
           </p>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
             {routeSummaryDescription(active)}

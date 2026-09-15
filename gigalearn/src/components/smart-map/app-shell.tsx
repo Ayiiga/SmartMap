@@ -2,6 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import { BottomNav } from "@/components/smart-map/bottom-nav";
+import { OfflineBanner } from "@/components/smart-map/offline-banner";
+import { AddToHomeScreenPrompt } from "@/components/smart-map/a2hs-prompt";
 import { useLiveLocation } from "@/lib/geo/use-live-location";
 
 const MAP_FULLSCREEN = new Set(["/", "/navigate", "/spacecam"]);
@@ -30,7 +32,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       }
     >
       <LiveLocationBootstrap />
+      {!authRoute && !fullscreen && (
+        <div className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
+          <OfflineBanner />
+        </div>
+      )}
       {children}
+      {!authRoute && <AddToHomeScreenPrompt />}
       {!authRoute && !hideBottomNav && <BottomNav />}
     </div>
   );

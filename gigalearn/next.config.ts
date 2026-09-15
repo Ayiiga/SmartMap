@@ -114,6 +114,8 @@ const withPwaConfig = withPWA({
   workboxOptions: {
     skipWaiting: true,
     clientsClaim: true,
+    navigateFallback: "/offline",
+    navigateFallbackDenylist: [/^\/api\//, /^\/_next\/data\//],
     runtimeCaching: [
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
@@ -121,6 +123,23 @@ const withPwaConfig = withPWA({
         options: {
           cacheName: "supabase-api",
           expiration: { maxEntries: 64, maxAgeSeconds: 24 * 60 * 60 },
+        },
+      },
+      {
+        urlPattern: /\/api\/geo\/.*/i,
+        handler: "CacheFirst",
+        options: {
+          cacheName: "ghana-pois",
+          expiration: { maxEntries: 128, maxAgeSeconds: 7 * 24 * 60 * 60 },
+        },
+      },
+      {
+        urlPattern: /\/api\/routing\/.*/i,
+        handler: "NetworkFirst",
+        options: {
+          cacheName: "routing-cache",
+          networkTimeoutSeconds: 8,
+          expiration: { maxEntries: 32, maxAgeSeconds: 24 * 60 * 60 },
         },
       },
       {

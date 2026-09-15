@@ -19,7 +19,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 border-t border-white/20 bg-white/90 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl dark:border-white/10 dark:bg-[#0B1220]/95"
+      className="pointer-events-auto fixed inset-x-0 bottom-0 z-40 border-t border-[#1E293B] bg-[#0A0F1E]/95 px-1 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-1.5 backdrop-blur-xl"
       aria-label="Primary navigation"
     >
       <ul className="mx-auto flex max-w-lg items-stretch justify-between">
@@ -30,10 +30,10 @@ export function BottomNav() {
               <Link
                 href={href}
                 className={cn(
-                  "flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[10px] font-semibold transition-colors sm:text-[11px]",
+                  "flex min-h-[52px] flex-col items-center justify-center gap-0.5 rounded-2xl px-0.5 text-[10px] font-semibold transition-all duration-200 sm:text-[11px]",
                   active
-                    ? "bg-[#0F5B8D]/10 text-[#0F5B8D] dark:bg-white/10 dark:text-white"
-                    : "text-slate-500 hover:text-[#0F5B8D] dark:text-slate-400",
+                    ? "bg-[#1E3A5F] text-[#60A5FA]"
+                    : "text-[#94A3B8] hover:text-white",
                 )}
                 aria-current={active ? "page" : undefined}
               >
