@@ -1,4 +1,4 @@
-package com.ayiiga3.gigalearn
+package com.ayiiga3.smartmap
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -12,6 +12,6 @@ class ExampleInstrumentedTest {
     @Test
     fun useAppContext() {
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.ayiiga3.gigalearn", appContext.packageName)
+        assertEquals("com.ayiiga3.smartmap", appContext.packageName)
     }
 }

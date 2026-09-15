@@ -7,9 +7,9 @@
 | Path | Purpose |
 | --- | --- |
 | `app/`, `gradlew` | Android app (Smart Map, `com.ayiiga3.smartmap`) |
-| `gigalearn/` | Next.js website / PWA (Smart Map) |
+| `smartmap/` | Next.js website / PWA (Smart Map) |
 | `.github/workflows/deploy-vercel.yml` | Vercel production deploy |
-| `scripts/push-github.sh` | Push `main` → GitHub `Ayiiga/GigaLearn` |
+| `scripts/push-github.sh` | Push `main` → GitHub `Ayiiga/SmartMap` |
 
 ### Android (local / CI)
 
@@ -24,26 +24,26 @@ Ruby gems for fastlane: `bundle config set --local path vendor/bundle && bundle 
 ### Website (local)
 
 ```bash
-cd gigalearn
+cd smartmap
 npm install
-npm run build:github-pages   # static export to gigalearn/out/
+npm run build:github-pages   # static export to smartmap/out/
 ```
 
 ### Website deploy (recommended: Vercel)
 
 ```bash
-cd gigalearn
+cd smartmap
 npm install
 export VERCEL_TOKEN=...
 npm run deploy:vercel
 ```
 
-See `gigalearn/docs/DEPLOY_VERCEL.md`. Vercel project **Root Directory** must be `gigalearn`.
+See `smartmap/docs/DEPLOY_VERCEL.md`. Vercel project **Root Directory** must be `smartmap`.
 
 ### GitHub push
 
-- Remote: `https://github.com/Ayiiga/GigaLearn.git`
-- `./scripts/push-github.sh` requires `GITHUB_TOKEN` with **Contents: Read and write** (see `gigalearn/docs/PUSH_GITHUB_LOCAL.md`)
+- Remote: `https://github.com/Ayiiga/SmartMap.git`
+- `./scripts/push-github.sh` requires `GITHUB_TOKEN` with **Contents: Read and write** (see `smartmap/docs/PUSH_GITHUB_LOCAL.md`)
 - Repo is currently empty on GitHub until a token with Contents write succeeds
 
 ### GitLab
@@ -53,4 +53,4 @@ See `gigalearn/docs/DEPLOY_VERCEL.md`. Vercel project **Root Directory** must be
 
 ### Merge conflict note
 
-`master` already contains the GitHub Pages–ready `gigalearn/` tree. Older branches (`cursor/gigalearn-pwa-46dc`, `cursor/deploy-github-cloudflare-46dc`) conflict if merged wholesale — prefer `master` versions and cherry-pick only missing features.
+`master` already contains the GitHub Pages–ready `smartmap/` tree. Older branches (`cursor/smartmap-pwa-46dc`, `cursor/deploy-github-cloudflare-46dc`) conflict if merged wholesale — prefer `master` versions and cherry-pick only missing features.

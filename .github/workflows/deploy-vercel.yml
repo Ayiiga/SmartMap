@@ -1,11 +1,11 @@
-name: Deploy GigaLearn to Vercel
+name: Deploy Smart Map to Vercel
 # Skips when VERCEL_TOKEN is unset; production uses Vercel Git integration.
 
 on:
   push:
     branches: [master, main]
     paths:
-      - "gigalearn/**"
+      - "smartmap/**"
       - ".github/workflows/deploy-vercel.yml"
   workflow_dispatch:
 
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: gigalearn
+        working-directory: smartmap
     permissions:
       contents: read
       deployments: write
@@ -41,7 +41,7 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: gigalearn/package-lock.json
+          cache-dependency-path: smartmap/package-lock.json
 
       - name: Install Vercel CLI
         run: npm install -g vercel@latest
@@ -63,7 +63,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
           NEXT_PUBLIC_APP_URL: ${{ secrets.NEXT_PUBLIC_APP_URL }}
-          NEXT_PUBLIC_APP_NAME: GigaLearn
+          NEXT_PUBLIC_APP_NAME: Smart Map
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
       - name: Deploy to Vercel
@@ -82,4 +82,4 @@ jobs:
         run: |
           echo "VERCEL_TOKEN is not configured — skipping GitHub Actions deploy."
           echo "Production deploys via Vercel Git integration on push to main."
-          echo "See gigalearn/docs/DEPLOY_VERCEL.md to enable token-based CI deploy."
+          echo "See smartmap/docs/DEPLOY_VERCEL.md to enable token-based CI deploy."

@@ -8,10 +8,10 @@ AI-powered mapping, navigation, and public safety platform built for Ghana and d
 
 | Resource | Path |
 |----------|------|
-| **Application** | [`gigalearn/`](./gigalearn/) |
-| **Setup** | [`gigalearn/README.md`](./gigalearn/README.md) |
-| **Deploy (Vercel)** | [`gigalearn/docs/DEPLOY_VERCEL.md`](./gigalearn/docs/DEPLOY_VERCEL.md) |
-| **Supabase** | [`gigalearn/docs/SUPABASE.md`](./gigalearn/docs/SUPABASE.md) |
+| **Application** | [`smartmap/`](./smartmap/) |
+| **Setup** | [`smartmap/README.md`](./smartmap/README.md) |
+| **Deploy (Vercel)** | [`smartmap/docs/DEPLOY_VERCEL.md`](./smartmap/docs/DEPLOY_VERCEL.md) |
+| **Supabase** | [`smartmap/docs/SUPABASE.md`](./smartmap/docs/SUPABASE.md) |
 
 ## Product pillars
 
@@ -25,7 +25,7 @@ AI-powered mapping, navigation, and public safety platform built for Ghana and d
 ## Local web development
 
 ```bash
-cd gigalearn
+cd smartmap
 cp .env.example .env.local
 npm install
 npm run dev

@@ -1,4 +1,4 @@
-package com.ayiiga3.gigalearn
+package com.ayiiga3.smartmap
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
