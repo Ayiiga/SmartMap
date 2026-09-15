@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { HomeOverlay } from "@/components/smart-map/home-overlay";
+import { AFRICA_OVERVIEW_CENTER, AFRICA_OVERVIEW_ZOOM } from "@/lib/map/styles";
 
 const MapView = dynamic(() => import("@/components/smart-map/map-view").then((m) => m.MapView), {
   ssr: false,
@@ -16,7 +17,12 @@ const MapFloatingControls = dynamic(() => import("@/components/smart-map/map-flo
 export default function HomePage() {
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-[#0A0E23]">
-      <MapView hideDefaultControls />
+      <MapView
+        hideDefaultControls
+        overviewMode
+        initialCenter={AFRICA_OVERVIEW_CENTER}
+        initialZoom={AFRICA_OVERVIEW_ZOOM}
+      />
       <MapFloatingControls />
       <HomeOverlay />
     </div>

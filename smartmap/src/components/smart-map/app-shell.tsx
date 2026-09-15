@@ -7,7 +7,7 @@ import { AddToHomeScreenPrompt } from "@/components/smart-map/a2hs-prompt";
 import { useLiveLocation } from "@/lib/geo/use-live-location";
 
 const MAP_FULLSCREEN = new Set(["/", "/navigate", "/spacecam"]);
-const HIDE_BOTTOM_NAV = new Set(["/", "/navigate"]);
+const HIDE_BOTTOM_NAV = new Set<string>([]);
 const AUTH_ROUTES = new Set(["/login", "/register", "/auth/auth-code-error"]);
 
 function LiveLocationBootstrap() {

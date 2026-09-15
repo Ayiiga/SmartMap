@@ -13,6 +13,10 @@ export const MAP_STYLE_URLS: Record<MapStyle, string> = {
 export const DEFAULT_CENTER = { lat: 5.6037, lng: -0.187 };
 export const DEFAULT_ZOOM = 12;
 
+/** Satellite overview centered on Africa (Cairo → Cape Town). */
+export const AFRICA_OVERVIEW_CENTER = { lat: 2, lng: 20 };
+export const AFRICA_OVERVIEW_ZOOM = 3.5;
+
 export function mapStyleKey(style: MapStyle): string {
   return style === "satellite" ? "satellite-raster" : MAP_STYLE_URLS[style];
 }

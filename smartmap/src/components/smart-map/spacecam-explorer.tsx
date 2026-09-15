@@ -6,11 +6,7 @@ import Link from "next/link";
 import {
   ArrowLeft,
   Camera,
-  Clock,
-  Compass,
-  Crosshair,
   Globe,
-  Layers,
   Map as MapIcon,
   Minus,
   Plus,
@@ -71,13 +67,11 @@ export function SpaceCamExplorer() {
   const setSearchOpen = useSpaceCamStore((s) => s.setSearchOpen);
   const setLayersOpen = useSpaceCamStore((s) => s.setLayersOpen);
   const setTimeOpen = useSpaceCamStore((s) => s.setTimeOpen);
-  const setSettingsOpen = useSpaceCamStore((s) => s.setSettingsOpen);
   const setIdentifyResults = useSpaceCamStore((s) => s.setIdentifyResults);
   const setSelectedObject = useSpaceCamStore((s) => s.setSelectedObject);
   const identifyResults = useSpaceCamStore((s) => s.identifyResults);
   const dataSourceLabel = useSpaceCamStore((s) => s.dataSourceLabel);
   const setDataSourceLabel = useSpaceCamStore((s) => s.setDataSourceLabel);
-  const settingsOpen = useSpaceCamStore((s) => s.settingsOpen);
   const reducedMotion = useSpaceCamStore((s) => s.reducedMotion);
   const setReducedMotion = useSpaceCamStore((s) => s.setReducedMotion);
 
@@ -89,6 +83,7 @@ export function SpaceCamExplorer() {
   const [satelliteMessage, setSatelliteMessage] = useState("");
   const [identifyOpen, setIdentifyOpen] = useState(false);
   const [satelliteMapOpen, setSatelliteMapOpen] = useState(false);
+  const [settingsSheetOpen, setSettingsSheetOpen] = useState(false);
 
   const fusion = getZoomFusionStateFromLevel(zoomLevel);
 
@@ -220,16 +215,30 @@ export function SpaceCamExplorer() {
         </p>
       )}
 
-      {/* Floating controls (right side) */}
-      <div className="pointer-events-auto absolute right-2 top-1/2 z-30 flex -translate-y-1/2 flex-col gap-2">
-        <FloatingButton icon={Plus} label="Zoom in" onClick={() => setZoomLevel(Math.min(10, zoomLevel + 1) as typeof zoomLevel)} />
-        <FloatingButton icon={Minus} label="Zoom out" onClick={() => setZoomLevel(Math.max(0, zoomLevel - 1) as typeof zoomLevel)} />
-        <FloatingButton icon={Compass} label="Recenter" onClick={() => setZoomLevel((mode === "space-3d" ? 4 : 1) as typeof zoomLevel)} />
-        <FloatingButton icon={Globe} label="Satellite map" onClick={() => setSatelliteMapOpen((v) => !v)} />
-        <FloatingButton icon={Layers} label="Layers" onClick={() => setLayersOpen(true)} />
-        <FloatingButton icon={Crosshair} label="Identify" onClick={handleIdentify} />
-        <FloatingButton icon={Clock} label="Time travel" onClick={() => setTimeOpen(true)} />
-        <FloatingButton icon={Settings} label="Settings" onClick={() => setSettingsOpen(!settingsOpen)} />
+      {/* Floating controls — zoom group + settings sheet */}
+      <div
+        className="pointer-events-auto absolute right-4 z-30 flex flex-col gap-3"
+        style={{ top: "calc(5rem + env(safe-area-inset-top))" }}
+      >
+        <div className="flex flex-col overflow-hidden rounded-2xl border border-[#1E293B] shadow-lg">
+          <FloatingButton
+            icon={Plus}
+            label="Zoom in"
+            className="rounded-t-2xl border-b border-[#1E293B]"
+            onClick={() => setZoomLevel(Math.min(10, zoomLevel + 1) as typeof zoomLevel)}
+          />
+          <FloatingButton
+            icon={Minus}
+            label="Zoom out"
+            className="rounded-b-2xl"
+            onClick={() => setZoomLevel(Math.max(0, zoomLevel - 1) as typeof zoomLevel)}
+          />
+        </div>
+        <FloatingButton
+          icon={Settings}
+          label="SpaceCam settings"
+          onClick={() => setSettingsSheetOpen(true)}
+        />
       </div>
 
       {/* Identify results */}
@@ -263,70 +272,50 @@ export function SpaceCamExplorer() {
         </div>
       )}
 
-      {/* Settings panel */}
-      {settingsOpen && (
-        <div className="pointer-events-auto absolute right-16 top-28 z-40 w-56 rounded-2xl border border-white/20 bg-slate-950/95 p-3 shadow-2xl backdrop-blur-xl">
-          <p className="text-xs font-bold uppercase tracking-wider text-cyan-300">Settings</p>
-          <label className="mt-3 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={reducedMotion}
-              onChange={(e) => setReducedMotion(e.target.checked)}
-              className="accent-cyan-400"
-            />
-            Reduced motion
-          </label>
-          {!orientation.available && mode === "camera" && (
-            <div className="mt-3 space-y-2">
-              <p className="text-[10px] text-amber-300">Manual calibration</p>
-              <label className="block text-xs text-slate-400">
-                Azimuth
-                <input
-                  type="range"
-                  min={0}
-                  max={360}
-                  value={orientation.manualAzimuth}
-                  onChange={(e) =>
-                    useSpaceCamStore.getState().setOrientation({ manualAzimuth: Number(e.target.value) })
-                  }
-                  className="mt-1 w-full accent-cyan-300"
-                />
-              </label>
-              <label className="block text-xs text-slate-400">
-                Altitude
-                <input
-                  type="range"
-                  min={-10}
-                  max={90}
-                  value={orientation.manualAltitude}
-                  onChange={(e) =>
-                    useSpaceCamStore.getState().setOrientation({ manualAltitude: Number(e.target.value) })
-                  }
-                  className="mt-1 w-full accent-cyan-300"
-                />
-              </label>
+      {/* Settings bottom sheet */}
+      {settingsSheetOpen && (
+        <div
+          className="pointer-events-auto fixed inset-0 z-50 flex items-end justify-center bg-black/50"
+          onClick={() => setSettingsSheetOpen(false)}
+        >
+          <div
+            className="w-full max-w-xl rounded-t-3xl border border-[#1E293B] bg-[#0F172A]/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-xl"
+            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-label="SpaceCam settings"
+          >
+            <p className="text-sm font-bold text-[#F8FAFC]">SpaceCam settings</p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={() => { setMode("camera"); setSettingsSheetOpen(false); }} className="min-h-[44px] rounded-xl border border-[#2A3A5C] text-sm font-bold text-[#F8FAFC]">Camera</button>
+              <button type="button" onClick={() => { setMode("sky-map"); setSettingsSheetOpen(false); }} className="min-h-[44px] rounded-xl border border-[#2A3A5C] text-sm font-bold text-[#F8FAFC]">Sky Map</button>
+              <button type="button" onClick={() => { setMode("space-3d"); setSettingsSheetOpen(false); }} className="min-h-[44px] rounded-xl border border-[#2A3A5C] text-sm font-bold text-[#F8FAFC]">3D Space</button>
+              <button type="button" onClick={() => setLayersOpen(true)} className="min-h-[44px] rounded-xl border border-[#2A3A5C] text-sm font-bold text-[#F8FAFC]">Layers</button>
+              <button type="button" onClick={handleIdentify} className="min-h-[44px] rounded-xl border border-[#2A3A5C] text-sm font-bold text-[#F8FAFC]">Identify</button>
+              <button type="button" onClick={() => setTimeOpen(true)} className="min-h-[44px] rounded-xl border border-[#2A3A5C] text-sm font-bold text-[#F8FAFC]">Time travel</button>
+              <button type="button" onClick={() => setSatelliteMapOpen((v) => !v)} className="min-h-[44px] rounded-xl border border-[#2A3A5C] text-sm font-bold text-[#F8FAFC]">Satellite map</button>
+              <button type="button" onClick={() => setZoomLevel(4)} className="min-h-[44px] rounded-xl border border-[#2A3A5C] text-sm font-bold text-[#F8FAFC]">Recenter</button>
             </div>
-          )}
+            <label className="mt-3 flex items-center gap-2 text-sm text-[#94A3B8]">
+              <input type="checkbox" checked={reducedMotion} onChange={(e) => setReducedMotion(e.target.checked)} className="accent-[#06B6D4]" />
+              Reduced motion
+            </label>
+          </div>
         </div>
       )}
 
       {/* Bottom controls */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-3 pb-24 sm:p-5 sm:pb-28">
-        <div className="pointer-events-auto mx-auto max-w-xl rounded-3xl border border-white/20 bg-slate-950/80 p-4 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-end justify-between">
-            <div>
-              <p className="font-display text-[28px] font-bold leading-tight text-[#F8FAFC]">
-                {formatSpaceCamScale(fusion.scaleMeters)}
-              </p>
-              <p className="mt-1 text-sm font-bold text-[#F8FAFC]">
-                Level {zoomLevel}: {fusion.levelLabel}
-                {userLocation ? " · your location" : ""}
-              </p>
-            </div>
-          </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-3 pb-[calc(4.5rem+env(safe-area-inset-bottom))]">
+        <div className="pointer-events-auto mx-auto max-w-xl rounded-3xl border border-[#1E293B] bg-[#0F172A]/95 p-4 shadow-2xl backdrop-blur-xl">
+          <p className="font-display text-2xl font-bold leading-tight text-[#F8FAFC]">
+            {formatSpaceCamScale(fusion.scaleMeters)}
+          </p>
+          <p className="mt-1 text-[13px] text-[#94A3B8]">
+            Level {zoomLevel}: {fusion.levelLabel}
+          </p>
 
           <input
-            className="mt-3 w-full accent-cyan-300"
+            className="mt-3 h-1 w-full appearance-none rounded-full bg-[#1E293B] accent-[#06B6D4] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#06B6D4]"
+            style={{ accentColor: "#06B6D4" }}
             type="range"
             min={0}
             max={10}
@@ -335,17 +324,8 @@ export function SpaceCamExplorer() {
             onChange={(e) => setZoomLevel(Number(e.target.value) as typeof zoomLevel)}
             aria-label="Infinite zoom level"
           />
-          <div className="mt-1 flex justify-between text-[9px] font-semibold uppercase tracking-wider text-slate-500">
-            <span>Camera</span>
-            <span>Sky</span>
-            <span>Earth</span>
-            <span>System</span>
-            <span>Stars</span>
-            <span>Deep</span>
-          </div>
 
-          {/* Mode selector */}
-          <div className="mt-4 flex gap-1 rounded-2xl bg-white/5 p-1">
+          <div className="mt-4 flex gap-1 rounded-2xl bg-[#141C2F]/80 p-1">
             {MODE_TABS.map(({ mode: tabMode, label, icon: Icon }) => (
               <button
                 key={tabMode}
@@ -383,16 +363,21 @@ function FloatingButton({
   icon: Icon,
   label,
   onClick,
+  className,
 }: {
   icon: typeof Plus;
   label: string;
   onClick: () => void;
+  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="grid h-11 w-11 min-h-[44px] min-w-[44px] place-items-center rounded-xl border border-[#1E293B] bg-[#141C2F]/80 shadow-lg backdrop-blur transition-colors hover:bg-[#1A253C]/90"
+      className={cn(
+        "grid h-11 w-11 min-h-[44px] min-w-[44px] place-items-center border border-[#1E293B] bg-[#141C2F]/90 text-[#F8FAFC] shadow-lg backdrop-blur-md transition-colors hover:bg-[#1A253C]/90",
+        className,
+      )}
       aria-label={label}
     >
       <Icon className="h-4 w-4" />

@@ -26,6 +26,8 @@ interface MapViewProps {
   interactive?: boolean;
   initialCenter?: Coordinates;
   initialZoom?: number;
+  /** Home map: Africa overview, no auto-fly to GPS. */
+  overviewMode?: boolean;
   hideDefaultControls?: boolean;
   onPlaceSelect?: (place: Place) => void;
   /** Extra markers (e.g. live emergency POIs) */
@@ -44,6 +46,7 @@ export function MapView({
   interactive = true,
   initialCenter,
   initialZoom,
+  overviewMode = false,
   hideDefaultControls = false,
   onPlaceSelect,
   extraMarkers = [],
@@ -77,8 +80,14 @@ export function MapView({
     if (!containerRef.current || mapRef.current) return;
 
     const country = getCountry(countryCode);
-    const initial = userLocation ?? initialCenter ?? country.center ?? DEFAULT_CENTER;
-    const zoom = userLocation ? 15 : initialZoom ?? country.zoom ?? DEFAULT_ZOOM;
+    const initial = overviewMode
+      ? initialCenter ?? country.center ?? DEFAULT_CENTER
+      : userLocation ?? initialCenter ?? country.center ?? DEFAULT_CENTER;
+    const zoom = overviewMode
+      ? initialZoom ?? country.zoom ?? DEFAULT_ZOOM
+      : userLocation
+        ? 15
+        : initialZoom ?? country.zoom ?? DEFAULT_ZOOM;
     const initialStyle = initialMapStyle(mapStyle);
     const map = new MapLibreMap({
       container: containerRef.current,
@@ -262,9 +271,15 @@ export function MapView({
         position:absolute; left:50%; top:50%; transform:translate(-50%,-50%);
         width:18px; height:18px; border-radius:999px; background:#2563EB;
         border:3px solid white; box-shadow: 0 0 0 4px rgba(37,99,235,0.28);
-      " title="You are here"></div>
+      "></div>
+      <div style="
+        position:absolute; left:50%; top:calc(100% + 4px); transform:translateX(-50%);
+        white-space:nowrap; padding:2px 8px; border-radius:999px;
+        background:rgba(15,23,42,0.9); color:#F8FAFC; font-size:10px; font-weight:600;
+        border:1px solid rgba(255,255,255,0.15); box-shadow:0 2px 8px rgba(0,0,0,0.25);
+      ">Your location</div>
     `;
-    wrap.setAttribute("aria-label", "You are here");
+    wrap.setAttribute("aria-label", "Your location");
     if (!document.getElementById("sm-you-are-here-style")) {
       const style = document.createElement("style");
       style.id = "sm-you-are-here-style";
@@ -276,7 +291,7 @@ export function MapView({
       .setLngLat([userLocation.lng, userLocation.lat])
       .addTo(map);
 
-    if (followUser) {
+    if (followUser && !overviewMode) {
       if (!didFlyToUser.current) {
         map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 15, essential: true });
         didFlyToUser.current = true;
@@ -290,7 +305,7 @@ export function MapView({
         }
       }
     }
-  }, [userLocation, ready, followUser]);
+  }, [userLocation, ready, followUser, overviewMode]);
 
   return (
     <div

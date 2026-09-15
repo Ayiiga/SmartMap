@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
-import { OrbitControls, Stars, Text } from "@react-three/drei";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { OrbitControls, Text } from "@react-three/drei";
 import * as THREE from "three";
 import {
   getHeliocentricVector,
@@ -29,6 +29,30 @@ const PLANET_VISUAL: Record<string, { color: string; size: number; label: string
   neptune: { color: "#2563eb", size: 3, label: "Neptune" },
 };
 
+function Starfield() {
+  const points = useMemo(() => {
+    const positions = new Float32Array(2000 * 3);
+    for (let i = 0; i < 2000; i++) {
+      const r = 400 + Math.random() * 200;
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.acos(2 * Math.random() - 1);
+      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      positions[i * 3 + 2] = r * Math.cos(phi);
+    }
+    return positions;
+  }, []);
+
+  return (
+    <points>
+      <bufferGeometry>
+        <bufferAttribute attach="attributes-position" args={[points, 3]} />
+      </bufferGeometry>
+      <pointsMaterial color="#ffffff" size={0.6} sizeAttenuation transparent opacity={0.85} />
+    </points>
+  );
+}
+
 function OrbitRing({ radius, visible }: { radius: number; visible: boolean }) {
   const points = useMemo(() => {
     const pts: THREE.Vector3[] = [];
@@ -53,19 +77,24 @@ function OrbitRing({ radius, visible }: { radius: number; visible: boolean }) {
   );
 }
 
+function planetScale(zoomLevel: number, baseSize: number): number {
+  const boost = Math.pow(1.65, Math.max(0, zoomLevel - 3));
+  return Math.max(1.2, baseSize * boost);
+}
+
 function SolarSystemScene({
   observer,
   zoomLevel,
   showOrbits,
+  focusId,
   onSelect,
 }: {
   observer: ObserverContext;
   zoomLevel: number;
   showOrbits: boolean;
-  onSelect: (obj: AstronomicalObject) => void;
+  focusId: string | null;
+  onSelect: (obj: AstronomicalObject, position: THREE.Vector3) => void;
 }) {
-  const groupRef = useRef<THREE.Group>(null);
-
   const planetPositions = useMemo(() => {
     const positions: Record<string, [number, number, number]> = {};
     for (const id of Object.keys(PLANET_ORBIT_AU)) {
@@ -86,61 +115,61 @@ function SolarSystemScene({
     return positions;
   }, [observer.date]);
 
-  const showPlanets = zoomLevel >= 3;
   const showNearbyStars = zoomLevel >= 7;
   const showDeepSpace = zoomLevel >= 9;
 
   return (
-    <group ref={groupRef}>
-      <color attach="background" args={["#020617"]} />
-      <ambientLight intensity={0.2} />
-      <pointLight position={[0, 0, 0]} intensity={2} color="#fbbf24" />
+    <group>
+      <color attach="background" args={["#000000"]} />
+      <ambientLight intensity={0.15} />
+      <pointLight position={[0, 0, 0]} intensity={2.5} color="#fbbf24" />
+      <Starfield />
 
-      {showPlanets &&
-        Object.entries(PLANET_VISUAL).map(([id, visual]) => {
-          const pos = planetPositions[id];
-          if (!pos) return null;
-          if (zoomLevel < 3 && id !== "earth" && id !== "moon") return null;
-          if (zoomLevel < 4 && !["sun", "earth", "moon", "mercury", "venus", "mars"].includes(id)) return null;
-          if (zoomLevel < 6 && ["uranus", "neptune"].includes(id)) return null;
+      {Object.entries(PLANET_VISUAL).map(([id, visual]) => {
+        const pos = planetPositions[id];
+        if (!pos) return null;
+        const scaled = planetScale(zoomLevel, visual.size);
 
-          return (
-            <group key={id} position={pos}>
-              {showOrbits && id !== "sun" && id !== "moon" && PLANET_ORBIT_AU[id] && (
-                <OrbitRing radius={PLANET_ORBIT_AU[id] * AU_SCALE} visible />
-              )}
-              <mesh
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect({
+        return (
+          <group key={id} position={pos}>
+            {showOrbits && id !== "sun" && id !== "moon" && PLANET_ORBIT_AU[id] && (
+              <OrbitRing radius={PLANET_ORBIT_AU[id] * AU_SCALE} visible />
+            )}
+            <mesh
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(
+                  {
                     id,
                     name: visual.label,
                     type: id === "moon" ? "moon" : id === "sun" ? "sun" : "planet",
                     offlineAvailable: true,
                     requiresLiveData: true,
-                    description: "3D visualization using ephemeris-calculated position.",
-                  });
-                }}
-              >
-                <sphereGeometry args={[visual.size, 32, 32]} />
-                <meshStandardMaterial
-                  color={visual.color}
-                  emissive={id === "sun" ? visual.color : "#000000"}
-                  emissiveIntensity={id === "sun" ? 1 : 0}
-                />
+                    description: "Tap to learn more — ephemeris-calculated position.",
+                  },
+                  new THREE.Vector3(...pos),
+                );
+              }}
+            >
+              <sphereGeometry args={[scaled, 32, 32]} />
+              <meshStandardMaterial
+                color={visual.color}
+                emissive={id === "sun" ? visual.color : "#000000"}
+                emissiveIntensity={id === "sun" ? 1.2 : 0}
+              />
+            </mesh>
+            {id === "saturn" && (
+              <mesh rotation={[Math.PI / 2.5, 0, 0]}>
+                <ringGeometry args={[scaled * 1.4, scaled * 2, 64]} />
+                <meshBasicMaterial color="#fcd34d" transparent opacity={0.6} side={THREE.DoubleSide} />
               </mesh>
-              {id === "saturn" && (
-                <mesh rotation={[Math.PI / 2.5, 0, 0]}>
-                  <ringGeometry args={[visual.size * 1.4, visual.size * 2, 64]} />
-                  <meshBasicMaterial color="#fcd34d" transparent opacity={0.6} side={THREE.DoubleSide} />
-                </mesh>
-              )}
-              <Text position={[0, visual.size + 2, 0]} fontSize={2} color="#e2e8f0" anchorX="center">
-                {visual.label}
-              </Text>
-            </group>
-          );
-        })}
+            )}
+            <Text position={[0, scaled + 1.5, 0]} fontSize={1.8} color="#e2e8f0" anchorX="center">
+              {visual.label}
+            </Text>
+          </group>
+        );
+      })}
 
       {showNearbyStars &&
         BRIGHT_STARS.slice(0, 8).map((star, i) => {
@@ -165,24 +194,68 @@ function SolarSystemScene({
           </Text>
         </group>
       )}
-
-      <Stars radius={600} depth={80} count={3000} factor={3} saturation={0} fade speed={0.3} />
     </group>
   );
 }
 
-function AnimatedCamera({ reducedMotion }: { zoomLevel: number; reducedMotion: boolean }) {
+function CameraRig({
+  zoomLevel,
+  reducedMotion,
+  focusId,
+  focusPosition,
+  onZoomChange,
+}: {
+  zoomLevel: number;
+  reducedMotion: boolean;
+  focusId: string | null;
+  focusPosition: THREE.Vector3 | null;
+  onZoomChange: (level: number) => void;
+}) {
+  const controlsRef = useRef<import("three-stdlib").OrbitControls | null>(null);
+  const { camera } = useThree();
+  const lastDist = useRef(120);
+
+  const targetDistance = useMemo(() => {
+    const base = 180;
+    const factor = Math.pow(0.55, zoomLevel - 4);
+    return Math.max(8, Math.min(900, base * factor));
+  }, [zoomLevel]);
+
+  useEffect(() => {
+    if (!focusPosition || !controlsRef.current) return;
+    controlsRef.current.target.copy(focusPosition);
+    camera.position.set(
+      focusPosition.x,
+      focusPosition.y + targetDistance * 0.15,
+      focusPosition.z + targetDistance * 0.35,
+    );
+    controlsRef.current.update();
+  }, [focusId, focusPosition, camera, targetDistance]);
+
+  useFrame(() => {
+    const controls = controlsRef.current;
+    if (!controls) return;
+    const dist = camera.position.distanceTo(controls.target);
+    if (Math.abs(dist - lastDist.current) > 2) {
+      lastDist.current = dist;
+      const level = 4 + Math.log2(180 / Math.max(8, dist));
+      const clamped = Math.max(0, Math.min(10, Math.round(level)));
+      if (clamped !== zoomLevel) onZoomChange(clamped);
+    }
+  });
+
   return (
     <OrbitControls
+      ref={controlsRef}
       enablePan
       enableZoom
       enableRotate
-      minDistance={20}
-      maxDistance={800}
+      minDistance={6}
+      maxDistance={950}
       rotateSpeed={reducedMotion ? 0.3 : 0.5}
-      zoomSpeed={reducedMotion ? 0.5 : 1}
+      zoomSpeed={reducedMotion ? 0.6 : 1.2}
       makeDefault
-      target={[0, 0, 0]}
+      target={focusPosition ?? [0, 0, 0]}
     />
   );
 }
@@ -195,12 +268,74 @@ export function SpaceRenderer({
   className?: string;
 }) {
   const zoomLevel = useSpaceCamStore((s) => s.zoomLevel);
+  const setZoomLevel = useSpaceCamStore((s) => s.setZoomLevel);
   const layers = useSpaceCamStore((s) => s.layers);
   const reducedMotion = useSpaceCamStore((s) => s.reducedMotion);
   const setSelectedObject = useSpaceCamStore((s) => s.setSelectedObject);
 
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [focusPosition, setFocusPosition] = useState<THREE.Vector3 | null>(null);
+  const lastTapRef = useRef(0);
+  const pinchRef = useRef<{ dist: number; level: number } | null>(null);
+
+  const handleSelect = useCallback(
+    (obj: AstronomicalObject, position: THREE.Vector3) => {
+      const now = Date.now();
+      if (now - lastTapRef.current < 350) {
+        setFocusId(obj.id);
+        setFocusPosition(position.clone());
+        setZoomLevel(Math.min(10, zoomLevel + 2) as typeof zoomLevel);
+      }
+      lastTapRef.current = now;
+      setSelectedObject(obj);
+    },
+    [setSelectedObject, setZoomLevel, zoomLevel],
+  );
+
+  const onTouchStart = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches.length === 2) {
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        pinchRef.current = { dist: Math.hypot(dx, dy), level: zoomLevel };
+      }
+    },
+    [zoomLevel],
+  );
+
+  const onTouchMove = useCallback(
+    (e: React.TouchEvent) => {
+      if (e.touches.length !== 2 || !pinchRef.current) return;
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = dist / pinchRef.current.dist;
+      const delta = Math.log2(ratio) * 1.5;
+      const next = Math.max(0, Math.min(10, Math.round(pinchRef.current.level + delta)));
+      if (next !== zoomLevel) setZoomLevel(next as typeof zoomLevel);
+    },
+    [setZoomLevel, zoomLevel],
+  );
+
+  const onTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length < 2) pinchRef.current = null;
+    if (e.touches.length === 2 && e.timeStamp - lastTapRef.current < 400) {
+      setFocusId(null);
+      setFocusPosition(null);
+      setZoomLevel(3);
+      lastTapRef.current = 0;
+    }
+  }, [setZoomLevel]);
+
   return (
-    <div className={className} role="img" aria-label="3D space visualization">
+    <div
+      className={className}
+      role="img"
+      aria-label="3D space visualization"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
       <Canvas
         camera={{ position: [0, 60, 120], fov: 55 }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
@@ -210,9 +345,16 @@ export function SpaceRenderer({
           observer={observer}
           zoomLevel={zoomLevel}
           showOrbits={layers.orbits}
-          onSelect={setSelectedObject}
+          focusId={focusId}
+          onSelect={handleSelect}
         />
-        <AnimatedCamera zoomLevel={zoomLevel} reducedMotion={reducedMotion} />
+        <CameraRig
+          zoomLevel={zoomLevel}
+          reducedMotion={reducedMotion}
+          focusId={focusId}
+          focusPosition={focusPosition}
+          onZoomChange={(level) => setZoomLevel(level as typeof zoomLevel)}
+        />
       </Canvas>
     </div>
   );

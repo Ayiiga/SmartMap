@@ -16,6 +16,7 @@ import { useLiveLocation } from "@/lib/geo/use-live-location";
 import { cn } from "@/lib/utils";
 
 interface SmartMapTopBarProps {
+  variant?: "default" | "minimal";
   onLayersClick?: () => void;
   onSearchClick?: () => void;
 }
@@ -26,11 +27,12 @@ const NAV_LINKS = [
   { href: "/search", label: "Discover" },
 ] as const;
 
-export function SmartMapTopBar({ onLayersClick, onSearchClick }: SmartMapTopBarProps) {
+export function SmartMapTopBar({ variant = "default", onLayersClick, onSearchClick }: SmartMapTopBarProps) {
   const pathname = usePathname() ?? "/";
   const setFollowUser = useMapStore((s) => s.setFollowUser);
   const countryCode = useMapStore((s) => s.countryCode);
   const { requestLocation } = useLiveLocation(false);
+  const minimal = variant === "minimal";
 
   const utilityItems = [
     {
@@ -63,6 +65,35 @@ export function SmartMapTopBar({ onLayersClick, onSearchClick }: SmartMapTopBarP
       active: pathname.startsWith("/favorites"),
     },
   ];
+
+  if (minimal) {
+    return (
+      <header
+        className="pointer-events-auto absolute inset-x-0 top-0 z-40 px-3"
+        style={{ paddingTop: "calc(0.5rem + env(safe-area-inset-top))" }}
+      >
+        <Link
+          href="/search"
+          onClick={onSearchClick}
+          className="mx-auto flex min-h-[44px] max-w-xl items-center gap-2.5 rounded-2xl border border-[#1E293B]/60 bg-[#0F172A]/80 px-4 py-2.5 shadow-lg backdrop-blur-md"
+          aria-label="Search places worldwide"
+        >
+          <span
+            className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#3B82F6] to-[#1E5EB8]"
+            aria-hidden
+          >
+            <svg viewBox="0 0 24 24" className="h-4 w-4 text-[#F8FAFC]" fill="currentColor">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 11 7 11s7-5.75 7-11c0-3.87-3.13-7-7-7zm0 9.5A2.5 2.5 0 1 1 12 6a2.5 2.5 0 0 1 0 5.5z" />
+            </svg>
+          </span>
+          <Search className="h-4 w-4 shrink-0 text-[#64748B]" aria-hidden />
+          <span className="truncate text-sm text-[#94A3B8]">
+            Search places, towns, landmarks…
+          </span>
+        </Link>
+      </header>
+    );
+  }
 
   return (
     <header

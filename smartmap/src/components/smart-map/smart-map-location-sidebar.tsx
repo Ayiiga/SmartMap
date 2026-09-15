@@ -60,8 +60,9 @@ export function SmartMapLocationSidebar({ className }: SmartMapLocationSidebarPr
       .then((r) => r.json())
       .then((d) => {
         if (d.weather) {
+          const temp = typeof d.weather.tempC === "number" ? d.weather.tempC : Number(d.weather.tempC);
           setWeather({
-            temp: Math.round(d.weather.temperatureC),
+            temp: Number.isFinite(temp) ? Math.round(temp) : 26,
             label: d.weather.condition ?? "Partly Cloudy",
           });
         }
