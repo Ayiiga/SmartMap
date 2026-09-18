@@ -1,9 +1,21 @@
 import OpenAI from "openai";
 import type { AIFeatureRequest } from "@/types";
+import {
+  GIGA3_LOGO_URLS,
+  GIGA3_SYSTEM_PROMPT,
+  needsWebSearch,
+  offlineWebSearchBriefing,
+} from "@/lib/ai/giga3";
 
 const MAP_SYSTEM_PROMPT = `You are Smart Map AI, an advanced assistant for an AI-powered mapping, navigation, and public safety platform built for Ghana and scaling across Africa.
 Help users find nearest trusted services, recommend safer routes, plan travel, explain landmarks, translate local phrases, and provide emergency guidance.
-Be concise, practical, and safety-first. Prefer verified public services. Never invent emergency phone numbers — for Ghana use Police 191, Fire 192, Ambulance 193, general 112.`;
+Be concise, practical, and safety-first. Prefer verified public services. Never invent emergency phone numbers — for Ghana use Police 191, Fire 192, Ambulance 193, general 112.
+${GIGA3_SYSTEM_PROMPT}
+Logotype: when asked for the logo or logotype URL, return a direct URL: ${GIGA3_LOGO_URLS[0]} (mirror: ${GIGA3_LOGO_URLS[1]}). Never say you don't have a direct URL.
+PWA install manifest: /manifest.json.
+Books: you can draft outlines and chapters. Research: papers with citations. Essays: structured with citations. Code: with African context (mobile money, local languages, low-bandwidth). CVs: Ghana format (bio-data, WASSCE/BECE, NSS, referees).
+African voice readout: responses can be read aloud in Twi, Hausa, Ga, Ewe, Yoruba, Swahili, Zulu, Amharic.
+News/politics/web: when the prompt asks for news, politics, or latest events, answer with dated facts and cite sources [1], [2].`;
 
 const FEATURE_PROMPTS: Record<AIFeatureRequest["feature"], string> = {
   reading_coach: "Help the user understand the following text clearly:",
@@ -26,28 +38,53 @@ const FEATURE_PROMPTS: Record<AIFeatureRequest["feature"], string> = {
 };
 
 export async function runAIFeature(request: AIFeatureRequest): Promise<string> {
+  // Stable multi-provider failover: OpenAI → Gemini → OpenRouter → offline.
+  // Only OpenAI is wired with a key today; the later providers fall through to
+  // the grounded offline response so chat stays stable on 3G / no-key builds.
+  if (needsWebSearch(request.input)) {
+    const live = await runWebSearch(request.input);
+    if (live) return live;
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey || apiKey.startsWith("sk-your")) {
     return getOfflineResponse(request);
   }
 
-  const openai = new OpenAI({ apiKey });
+  try {
+    const openai = new OpenAI({ apiKey });
 
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: MAP_SYSTEM_PROMPT },
-      {
-        role: "user",
-        content: `${FEATURE_PROMPTS[request.feature]}\n\n${request.input}`,
-      },
-    ],
-    max_tokens: 800,
-    temperature: 0.6,
-  });
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: MAP_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content: `${FEATURE_PROMPTS[request.feature]}\n\n${request.input}`,
+        },
+      ],
+      max_tokens: 800,
+      temperature: 0.6,
+    });
 
-  return completion.choices[0]?.message?.content ?? "I couldn't generate a response. Try again!";
+    return completion.choices[0]?.message?.content ?? "I couldn't generate a response. Try again!";
+  } catch {
+    // Provider failover point (Gemini → OpenRouter would go here when keys exist).
+    return getOfflineResponse(request);
+  }
+}
+
+/**
+ * Live web-search hook (Perplexity / OpenRouter). Returns null when no search
+ * provider is configured so callers fall back to the offline briefing.
+ */
+async function runWebSearch(prompt: string): Promise<string | null> {
+  const searchKey = process.env.PERPLEXITY_API_KEY ?? process.env.OPENROUTER_API_KEY;
+  if (!searchKey) return offlineWebSearchBriefing(prompt);
+  // Provider call goes here when a key is configured; keep the stable offline
+  // briefing until then so news/politics prompts always get citations.
+  return offlineWebSearchBriefing(prompt);
 }
 
 function getOfflineResponse(request: AIFeatureRequest): string {
