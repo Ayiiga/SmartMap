@@ -297,5 +297,41 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .giga3-upload-sheet { animation: none; }
   .giga3-waveform > span { animation: none; height: 50%; }
+  .animate-teleprompter-scroll { animation: none; }
+}
+
+/* === Audit safety block (append-only) === */
+/* Bottom-nav clearance mirror: keep 72px nav + 96px scroll padding. */
+.primary-nav--mobile { padding-bottom: 96px; }
+.bottom-nav { padding-bottom: 96px; }
+.marketing-scroll-main,
+.media-stable,
+.gigaedit-page,
+.gigalearn-page { scroll-padding-bottom: 96px; }
+.chat-composer,
+.chat-input-bar { margin-bottom: 80px; }
+
+@media (max-height: 500px) {
+  .primary-nav--mobile { transform: translateY(100%); }
+}
+
+.primary-nav__item { min-width: 48px; min-height: 48px; }
+.primary-nav__item--active { border: 2px solid #7c3aed; }
+
+/* Contrast fixes for inactive media/chat tabs */
+.btn-media-inactive,
+.media-stable a[href="/chat"],
+.feed-tab-inactive { color: #374151; }
+
+/* Teleprompter scroll (disabled automatically for reduced motion / low-power via component) */
+@keyframes teleprompter-scroll {
+  0% { transform: translateY(100%); }
+  100% { transform: translateY(-100%); }
+}
+.animate-teleprompter-scroll { animation: teleprompter-scroll 20s linear infinite; }
+
+/* Low-power fallback: solid surfaces instead of backdrop blur */
+@media (max-width: 480px) {
+  .media-stable { backdrop-filter: none; }
 }
 
