@@ -149,10 +149,10 @@ export function WorkspaceDrawer({
                         <span
                           className={cn(
                             "rounded px-1.5 py-0.5 text-[9px] font-bold",
-                            card.location === "AI STUDIO" ? "bg-[#EAB308] text-black" : "bg-[#F3F4F6] text-[#374151]",
+                            card.location === "ai-studio" ? "bg-[#EAB308] text-black" : "bg-[#F3F4F6] text-[#374151]",
                           )}
                         >
-                          {card.location}
+                          {card.location === "ai-studio" ? "AI STUDIO" : "ON DEVICE"}
                         </span>
                       </span>
                     </span>
