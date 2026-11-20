@@ -3,9 +3,9 @@ extends Node
 ## No copyrighted samples, network calls or external audio dependencies.
 signal radio_message(message: String)
 
+const THEME: AudioStream = preload("res://assets/audio/afro_space_theme.wav")
 const RATE: int = 16000
 const BPM: float = 104.0
-const NOTES: Array[float] = [261.63, 329.63, 392.0, 440.0, 392.0, 329.63, 293.66, 261.63, 329.63, 392.0, 523.25, 440.0, 392.0, 329.63, 293.66, 220.0]
 var _music: AudioStreamPlayer
 var _sfx: Array[AudioStreamPlayer] = []
 var _sound_cache: Dictionary = {}
@@ -17,7 +17,8 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.name = "OriginalRhythmLoop"
 	add_child(_music)
-	_music.stream = _make_rhythm()
+	_music.stream = THEME
+	_music.finished.connect(_music_finished)
 	for i: int in range(4):
 		var player: AudioStreamPlayer = AudioStreamPlayer.new()
 		player.name = "Effects%d" % i
@@ -70,39 +71,10 @@ func repeat_radio() -> void:
 func speech_supported() -> bool:
 	return not DisplayServer.tts_get_voices_for_language("en").is_empty()
 
-func _make_rhythm() -> AudioStreamWAV:
-	# An original 4-bar composition with syncopated hand drum, highlife-style
-	# plucked pentatonic melody, shaker and bell accents (not a sampled song).
-	var bars: int = 2
-	var seconds: float = float(bars * 4) * 60.0 / BPM
-	var samples: int = roundi(seconds * float(RATE))
-	var pcm: PackedByteArray = PackedByteArray()
-	pcm.resize(samples * 2)
-	for i: int in range(samples):
-		var t: float = float(i) / float(RATE)
-		var beat: float = t * BPM / 60.0
-		var kick_age: float = fposmod(beat, 2.0) * 60.0 / BPM
-		var clap_age: float = fposmod(beat - 1.0, 2.0) * 60.0 / BPM
-		var shake_age: float = fposmod(beat * 2.0, 1.0) * 30.0 / BPM
-		var melody_index: int = int(floor(beat * 2.0)) % NOTES.size()
-		var note_age: float = fposmod(beat * 2.0, 1.0) * 30.0 / BPM
-		var freq: float = NOTES[melody_index]
-		var pluck: float = exp(-note_age * 9.0) * (sin(TAU * freq * t) + sin(TAU * freq * 2.0 * t) * 0.21) * 0.20
-		var kick: float = exp(-kick_age * 18.0) * sin(TAU * (65.0 - 35.0 * minf(kick_age, 0.2)) * t) * 0.31
-		var noise: float = sin(t * 8751.0) * sin(t * 12647.0)
-		var clap: float = exp(-clap_age * 24.0) * noise * 0.20
-		var shaker: float = exp(-shake_age * 31.0) * noise * 0.07
-		var bell: float = 0.0
-		if fposmod(beat, 4.0) < 0.23:
-			bell = sin(TAU * 784.0 * t) * exp(-fposmod(beat, 4.0) * 7.5) * 0.05
-		var raw_sample: int = clampi(roundi((pluck + kick + clap + shaker + bell) * 0.78 * 32767.0), -32768, 32767)
-		pcm[i * 2] = raw_sample & 255
-		pcm[i * 2 + 1] = (raw_sample >> 8) & 255
-	var clip: AudioStreamWAV = _stream(pcm, samples)
-	clip.loop_mode = AudioStreamWAV.LOOP_FORWARD
-	clip.loop_begin = 0
-	clip.loop_end = samples
-	return clip
+func _music_finished() -> void:
+	# Loop even when a device imports the WAV as a non-looping stream.
+	if bool(GameState.settings.get("music_enabled", true)) and not _music.playing:
+		_music.play()
 
 func _make_effect(name: String) -> AudioStreamWAV:
 	var duration: float = 0.42 if name == "launch" else 0.22
