@@ -80,7 +80,10 @@ jobs:
           echo "== Phase 2.5 sound / comets smoke ==" 
           timeout 90s godot --headless --path . --script res://tests/phase3_smoke.gd > /tmp/godot-test3.log 2>&1 || { cat /tmp/godot-test3.log; exit 1; }
           cat /tmp/godot-test1.log /tmp/godot-test2.log /tmp/godot-test3.log
-          if grep -Eiq 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/godot-test1.log /tmp/godot-test2.log /tmp/godot-test3.log; then
+          # Standalone Godot --script tests can emit a harmless engine shutdown
+          # warning: "ERROR: 1 resources still in use at exit". Reject all
+          # other errors and script parse/compilation failures.
+          if grep -Ei 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/godot-test1.log /tmp/godot-test2.log /tmp/godot-test3.log | grep -Eiv 'ERROR: [0-9]+ resources still in use at exit'; then
             echo 'Godot emitted compilation or runtime errors — stop before APK export' >&2
             exit 1
           fi
