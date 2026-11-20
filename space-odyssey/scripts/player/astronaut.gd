@@ -1,0 +1,130 @@
+extends CharacterBody3D
+class_name AstronautController
+## Third-person CharacterBody3D with gravity, smooth facing, jetpack, keyboard/touch input.
+signal interact_requested
+signal power_changed(value: float)
+const Crew = preload("res://scripts/player/crew_catalog.gd")
+
+@onready var _visual: Node3D = $Visual
+@onready var _pivot: Node3D = $CameraPivot
+@onready var _spring: SpringArm3D = $CameraPivot/SpringArm
+@onready var _camera: Camera3D = $CameraPivot/SpringArm/Camera
+@onready var _ray: RayCast3D = $CameraPivot/SpringArm/Camera/InteractionRay
+
+var move_stick: Vector2 = Vector2.ZERO
+var sprinting: bool = false
+var jetpacking: bool = false
+var power: float = 100.0
+var planet_gravity: float = 9.81
+var _wants_jump: bool = false
+var _pitch: float = -0.20
+const WALK_SPEED: float = 5.2
+const RUN_SPEED: float = 8.0
+const JUMP_SPEED: float = 5.5
+
+func _ready() -> void:
+	_spring.rotation.x = _pitch
+	_build_suit()
+
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		look_delta(event.relative)
+	if event.is_action_pressed("interact"):
+		request_interact()
+	if event.is_action_pressed("jump"):
+		_wants_jump = true
+
+func look_delta(delta: Vector2) -> void:
+	var invert: float = -1.0 if bool(GameState.settings.get("camera_inverted", false)) else 1.0
+	_pivot.rotation.y -= delta.x * 0.0045
+	_pitch = clampf(_pitch - delta.y * 0.0040 * invert, -1.05, 0.48)
+	_spring.rotation.x = _pitch
+
+func request_jump() -> void:
+	_wants_jump = true
+
+func request_interact() -> void:
+	interact_requested.emit()
+
+func interaction_ray_target() -> CollisionObject3D:
+	_ray.force_raycast_update()
+	return _ray.get_collider() as CollisionObject3D
+
+func _physics_process(delta: float) -> void:
+	var keys: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_backward")
+	var axes: Vector2 = move_stick if move_stick.length() > 0.08 else keys
+	var basis: Basis = _camera.global_transform.basis
+	var forward: Vector3 = -basis.z
+	forward.y = 0.0
+	forward = forward.normalized()
+	var right: Vector3 = basis.x
+	right.y = 0.0
+	right = right.normalized()
+	var direction: Vector3 = (right * axes.x - forward * axes.y).normalized()
+	var is_sprint: bool = sprinting or Input.is_action_pressed("sprint")
+	var target_speed: float = RUN_SPEED if is_sprint else WALK_SPEED
+	var target_horizontal: Vector3 = direction * target_speed
+	velocity.x = move_toward(velocity.x, target_horizontal.x, 18.0 * delta)
+	velocity.z = move_toward(velocity.z, target_horizontal.z, 18.0 * delta)
+	if direction.length_squared() > 0.01:
+		_visual.rotation.y = lerp_angle(_visual.rotation.y, atan2(-direction.x, -direction.z), minf(1.0, 9.0 * delta))
+	if not is_on_floor():
+		velocity.y -= planet_gravity * delta
+	elif velocity.y < 0.0:
+		velocity.y = -0.15
+	if _wants_jump and is_on_floor():
+		velocity.y = JUMP_SPEED * sqrt(planet_gravity / 9.81)
+	_wants_jump = false
+	if jetpacking and power > 0.5:
+		velocity.y = minf(velocity.y + 15.0 * delta, 6.5)
+		power = maxf(0.0, power - 15.0 * delta)
+		power_changed.emit(power)
+	else:
+		power = minf(100.0, power + 7.0 * delta)
+	move_and_slide()
+
+func refresh_suit() -> void:
+	for part: Node in _visual.get_children():
+		part.free()
+	_build_suit()
+
+func _build_suit() -> void:
+	var palette: Dictionary = Crew.profile_for(GameState.selected_astronaut)
+	var white: StandardMaterial3D = _material(Color(str(palette["suit"])))
+	var blue: StandardMaterial3D = _material(Color(str(palette["trim"])))
+	var visor: StandardMaterial3D = _material(Color(str(palette["visor"])))
+	var orange: StandardMaterial3D = _material(Color(str(palette["boots"])))
+	_mesh_sphere(_visual, Vector3(0, 0.62, 0), Vector3(0.38, 0.52, 0.27), white)
+	_mesh_sphere(_visual, Vector3(0, 1.20, 0), Vector3(0.36, 0.36, 0.33), white)
+	_mesh_sphere(_visual, Vector3(0, 1.23, -0.19), Vector3(0.27, 0.20, 0.16), visor)
+	_mesh_box(_visual, Vector3(0, 0.60, 0.36), Vector3(0.49, 0.66, 0.18), blue)
+	for side in [-1.0, 1.0]:
+		_mesh_box(_visual, Vector3(side * 0.43, 0.58, 0), Vector3(0.20, 0.58, 0.22), white)
+		_mesh_box(_visual, Vector3(side * 0.17, -0.12, 0), Vector3(0.23, 0.48, 0.25), white)
+		_mesh_box(_visual, Vector3(side * 0.17, -0.36, -0.10), Vector3(0.28, 0.14, 0.37), orange)
+
+func _material(color: Color) -> StandardMaterial3D:
+	var material: StandardMaterial3D = StandardMaterial3D.new()
+	material.albedo_color = color
+	material.roughness = 0.74
+	return material
+
+func _mesh_sphere(parent: Node3D, offset: Vector3, scale3: Vector3, material: Material) -> void:
+	var node: MeshInstance3D = MeshInstance3D.new()
+	var mesh: SphereMesh = SphereMesh.new()
+	mesh.radial_segments = 12
+	mesh.rings = 7
+	node.mesh = mesh
+	node.material_override = material
+	node.position = offset
+	node.scale = scale3
+	parent.add_child(node)
+
+func _mesh_box(parent: Node3D, offset: Vector3, dimensions: Vector3, material: Material) -> void:
+	var node: MeshInstance3D = MeshInstance3D.new()
+	var mesh: BoxMesh = BoxMesh.new()
+	mesh.size = dimensions
+	node.mesh = mesh
+	node.material_override = material
+	node.position = offset
+	parent.add_child(node)

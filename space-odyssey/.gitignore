@@ -1,0 +1,10 @@
+.godot/
+.import/
+.android/
+.vscode/
+*.apk
+*.aab
+*.keystore
+*.jks
+*.tmp
+export_credentials.env

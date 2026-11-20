@@ -1,0 +1,46 @@
+; SPACE ODYSSEY — Journey Beyond Earth | Godot 4.x
+; The entire Phase 1 game is local; no external services or remote assets.
+config_version=5
+
+[application]
+config/name="SPACE ODYSSEY — Journey Beyond Earth"
+run/main_scene="res://scenes/ui/main_menu.tscn"
+config/features=PackedStringArray("4.4", "GL Compatibility")
+config/description="An offline 3D astronaut adventure. Phase 2: 12 astronauts in 3 roles, Earth training, staged launch, guided Earth orbit."
+config/icon="res://icon.svg"
+
+[autoload]
+GameState="*res://scripts/core/game_state.gd"
+MissionManager="*res://scripts/missions/mission_manager.gd"
+
+[display]
+window/size/viewport_width=1280
+window/size/viewport_height=720
+window/stretch/mode="canvas_items"
+window/handheld/orientation=0
+window/size/window_width_override=1280
+window/size/window_height_override=720
+
+[rendering]
+renderer/rendering_method="gl_compatibility"
+renderer/rendering_method.mobile="gl_compatibility"
+textures/default_filters/use_nearest_mipmap_filter=false
+anti_aliasing/quality/msaa_3d=0
+anti_aliasing/quality/msaa_2d=0
+environment/defaults/default_clear_color=Color(0.020, 0.032, 0.066, 1)
+
+[physics]
+3d/default_gravity=9.81
+
+[input]
+move_forward={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":87),Object(InputEventKey,"physical_keycode":16777232)]}
+move_backward={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":83),Object(InputEventKey,"physical_keycode":16777234)]}
+move_left={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":65),Object(InputEventKey,"physical_keycode":16777231)]}
+move_right={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":68),Object(InputEventKey,"physical_keycode":16777233)]}
+jump={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":32)]}
+interact={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":69)]}
+sprint={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":4194325)]}
+pause_game={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":4194305)]}
+
+[application/config]
+version="0.2.2-crew12-ci"
