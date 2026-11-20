@@ -1,0 +1,53 @@
+{
+  "id": "landing_moon",
+  "title": "Lunar Explorer — First Moon Landing",
+  "planet": "moon",
+  "gravity_m_s2": 1.62,
+  "unlock": {
+    "earth_orbit": true
+  },
+  "objectives": [
+    {
+      "id": "approach",
+      "text": "Use the left and right touch controls to reach the landing zone"
+    },
+    {
+      "id": "brake",
+      "text": "Increase engine thrust to slow descent"
+    },
+    {
+      "id": "gear",
+      "text": "Deploy landing gear"
+    },
+    {
+      "id": "touchdown",
+      "text": "Touch down within safe vertical and horizontal speeds"
+    }
+  ],
+  "success_conditions": {
+    "max_impact_m_s": 5.2,
+    "max_drift_m_s": 5,
+    "max_offset_m": 10,
+    "require_legs": true
+  },
+  "failure_conditions": [
+    "impact_speed_too_high",
+    "outside_landing_zone",
+    "gear_not_deployed"
+  ],
+  "first_clear_reward": {
+    "coins": 800,
+    "science_points": 350,
+    "badge": "Lunar Explorer"
+  },
+  "replay_reward": {
+    "coins": 50
+  },
+  "grades": [
+    "S",
+    "A+",
+    "A",
+    "B",
+    "C"
+  ]
+}
