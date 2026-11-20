@@ -58,7 +58,7 @@ func _ready() -> void:
 	layout.add_child(_feedback)
 	var actions: HBoxContainer = UI.row()
 	layout.add_child(actions)
-	var play: Button = UI.button("START / CONTINUE", true)
+	var play: Button = UI.button("PLAY ROCKET / CONTINUE", true)
 	actions.add_child(play)
 	play.pressed.connect(_play)
 	var menu: Button = UI.button("BACK TO MENU")
@@ -70,7 +70,7 @@ func _play() -> void:
 	if GameState.can_continue():
 		GameState.continue_game()
 	else:
-		GameState.new_game()
+		GameState.new_rocket_game()
 
 func _choose(crew_id: String) -> void:
 	GameState.set_astronaut(crew_id)
