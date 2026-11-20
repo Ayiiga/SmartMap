@@ -230,6 +230,8 @@ func continue_game() -> bool:
 	elif current_mission == "comet_001" and flight_complete:
 		destination = COMETS
 	elif current_mission.begins_with("landing_") and planet_unlocked(destination_planet):
+		if str(landing_checkpoint.get("planet", "")) == destination_planet:
+			checkpoint_revive = true
 		destination = LANDING
 	elif current_mission.begins_with("transfer_") and planet_unlocked(destination_planet):
 		destination = TRANSFER
