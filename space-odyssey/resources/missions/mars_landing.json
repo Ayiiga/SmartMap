@@ -1,0 +1,55 @@
+{
+  "id": "landing_mars",
+  "title": "Mars Pathfinder — First Mars Landing",
+  "planet": "mars",
+  "gravity_m_s2": 3.71,
+  "unlock": {
+    "moon_landed": true,
+    "engine_level": 2,
+    "landing_gear_level": 2
+  },
+  "objectives": [
+    {
+      "id": "transfer",
+      "text": "Complete a guided Mars transfer"
+    },
+    {
+      "id": "brake",
+      "text": "Control thrust and horizontal drift"
+    },
+    {
+      "id": "gear",
+      "text": "Deploy landing gear"
+    },
+    {
+      "id": "touchdown",
+      "text": "Land within the illuminated zone"
+    }
+  ],
+  "success_conditions": {
+    "max_impact_m_s": 5.2,
+    "max_drift_m_s": 5,
+    "max_offset_m": 10,
+    "require_legs": true
+  },
+  "failure_conditions": [
+    "impact_speed_too_high",
+    "outside_landing_zone",
+    "gear_not_deployed"
+  ],
+  "first_clear_reward": {
+    "coins": 1400,
+    "science_points": 600,
+    "badge": "Mars Pathfinder"
+  },
+  "replay_reward": {
+    "coins": 50
+  },
+  "grades": [
+    "S",
+    "A+",
+    "A",
+    "B",
+    "C"
+  ]
+}

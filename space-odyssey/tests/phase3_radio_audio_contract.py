@@ -43,9 +43,9 @@ assert "SHIP RADIO" in comets and "MOVE LEFT" in comets and "MOVE RIGHT" in come
 assert "SCAN NEXT COMET" in comets and "REPEAT LAST WARNING" in comets
 assert "SHIELDS" in comets and "REQUIRED_DODGES" in comets
 assert "GameState.record_comet_result" in comets
-assert "ENTER SPACE · DODGE COMETS" in ship
+assert "DODGE COMETS" in ship
 assert "REQUEST ROCKET STATUS" in ship and "WHAT SHOULD I DO NEXT?" in ship
-assert "SPACE MISSION · DODGE COMETS" in menu
-assert "package/version_code=5" in export
+assert "COMET DODGING" in menu
+assert "package/version_code=6" in export
 assert "permissions/internet=false" in export
 print("PASS: offline audio settings, original rhythm, optional TTS, comet dodge controls and mission progression")

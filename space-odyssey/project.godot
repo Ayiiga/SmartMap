@@ -6,7 +6,7 @@ config_version=5
 config/name="SPACE ODYSSEY — Journey Beyond Earth"
 run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
-config/description="An offline 3D astronaut adventure. Phase 2: 12 astronauts in 3 roles, Earth training, staged launch, guided Earth orbit."
+config/description="Offline 3D Android space game. Assemble a three-person crew, launch into orbit, pilot Moon and Mars landings, earn awards and upgrade a rocket."
 config/icon="res://icon.svg"
 
 [autoload]
