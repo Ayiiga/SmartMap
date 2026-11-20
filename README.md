@@ -1,42 +1,27 @@
-# Smart Map
+# SPACE ODYSSEY — Journey Beyond Earth 🚀
 
-**Explore • Connect • Stay Safe**
+**Offline 3D Android space adventure built with Godot 4 and GDScript.**
 
-AI-powered mapping, navigation, and public safety platform built for Ghana and designed to scale across all 54 African countries.
+This repository is being converted from SmartMap to SPACE ODYSSEY. The new game is maintained in [`space-odyssey/`](./space-odyssey/), with its [Godot project](./space-odyssey/project.godot) and [Android APK build workflow](./.github/workflows/space-odyssey-android.yml).
 
-## Quick links
+## Current gameplay scope
 
-| Resource | Path |
-|----------|------|
-| **Application** | [`gigalearn/`](./gigalearn/) |
-| **Setup** | [`gigalearn/README.md`](./gigalearn/README.md) |
-| **Deploy (Vercel)** | [`gigalearn/docs/DEPLOY_VERCEL.md`](./gigalearn/docs/DEPLOY_VERCEL.md) |
-| **Supabase** | [`gigalearn/docs/SUPABASE.md`](./gigalearn/docs/SUPABASE.md) |
+- Select from 12 astronauts: Flight Cadets (Nambe, Ndaani, Mambooda, Abiola), Rocket Pilots (Ayiiga, Atia, Mpoko, Yambilla), and Science Explorers (Zuuri, Wendkuoni, Delwende, Regina)
+- Complete Earth training and enter the rocket
+- Launch with throttle, altitude, velocity, fuel, and mass instrumentation
+- Separate rocket stages, reach simplified guided orbit, save and resume
+- Offline play, landscape orientation, and Android Compatibility rendering
 
-## Product pillars
+Moon transfer and lunar landing are not yet implemented. The source requires actual Godot compilation, APK export, and on-device quality assurance before public release.
 
-- Interactive maps with trusted public services
-- Smart navigation (drive, walk, cycle, transit)
-- Safety Center with one-tap SOS
-- Community hazard reporting
-- AI assistant for routes, places, and emergencies
-- Business verification & partnerships
+## Install on Android
 
-## Local web development
+Check the [Android build workflow](./.github/workflows/space-odyssey-android.yml) for a **successful run containing the `SPACE-ODYSSEY-Android-Debug` artifact**. Download that APK and install it for testing only. No APK may be claimed available until export completes. The compiled game does not require a login or internet connection.
 
-```bash
-cd gigalearn
-cp .env.example .env.local
-npm install
-npm run dev
-```
+## Migration safeguards
 
-## Android
+This feature branch preserves the old `gigalearn/` Next.js site and `app/` Android starter while validation is under way, avoiding destructive changes to existing data or deployments. The new product's code is in `space-odyssey/`. Retire the old SmartMap implementation only after the new game passes Godot and physical-device tests.
 
-```bash
-export ANDROID_HOME=/android-sdk-linux
-export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
-./gradlew assembleDebug test
-```
+## Development
 
-Package: `com.ayiiga3.smartmap`
+See [Game README](./space-odyssey/README.md) and [Phase 2 test checklist](./space-odyssey/docs/PHASE2_TEST_CHECKLIST.md).
