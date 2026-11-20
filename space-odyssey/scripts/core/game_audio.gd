@@ -3,7 +3,7 @@ extends Node
 ## No copyrighted samples, network calls or external audio dependencies.
 signal radio_message(message: String)
 
-const THEME: AudioStream = preload("res://assets/audio/afro_space_theme.wav")
+const THEME_PATH: String = "res://assets/audio/afro_space_theme.wav"
 const RATE: int = 16000
 const BPM: float = 104.0
 var _music: AudioStreamPlayer
@@ -17,7 +17,9 @@ func _ready() -> void:
 	_music = AudioStreamPlayer.new()
 	_music.name = "OriginalRhythmLoop"
 	add_child(_music)
-	_music.stream = THEME
+	_music.stream = load(THEME_PATH) as AudioStream
+	if _music.stream == null:
+		push_warning("Original African-inspired music is unavailable; game will continue without music.")
 	_music.finished.connect(_music_finished)
 	for i: int in range(4):
 		var player: AudioStreamPlayer = AudioStreamPlayer.new()
@@ -32,7 +34,7 @@ func sync_settings() -> void:
 		return
 	var prefs: Dictionary = GameState.settings
 	_music.volume_db = linear_to_db(maxf(0.001, float(prefs.get("music_volume", 0.30))))
-	if bool(prefs.get("music_enabled", true)):
+	if bool(prefs.get("music_enabled", true)) and _music.stream != null:
 		if not _music.playing:
 			_music.play()
 	else:
