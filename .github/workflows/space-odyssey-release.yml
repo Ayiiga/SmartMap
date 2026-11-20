@@ -1,0 +1,44 @@
+name: SPACE ODYSSEY · Publish Verified APK Preview
+on:
+  push:
+    branches: [feature/space-odyssey-phase2-android]
+    paths:
+      - .github/workflows/space-odyssey-release.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download APK from the successful Godot build
+        uses: actions/download-artifact@v4
+        with:
+          name: SPACE-ODYSSEY-Android-Debug
+          run-id: 44824319285
+          github-token: ${{ github.token }}
+          path: apk
+      - name: Independently verify APK and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s apk/SPACE_ODYSSEY_Debug.apk
+          test -s apk/SPACE_ODYSSEY_Debug.apk.sha256
+          expected="$(cut -d ' ' -f1 apk/SPACE_ODYSSEY_Debug.apk.sha256)"
+          printf '%s  %s\n' "$expected" "apk/SPACE_ODYSSEY_Debug.apk" | sha256sum -c -
+          unzip -tq apk/SPACE_ODYSSEY_Debug.apk
+      - name: Publish APK as a downloadable GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create 'space-odyssey-phase2-preview-20261120' \
+            apk/SPACE_ODYSSEY_Debug.apk \
+            apk/SPACE_ODYSSEY_Debug.apk.sha256 \
+            --title 'SPACE ODYSSEY — Android Phase 2 Preview' \
+            --notes 'Offline Godot 4 Android debug APK for testing. 12 selectable astronauts, astronaut training, boarding, staged rocket flight, telemetry and guided orbit. Engine compilation and headless smoke checks passed in GitHub Actions run 44824319285. Not yet tested on a physical Android phone. No Moon landing, Play Store release or signed production AAB yet.' \
+            --prerelease \
+            --target '3862c2c1586cb4449e4f1e0f8a8b3dcc6034b102'
