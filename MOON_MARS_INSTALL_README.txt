@@ -1,8 +1,8 @@
 SPACE ODYSSEY - MOON & MARS - OFFLINE ANDROID DEBUG PREVIEW
 Version: 0.4.0; Android application ID: com.giga3enterprise.spaceodyssey.missionpreview
 Source: https://github.com/Ayiiga/SmartMap/tree/feature/space-odyssey-lunar-mars-progression
-Verified build: https://github.com/Ayiiga/SmartMap/actions/runs/44839832638
-SHA256: bb2374281343770834b097363782cfc937b2d06ae57e3d3d6475621ccd2f95ec
+Verified build: https://github.com/Ayiiga/SmartMap/actions/runs/44840245392
+SHA256: f707fa53ca4e1e198025ce859728559dc6f378a2ce0286136450ed058e8f6eb2
 
 NEW: Pick one of 4 Flight Cadets, 4 Rocket Pilots and 4 Science Explorers to assemble a three-person crew.
 Launch from Earth, reach guided orbit, start Moon transfer, use touch steering and thrust to deploy legs and land.
