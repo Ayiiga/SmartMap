@@ -8,15 +8,24 @@ const Crew = preload("res://scripts/player/crew_catalog.gd")
 const MENU: String = "res://scenes/ui/main_menu.tscn"
 const TRAINING: String = "res://scenes/world/training_world.tscn"
 const FLIGHT: String = "res://scenes/world/launch_world.tscn"
+const COMETS: String = "res://scenes/world/comet_field.tscn"
 const DEFAULT_SETTINGS: Dictionary = {
 	"graphics": 0,
 	"target_fps": 30,
 	"volume": 0.70,
+	"music_enabled": true,
+	"music_volume": 0.35,
+	"sound_enabled": true,
+	"sound_volume": 0.65,
+	"voice_enabled": true,
 	"camera_inverted": false,
 	"assisted_controls": true,
 	"debug_overlay": false
 }
 
+var comet_best: int = 0
+var comet_completed: bool = false
+var comet_clear_count: int = 0
 var profile_name: String = "Explorer"
 var selected_astronaut: String = "nambe"
 var flight_step: int = 0
@@ -84,7 +93,8 @@ func continue_game() -> bool:
 		return false
 	load_local()
 	active_session = true
-	get_tree().change_scene_to_file(FLIGHT if current_mission == "launch_001" else TRAINING)
+	var destination: String = COMETS if current_mission == "comet_001" and flight_complete else (FLIGHT if current_mission == "launch_001" else TRAINING)
+	get_tree().change_scene_to_file(destination)
 	return true
 
 func can_continue() -> bool:
@@ -93,6 +103,9 @@ func can_continue() -> bool:
 func save_local() -> bool:
 	var payload: Dictionary = {
 		"profile": profile_name,
+		"comet_best": comet_best,
+		"comet_completed": comet_completed,
+		"comet_clear_count": comet_clear_count,
 		"selected_astronaut": selected_astronaut,
 		"flight_step": flight_step,
 		"flight_complete": flight_complete,
@@ -115,6 +128,9 @@ func load_local() -> void:
 	if data.is_empty():
 		return
 	profile_name = str(data.get("profile", "Explorer"))
+	comet_best = maxi(0, int(data.get("comet_best", 0)))
+	comet_completed = bool(data.get("comet_completed", false))
+	comet_clear_count = maxi(0, int(data.get("comet_clear_count", 0)))
 	selected_astronaut = Crew.normalize_id(str(data.get("selected_astronaut", "nambe")))
 	flight_step = clampi(int(data.get("flight_step", 0)), 0, 3)
 	flight_complete = bool(data.get("flight_complete", false))
@@ -174,6 +190,25 @@ func record_flight_step(new_step: int) -> void:
 	save_local()
 	progress_changed.emit()
 
+func start_comet_mission() -> void:
+	if not flight_complete:
+		return
+	current_mission = "comet_001"
+	active_session = true
+	has_started = true
+	save_local()
+	get_tree().change_scene_to_file(COMETS)
+
+func record_comet_result(dodged: int, cleared: bool) -> void:
+	comet_best = maxi(comet_best, maxi(0, dodged))
+	if cleared:
+		comet_clear_count += 1
+		if not comet_completed:
+			comet_completed = true
+			science_points += 80
+	save_local()
+	progress_changed.emit()
+
 func save_flight_checkpoint(snapshot: Dictionary) -> void:
 	flight_checkpoint = snapshot.duplicate(true)
 	save_local()
@@ -192,7 +227,10 @@ func mark_objective(target_index: int) -> void:
 
 func apply_settings() -> void:
 	Engine.max_fps = int(settings.get("target_fps", 30))
-	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(clampf(float(settings.get("volume", 0.7)), 0.001, 1.0)))
+	AudioServer.set_bus_volume_db(AudioServer.get_bus_index("Master"), linear_to_db(maxf(0.001, float(settings.get("volume", 0.7)))))
+	var quality: int = clampi(int(settings.get("graphics", 0)), 0, 2)
+	get_tree().root.scaling_3d_scale = [0.70, 0.85, 1.0][quality]
+	get_tree().root.msaa_3d = Viewport.MSAA_2X if quality == 2 else Viewport.MSAA_DISABLED
 	settings_changed.emit()
 
 func save_settings() -> void:
@@ -213,6 +251,9 @@ func erase_progress() -> void:
 	flight_checkpoint = {}
 	selected_astronaut = "nambe"
 	science_points = 0
+	comet_best = 0
+	comet_completed = false
+	comet_clear_count = 0
 	active_session = false
 	has_started = false
 	progress_changed.emit()
