@@ -8,10 +8,14 @@ on:
   push:
     branches:
       - 'feature/space-odyssey-phase2-android'
+      - 'feature/space-odyssey-radio-comets-audio'
       - 'main'
     paths:
       - 'space-odyssey/**'
       - '.github/workflows/space-odyssey-android.yml'
+concurrency:
+  group: odyssey-android-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 jobs:
@@ -27,6 +31,7 @@ jobs:
           python3 tests/phase2_contract_check.py
           python3 tests/phase2_release_contract_check.py
           python3 tests/beginner_accessibility_contract.py
+          python3 tests/phase3_radio_audio_contract.py
   test-build:
     needs: static-source
     runs-on: ubuntu-latest
@@ -68,15 +73,23 @@ jobs:
       - name: Run game smoke tests
         run: |
           set -eu
-          godot --headless --path . --script res://tests/phase1_smoke.gd > /tmp/godot-test1.log 2>&1 || { cat /tmp/godot-test1.log; exit 1; }
-          godot --headless --path . --script res://tests/phase2_smoke.gd > /tmp/godot-test2.log 2>&1 || { cat /tmp/godot-test2.log; exit 1; }
-          cat /tmp/godot-test1.log /tmp/godot-test2.log
-          if grep -Eiq 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/godot-test1.log /tmp/godot-test2.log; then
+          echo "== Phase 1 engine smoke ==" 
+          timeout 90s godot --headless --path . --script res://tests/phase1_smoke.gd > /tmp/godot-test1.log 2>&1 || { cat /tmp/godot-test1.log; exit 1; }
+          echo "== Phase 2 rocket smoke ==" 
+          timeout 90s godot --headless --path . --script res://tests/phase2_smoke.gd > /tmp/godot-test2.log 2>&1 || { cat /tmp/godot-test2.log; exit 1; }
+          echo "== Phase 2.5 sound / comets smoke ==" 
+          timeout 90s godot --headless --path . --script res://tests/phase3_smoke.gd > /tmp/godot-test3.log 2>&1 || { cat /tmp/godot-test3.log; exit 1; }
+          cat /tmp/godot-test1.log /tmp/godot-test2.log /tmp/godot-test3.log
+          # Standalone Godot --script tests can emit a harmless engine shutdown
+          # warning: "ERROR: 1 resources still in use at exit". Reject all
+          # other errors and script parse/compilation failures.
+          if grep -Ei 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/godot-test1.log /tmp/godot-test2.log /tmp/godot-test3.log | grep -Eiv 'ERROR: [0-9]+ resources still in use at exit'; then
             echo 'Godot emitted compilation or runtime errors — stop before APK export' >&2
             exit 1
           fi
           grep -q 'PASS: Phase 1' /tmp/godot-test1.log
           grep -q 'PASS: Twelve astronauts' /tmp/godot-test2.log
+          grep -q 'PASS: Bundled original WAV music' /tmp/godot-test3.log
       - name: Create disposable debug-signing key
         run: |
           set -eu

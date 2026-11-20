@@ -64,7 +64,8 @@ assert 'platform="Android"' in preset
 assert 'package/unique_name="com.giga3enterprise.spaceodyssey"' in preset
 assert 'permissions/internet=false' in preset
 assert 'architectures/arm64-v8a=true' in preset
-assert 'package/version_code=4' in preset
+version_match = re.search(r'package/version_code=([0-9]+)', preset)
+assert version_match and int(version_match.group(1)) >= 4, 'Android version code must not decrease'
 for f in ('resources/missions/training.json', 'resources/missions/launch.json', 'resources/rockets/trainer.json'):
     assert (root / f).is_file()
     assert isinstance(json.loads((root / f).read_text()), dict)

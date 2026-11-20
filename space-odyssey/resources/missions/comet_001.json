@@ -1,0 +1,18 @@
+{
+  "id": "comet_001",
+  "title": "Comet Corridor — Talk to Mission Control",
+  "destination": "Near-Earth Space (simplified local scene)",
+  "type": "space_obstacle_course",
+  "offline": true,
+  "unlock": {"mission": "launch_001", "require_completed": true},
+  "objectives": [
+    {"id": "orbit", "text": "Reach a simplified Earth orbit first"},
+    {"id": "scan", "text": "Listen to Mission Control or tap SHIP RADIO to scan"},
+    {"id": "steer", "text": "Use the left/right buttons to avoid oncoming comets, debris and meteoroids"},
+    {"id": "dodge", "text": "Dodge eight hazards while keeping at least one shield"}
+  ],
+  "success_conditions": {"min_dodged": 8, "min_shields": 1},
+  "failure_conditions": {"shields_at_or_below": 0},
+  "rewards": {"science_points_first_clear": 80},
+  "notes": "Fantasy gameplay abstraction; the encounter is not real orbital debris simulation."
+}

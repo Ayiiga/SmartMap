@@ -22,23 +22,32 @@ func _ready() -> void:
 	left.add_child(UI.label("JOURNEY BEYOND EARTH", 22, UI.ACCENT))
 	left.add_child(UI.label("An offline astronaut adventure\nEarth training • Rockets • The Moon • Beyond", 19, UI.MUTED))
 	left.add_child(UI.label("TAP PLAY ROCKET TO LAUNCH IMMEDIATELY", 19, Color("8bd9bb")))
-	left.add_child(UI.label("Beginner mode ON · Fly, separate stage, enter orbit", 16, UI.ACCENT))
+	left.add_child(UI.label("Beginner launch · Ship radio · Dodge comets after orbit", 16, UI.ACCENT))
 	var panel: PanelContainer = UI.panel()
 	layout.add_child(panel)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(344, 585)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
 	var buttons: VBoxContainer = VBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 9)
-	panel.add_child(buttons)
+	buttons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buttons.add_theme_constant_override("separation", 8)
+	scroll.add_child(buttons)
 	_add(buttons, "PLAY ROCKET NOW  ▶", true, func() -> void: GameState.new_rocket_game())
+	_add(buttons, "SETTINGS · MUSIC / SPEAKER", false, func() -> void: _open("settings_screen"))
 	var cont: Button = _add(buttons, "CONTINUE", false, func() -> void: GameState.continue_game())
 	cont.disabled = not GameState.can_continue()
 	if cont.disabled:
 		cont.tooltip_text = "Start a new game first"
+	var comets: Button = _add(buttons, "SPACE MISSION · DODGE COMETS", false, func() -> void: GameState.start_comet_mission())
+	comets.disabled = not GameState.flight_complete
+	if comets.disabled:
+		comets.tooltip_text = "Reach Earth orbit first to unlock the comet mission"
 	_add(buttons, "CHOOSE ASTRONAUT", false, func() -> void: _open("crew_screen"))
 	_add(buttons, "EARTH TRAINING (OPTIONAL)", false, func() -> void: GameState.new_game())
 	_add(buttons, "MISSIONS", false, func() -> void: _open("missions_screen"))
 	_add(buttons, "ROCKET WORKSHOP", false, func() -> void: _open("workshop_screen"))
 	_add(buttons, "DISCOVER", false, func() -> void: _open("discover_screen"))
-	_add(buttons, "SETTINGS", false, func() -> void: _open("settings_screen"))
 	_add(buttons, "EXIT", false, func() -> void: get_tree().quit())
 	buttons.add_child(UI.label("No login · No ads · No network needed", 13, UI.MUTED))
 

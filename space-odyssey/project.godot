@@ -12,6 +12,7 @@ config/icon="res://icon.svg"
 [autoload]
 GameState="*res://scripts/core/game_state.gd"
 MissionManager="*res://scripts/missions/mission_manager.gd"
+GameAudio="*res://scripts/core/game_audio.gd"
 
 [display]
 window/size/viewport_width=1280
@@ -30,6 +31,9 @@ anti_aliasing/quality/msaa_3d=0
 anti_aliasing/quality/msaa_2d=0
 environment/defaults/default_clear_color=Color(0.020, 0.032, 0.066, 1)
 
+[audio]
+general/text_to_speech=true
+
 [physics]
 3d/default_gravity=9.81
 
@@ -44,4 +48,4 @@ sprint={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":4194325
 pause_game={"deadzone":0.2,"events":[Object(InputEventKey,"physical_keycode":4194305)]}
 
 [application/config]
-version="0.2.2-crew12-ci"
+version="0.3.0-radio-comets-audio"

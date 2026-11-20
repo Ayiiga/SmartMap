@@ -16,6 +16,8 @@ var _launch_button: Button
 var _separate_button: Button
 var _orbit_button: Button
 var _assist_button: Button
+var _radio_overlay: CanvasLayer
+var _radio_text: Label
 var _pause_overlay: CanvasLayer
 var _finish_overlay: CanvasLayer
 var _status_timeout: float = 0.0
@@ -37,6 +39,7 @@ func _ready() -> void:
 	if not GameState.flight_checkpoint.is_empty():
 		_rocket.restore(GameState.flight_checkpoint)
 	_build_hud()
+	GameAudio.radio_message.connect(_radio_received)
 	_update_ui()
 	if _rocket.phase == RocketVehicle.Phase.ORBIT and GameState.flight_complete:
 		_show_completion()
@@ -131,6 +134,15 @@ func _build_hud() -> void:
 	header.add_child(UI.label("FIRST FLIGHT · FOLLOW THE STEPS", 19, UI.ACCENT))
 	_instruction = UI.label("STEP 1/3 · Tap the big LAUNCH button", 18)
 	header.add_child(_instruction)
+	var talk: Button = UI.button("SHIP RADIO / TALK", true)
+	talk.anchor_left = 1.0
+	talk.anchor_right = 1.0
+	talk.offset_left = -230
+	talk.offset_right = -15
+	talk.offset_top = 75
+	talk.offset_bottom = 132
+	root.add_child(talk)
+	talk.pressed.connect(_open_radio)
 	var pause: Button = UI.button("PAUSE / SAVE")
 	pause.anchor_left = 1.0
 	pause.anchor_right = 1.0
@@ -144,7 +156,7 @@ func _build_hud() -> void:
 	_fps.anchor_left = 1.0
 	_fps.anchor_right = 1.0
 	_fps.offset_left = -210
-	_fps.offset_top = 68
+	_fps.offset_top = 139
 	root.add_child(_fps)
 	var left_controls: VBoxContainer = VBoxContainer.new()
 	left_controls.anchor_top = 1.0
@@ -341,6 +353,8 @@ func _on_launched() -> void:
 		GameState.record_flight_step(1)
 	_save_flight()
 	_set_status("Liftoff! Keep throttle high until SEPARATE lights up.")
+	GameAudio.effect("launch")
+	GameAudio.communicate("Odyssey to pilot. Liftoff confirmed. Keep assisted flight on until stage separation.")
 
 func _on_separated() -> void:
 	if GameState.flight_step == 1:
@@ -348,16 +362,21 @@ func _on_separated() -> void:
 	_save_flight()
 	_drop_stage()
 	_set_status("Stage 1 released! Stage 2 engine engaged. Watch for ORBIT READY.")
+	GameAudio.effect("stage")
+	GameAudio.communicate("Stage separation successful. Second stage engaged. Continue to Earth orbit.")
 
 func _on_orbit() -> void:
 	if GameState.flight_step == 2:
 		GameState.record_flight_step(3)
 	_save_flight()
+	GameAudio.effect("success")
+	GameAudio.communicate("Congratulations. Earth orbit is achieved. You can now try the comet dodging mission.")
 	_show_completion()
 
 func _on_failed(reason: String) -> void:
 	_save_flight()
 	_set_status(reason)
+	GameAudio.communicate("Mission warning. %s" % reason, true)
 	_show_failure(reason)
 
 func _set_status(msg: String) -> void:
@@ -366,6 +385,67 @@ func _set_status(msg: String) -> void:
 
 func _save_flight() -> void:
 	GameState.save_flight_checkpoint(_rocket.snapshot())
+
+func _radio_received(message: String) -> void:
+	if _radio_text != null and is_instance_valid(_radio_text):
+		_radio_text.text = message
+	if _status != null:
+		_set_status("MISSION CONTROL: " + message)
+
+func _open_radio() -> void:
+	if _radio_overlay != null and is_instance_valid(_radio_overlay):
+		return
+	_radio_overlay = _modal("SHIP RADIO · MISSION CONTROL", "Touch to communicate. Subtitles and offline beeps always work.")
+	var buttons: VBoxContainer = _radio_overlay.get_node("Center/Panel/Buttons") as VBoxContainer
+	_radio_text = UI.label("What would you like to ask the spacecraft?", 19, UI.ACCENT)
+	buttons.add_child(_radio_text)
+	var check: Button = UI.button("REQUEST ROCKET STATUS")
+	buttons.add_child(check)
+	check.pressed.connect(_radio_status)
+	var help: Button = UI.button("WHAT SHOULD I DO NEXT?")
+	buttons.add_child(help)
+	help.pressed.connect(_radio_guidance)
+	var again: Button = UI.button("REPEAT RADIO MESSAGE")
+	buttons.add_child(again)
+	again.pressed.connect(func() -> void: GameAudio.repeat_radio())
+	var close: Button = UI.button("CLOSE RADIO · RESUME", true)
+	buttons.add_child(close)
+	close.pressed.connect(_close_radio)
+	get_tree().paused = true
+	_radio_guidance()
+
+func _radio_status() -> void:
+	GameAudio.communicate("Rocket status. Altitude %d metres. Speed %d metres per second. Fuel remaining %d percent. Guided controls %s." % [roundi(_rocket.altitude_m), roundi(_rocket.current_speed_m_s()), _rocket.active_fuel_percent(), "on" if _rocket.assisted else "off"])
+
+func _radio_guidance() -> void:
+	var hint: String = "Tap LAUNCH to ignite the rocket."
+	match _rocket.phase:
+		RocketVehicle.Phase.STAGE_ONE, RocketVehicle.Phase.SEPARATION:
+			hint = "Continue ascending. When stage one fuel is low, tap SEPARATE STAGE."
+		RocketVehicle.Phase.STAGE_TWO:
+			hint = "Keep thrust steady. When the orbit button unlocks, tap ENTER ORBIT."
+		RocketVehicle.Phase.ORBIT:
+			hint = "Earth orbit complete. Tap DODGE COMETS to enter the next mission."
+		RocketVehicle.Phase.FAILED:
+			hint = "Tap RETRY for another safe launch."
+	GameAudio.communicate(hint)
+
+func _close_radio() -> void:
+	get_tree().paused = false
+	if _radio_overlay != null and is_instance_valid(_radio_overlay):
+		_radio_overlay.queue_free()
+	_radio_overlay = null
+	_radio_text = null
+
+func _settings() -> void:
+	_save_flight()
+	get_tree().paused = false
+	get_tree().change_scene_to_file("res://scenes/ui/settings_screen.tscn")
+
+func _comet_mission() -> void:
+	_save_flight()
+	get_tree().paused = false
+	GameState.start_comet_mission()
 
 func _toggle_pause() -> void:
 	if _pause_overlay != null and is_instance_valid(_pause_overlay):
@@ -380,6 +460,9 @@ func _toggle_pause() -> void:
 	var retry: Button = UI.button("RETRY LAUNCH")
 	buttons.add_child(retry)
 	retry.pressed.connect(_retry)
+	var settings_button: Button = UI.button("SETTINGS · MUSIC / RADIO")
+	buttons.add_child(settings_button)
+	settings_button.pressed.connect(_settings)
 	var quit: Button = UI.button("SAVE & MAIN MENU")
 	buttons.add_child(quit)
 	quit.pressed.connect(_menu)
@@ -419,9 +502,12 @@ func _resume() -> void:
 func _show_completion() -> void:
 	if _finish_overlay != null and is_instance_valid(_finish_overlay):
 		return
-	_finish_overlay = _modal("YOU REACHED EARTH ORBIT!", "Mission 02 complete · 120 km guided orbit\n+150 science points on first completion\nNext: Moon transfer and lunar landing (Phase 3)")
+	_finish_overlay = _modal("YOU REACHED EARTH ORBIT!", "Mission 02 complete · 120 km guided orbit\n+150 science points on first completion\nNext: Comet dodge · Moon transfer planned later")
 	var actions: VBoxContainer = _finish_overlay.get_node("Center/Panel/Buttons") as VBoxContainer
-	var back: Button = UI.button("SAVE & MAIN MENU", true)
+	var dodge: Button = UI.button("ENTER SPACE · DODGE COMETS", true)
+	actions.add_child(dodge)
+	dodge.pressed.connect(_comet_mission)
+	var back: Button = UI.button("SAVE & MAIN MENU")
 	actions.add_child(back)
 	back.pressed.connect(_menu)
 	var replay: Button = UI.button("REPLAY ROCKET LAUNCH")
@@ -465,6 +551,7 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_MINUS, KEY_KP_SUBTRACT: _change_throttle(-0.1)
 		KEY_LEFT: _steer(-5.0)
 		KEY_RIGHT: _steer(5.0)
+		KEY_R: _open_radio()
 		KEY_ESCAPE: _toggle_pause()
 
 func _notification(what: int) -> void:

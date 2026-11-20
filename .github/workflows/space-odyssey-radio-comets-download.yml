@@ -1,0 +1,55 @@
+name: SPACE ODYSSEY · Publish Audio and Comet APK Download
+on:
+  push:
+    branches: [feature/space-odyssey-radio-comets-audio]
+    paths: [.github/workflows/space-odyssey-radio-comets-download.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish-apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout public Android download branch
+        uses: actions/checkout@v4
+        with:
+          ref: space-odyssey-apk
+          persist-credentials: true
+      - name: Fetch APK from passing engine, mission and audio tests
+        uses: actions/download-artifact@v4
+        with:
+          name: SPACE-ODYSSEY-Android-Debug
+          run-id: 44833216117
+          github-token: ${{ github.token }}
+          path: downloaded-apk
+      - name: Verify debug APK, copy with distinct name and checksum
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="$(cut -d ' ' -f1 downloaded-apk/SPACE_ODYSSEY_Debug.apk.sha256)"
+          test -s downloaded-apk/SPACE_ODYSSEY_Debug.apk
+          printf '%s  %s\n' "$expected" downloaded-apk/SPACE_ODYSSEY_Debug.apk | sha256sum -c -
+          unzip -tq downloaded-apk/SPACE_ODYSSEY_Debug.apk
+          cp downloaded-apk/SPACE_ODYSSEY_Debug.apk SPACE_ODYSSEY_Radio_Comets_Audio.apk
+          sha256sum SPACE_ODYSSEY_Radio_Comets_Audio.apk > SPACE_ODYSSEY_Radio_Comets_Audio.apk.sha256
+          cat > RADIO_COMETS_README.txt <<EOF
+          SPACE ODYSSEY — RADIO, MUSIC AND COMET CORRIDOR — ANDROID DEBUG PREVIEW
+          Source branch: feature/space-odyssey-radio-comets-audio
+          Verified build: https://github.com/Ayiiga/SmartMap/actions/runs/44833216117
+          SHA256: $expected
+
+          New offline capabilities: original African-inspired WAV theme; working audio and device-TTS speaker settings; rocket radio instructions; 3D comet/meteoroid/debris dodging after Earth orbit with left/right steering, shields and mission score.
+
+          Important: Each CI debug build uses a temporary signing key. If updating an earlier installed SPACE ODYSSEY preview fails, uninstall the earlier version first. This can erase local saved games. Back up your saved progress if important. Android device voice TTS may require an installed offline English voice. No cloud APIs or mandatory network connection.
+          EOF
+          rm -rf downloaded-apk
+      - name: Publish alongside the previous Easy Launch build
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add SPACE_ODYSSEY_Radio_Comets_Audio.apk SPACE_ODYSSEY_Radio_Comets_Audio.apk.sha256 RADIO_COMETS_README.txt
+          git commit -m 'build(android): publish validated offline radio/music/comets APK'
+          git push origin HEAD:space-odyssey-apk
