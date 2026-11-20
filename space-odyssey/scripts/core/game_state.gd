@@ -169,9 +169,11 @@ func award_landing(planet: String, grade: String, soft_landing: bool) -> void:
 		landing_grades[planet] = grade
 	if not bool(completed_planets.get(planet, false)):
 		completed_planets[planet] = true
-		coins += 800 if planet == "moon" else 1400
-		science_points += 350 if planet == "moon" else 600
-		var title: String = "Lunar Explorer" if planet == "moon" else "Mars Pathfinder"
+		var mission: Dictionary = MissionManager.missions.get("landing_" + planet, {})
+		var rewards: Dictionary = mission.get("first_clear_reward", {})
+		coins += int(rewards.get("coins", 800 if planet == "moon" else 1400))
+		science_points += int(rewards.get("science_points", 350 if planet == "moon" else 600))
+		var title: String = str(rewards.get("badge", "Lunar Explorer" if planet == "moon" else "Mars Pathfinder"))
 		if title not in badges:
 			badges.append(title)
 	else:
