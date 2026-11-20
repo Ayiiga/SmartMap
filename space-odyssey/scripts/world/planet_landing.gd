@@ -5,6 +5,8 @@ const RocketArt = preload("res://scripts/rocket/rocket_art.gd")
 const Lander = preload("res://scripts/flight/odyssey_lander.gd")
 var _sim: OdysseyLander
 var _craft: Node3D
+var _flame: MeshInstance3D
+var _gear_nodes: Array[MeshInstance3D] = []
 var _camera: Camera3D
 var _world: String = "moon"
 var _steering: float = 0.0
@@ -73,14 +75,17 @@ func _make_world() -> void:
 		_ball(Vector3(-50, 18, -90), 4.0, Color("e4b47f"), true)
 	var parts: Dictionary = RocketArt.build(self, 0)
 	_craft = parts["root"] as Node3D
+	_flame = parts["flame"] as MeshInstance3D
 	(parts["lower_stage"] as Node3D).visible = false
 	_craft.scale = Vector3.ONE * 0.58
 	_craft.position = Vector3(_sim.horizontal_m, 22.0, 0)
 	for side: float in [-1.0, 1.0]:
 		var leg: MeshInstance3D = _box(Vector3(side * 0.55, -2.0, 0), Vector3(0.2, 3.0, 0.3), Color("c9d3db"), false)
 		leg.rotation.z = side * 0.25
-		_craft.add_child(leg)
+		leg.reparent(_craft)
 		leg.position = Vector3(side * 2.5, 3.5, 0)
+		leg.visible = _sim.legs
+		_gear_nodes.append(leg)
 	var rand: RandomNumberGenerator = RandomNumberGenerator.new()
 	rand.seed = 10021
 	if _world == "moon":
@@ -270,7 +275,10 @@ func _physics_process(delta: float) -> void:
 		var desired: float = -clampf(_sim.altitude_m / 28.0, 2.0, 6.0)
 		var response: float = (desired - _sim.vertical_velocity_m_s) * 0.8
 		_sim.throttle = clampf((_sim.gravity() + response) / _sim.acceleration(), 0.0, 1.0)
-	var event: String = _sim.advance(delta, _steering)
+	var event: String = _sim.advance(delta * 1.6, _steering)
+	if _flame != null:
+		_flame.visible = _sim.throttle > 0.07 and _sim.fuel > 0.0
+		_flame.scale.y = 0.4 + _sim.throttle * 1.1
 	var visual_y: float = minf(25.0, 0.65 + _sim.altitude_m * 0.10)
 	_craft.position = _craft.position.lerp(Vector3(_sim.horizontal_m, visual_y, 0.0), minf(1.0, delta * 8.0))
 	_craft.rotation_degrees.z = lerpf(_craft.rotation_degrees.z, -_steering * 8.0, minf(1.0, delta * 7.0))
@@ -326,6 +334,8 @@ func _lower_throttle() -> void:
 
 func _deploy_legs() -> void:
 	if _sim.deploy_legs():
+		for gear: MeshInstance3D in _gear_nodes:
+			gear.visible = true
 		GameAudio.effect("stage")
 		GameAudio.communicate("Landing gear is deployed. Control your speed and center over the target.")
 
@@ -364,13 +374,15 @@ func _finish(success: bool) -> void:
 	var actions: VBoxContainer
 	if success:
 		var rank: String = _sim.grade()
+		var first_clear: bool = not bool(GameState.completed_planets.get(_world, false))
+		var earned_coins: int = (800 if _world == "moon" else 1400) if first_clear else 50
 		GameState.award_landing(_world, rank, true)
 		GameAudio.effect("success")
 		GameAudio.communicate("Congratulations. Your %s landing succeeded. You received grade %s." % [_world, rank])
 		actions = _overlay_panel("%s LANDED!  ·  GRADE %s" % [_world.to_upper(), rank],
-			"Landing speed %.1f m/s  ·  Fuel %d%%\nYou earned %d virtual coins on your first %s landing.\nNew badge: %s" % [
+			"Landing speed %.1f m/s  ·  Fuel %d%%\nYou earned %d virtual game coins for your %s landing.\nNew badge: %s" % [
 				absf(_sim.vertical_velocity_m_s), _sim.fuel_percent(),
-				800 if _world == "moon" else 1400, _world,
+				earned_coins, _world,
 				"Lunar Explorer" if _world == "moon" else "Mars Pathfinder"])
 		if _world == "moon":
 			_button(actions, "UPGRADE ROCKET FOR MARS", _workshop, true)
