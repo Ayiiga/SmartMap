@@ -9,14 +9,9 @@ func _initialize() -> void:
 func _check() -> void:
 	var errors: Array[String] = []
 	var sample_manager: Node = AUDIO.new()
-	var rhythm: AudioStreamWAV = sample_manager._make_rhythm()
-	var dynamic_sample: bool = false
-	for index: int in range(100, mini(3000, rhythm.data.size()), 3):
-		if rhythm.data[index] != 0:
-			dynamic_sample = true
-			break
-	if rhythm.data.is_empty() or rhythm.mix_rate != 16000 or rhythm.loop_mode != AudioStreamWAV.LOOP_FORWARD or not dynamic_sample:
-		errors.append("Offline rhythm did not produce looped 16-bit PCM audio")
+	var rhythm: AudioStream = load("res://assets/audio/afro_space_theme.wav")
+	if rhythm == null or rhythm.get_length() < 8.0:
+		errors.append("Bundled original rhythmic WAV missing or too short")
 	for effect_name: String in ["launch", "stage", "warning", "impact", "dodge", "success", "scan", "radio"]:
 		var effect: AudioStreamWAV = sample_manager._make_effect(effect_name)
 		if effect.data.is_empty() or effect.mix_rate != 16000:
@@ -37,5 +32,5 @@ func _check() -> void:
 	if not errors.is_empty():
 		quit(1)
 		return
-	print("PASS: Original PCM music, 8 game effects, comet 3D scene and three-lane navigation")
+	print("PASS: Bundled original WAV music, 8 game effects, comet 3D scene and three-lane navigation")
 	quit(0)
