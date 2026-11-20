@@ -26,6 +26,16 @@ func _ready() -> void:
 		comet_file.close()
 		if comet_data is Dictionary:
 			missions[str(comet_data.get("id", "comet_001"))] = comet_data
+	for planet_name: String in ["moon", "mars"]:
+		var path: String = "res://resources/missions/%s_landing.json" % planet_name
+		var planet_file: FileAccess = FileAccess.open(path, FileAccess.READ)
+		if planet_file == null:
+			push_warning("Missing landing mission data: " + path)
+			continue
+		var planet_data: Variant = JSON.parse_string(planet_file.get_as_text())
+		planet_file.close()
+		if planet_data is Dictionary:
+			missions[str(planet_data.get("id", "landing_" + planet_name))] = planet_data
 
 func flight_objective() -> String:
 	if GameState.flight_complete:
