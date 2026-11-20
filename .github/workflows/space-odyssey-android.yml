@@ -15,7 +15,19 @@ on:
 permissions:
   contents: read
 jobs:
+  static-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check mission data and source contracts
+        working-directory: space-odyssey
+        run: |
+          set -eu
+          python3 tests/phase1_contract_check.py
+          python3 tests/phase2_contract_check.py
+          python3 tests/phase2_release_contract_check.py
   test-build:
+    needs: static-source
     runs-on: ubuntu-latest
     timeout-minutes: 50
     container:
@@ -30,13 +42,6 @@ jobs:
         run: |
           set -eu
           godot --version
-          python3 --version
-      - name: Static source and mission checks
-        run: |
-          set -eu
-          python3 tests/phase1_contract_check.py
-          python3 tests/phase2_contract_check.py
-          python3 tests/phase2_release_contract_check.py
       - name: Parse Godot project
         run: |
           set -eu
