@@ -89,19 +89,34 @@ func refresh_suit() -> void:
 	_build_suit()
 
 func _build_suit() -> void:
+	# Smooth, layered 3D suit meshes: reflective visor, life-support backpack,
+	# rounded gloves and boots, visible oxygen tanks and mission patch.
 	var palette: Dictionary = Crew.profile_for(GameState.selected_astronaut)
-	var white: StandardMaterial3D = _material(Color(str(palette["suit"])))
-	var blue: StandardMaterial3D = _material(Color(str(palette["trim"])))
+	var suit: StandardMaterial3D = _material(Color(str(palette["suit"])))
+	var trim: StandardMaterial3D = _material(Color(str(palette["trim"])))
 	var visor: StandardMaterial3D = _material(Color(str(palette["visor"])))
-	var orange: StandardMaterial3D = _material(Color(str(palette["boots"])))
-	_mesh_sphere(_visual, Vector3(0, 0.62, 0), Vector3(0.38, 0.52, 0.27), white)
-	_mesh_sphere(_visual, Vector3(0, 1.20, 0), Vector3(0.36, 0.36, 0.33), white)
-	_mesh_sphere(_visual, Vector3(0, 1.23, -0.19), Vector3(0.27, 0.20, 0.16), visor)
-	_mesh_box(_visual, Vector3(0, 0.60, 0.36), Vector3(0.49, 0.66, 0.18), blue)
-	for side in [-1.0, 1.0]:
-		_mesh_box(_visual, Vector3(side * 0.43, 0.58, 0), Vector3(0.20, 0.58, 0.22), white)
-		_mesh_box(_visual, Vector3(side * 0.17, -0.12, 0), Vector3(0.23, 0.48, 0.25), white)
-		_mesh_box(_visual, Vector3(side * 0.17, -0.36, -0.10), Vector3(0.28, 0.14, 0.37), orange)
+	var boots: StandardMaterial3D = _material(Color(str(palette["boots"])))
+	var metal: StandardMaterial3D = _material(Color("bacbd5"))
+	visor.metallic = 0.55
+	visor.roughness = 0.12
+	metal.metallic = 0.55
+	metal.roughness = 0.30
+	_mesh_sphere(_visual, Vector3(0, 0.61, 0), Vector3(0.37, 0.47, 0.29), suit)
+	_mesh_cylinder(_visual, Vector3(0, 1.0, 0), 0.31, 0.20, trim)
+	_mesh_sphere(_visual, Vector3(0, 1.25, 0), Vector3(0.35, 0.37, 0.34), suit)
+	_mesh_sphere(_visual, Vector3(0, 1.23, -0.255), Vector3(0.28, 0.21, 0.17), metal)
+	_mesh_sphere(_visual, Vector3(0, 1.24, -0.29), Vector3(0.25, 0.18, 0.16), visor)
+	_mesh_sphere(_visual, Vector3(0.08, 1.33, -0.42), Vector3(0.09, 0.035, 0.025), trim)
+	_mesh_box(_visual, Vector3(0, 0.64, 0.36), Vector3(0.51, 0.67, 0.25), trim)
+	_mesh_box(_visual, Vector3(0, 0.64, 0.50), Vector3(0.40, 0.37, 0.07), metal)
+	for side: float in [-1.0, 1.0]:
+		_mesh_capsule(_visual, Vector3(side * 0.49, 0.63, 0), 0.13, 0.68, suit)
+		_mesh_sphere(_visual, Vector3(side * 0.51, 0.24, -0.02), Vector3(0.145, 0.16, 0.15), trim)
+		_mesh_capsule(_visual, Vector3(side * 0.18, -0.08, 0), 0.145, 0.66, suit)
+		_mesh_sphere(_visual, Vector3(side * 0.18, -0.39, -0.10), Vector3(0.19, 0.15, 0.31), boots)
+		_mesh_cylinder(_visual, Vector3(side * 0.16, 0.70, 0.56), 0.085, 0.48, metal)
+	_mesh_box(_visual, Vector3(0, 0.61, -0.30), Vector3(0.20, 0.14, 0.065), trim)
+	_mesh_sphere(_visual, Vector3(-0.15, 0.80, -0.27), Vector3(0.07, 0.07, 0.04), metal)
 
 func _material(color: Color) -> StandardMaterial3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
@@ -112,8 +127,8 @@ func _material(color: Color) -> StandardMaterial3D:
 func _mesh_sphere(parent: Node3D, offset: Vector3, scale3: Vector3, material: Material) -> void:
 	var node: MeshInstance3D = MeshInstance3D.new()
 	var mesh: SphereMesh = SphereMesh.new()
-	mesh.radial_segments = 12
-	mesh.rings = 7
+	mesh.radial_segments = 24
+	mesh.rings = 12
 	node.mesh = mesh
 	node.material_override = material
 	node.position = offset
@@ -128,3 +143,27 @@ func _mesh_box(parent: Node3D, offset: Vector3, dimensions: Vector3, material: M
 	node.material_override = material
 	node.position = offset
 	parent.add_child(node)
+
+func _mesh_capsule(parent: Node3D, offset: Vector3, radius: float, height: float, material: Material) -> void:
+	var mesh: CapsuleMesh = CapsuleMesh.new()
+	mesh.radius = radius
+	mesh.height = height
+	mesh.radial_segments = 18
+	mesh.rings = 6
+	var instance: MeshInstance3D = MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.position = offset
+	instance.material_override = material
+	parent.add_child(instance)
+
+func _mesh_cylinder(parent: Node3D, offset: Vector3, radius: float, height: float, material: Material) -> void:
+	var mesh: CylinderMesh = CylinderMesh.new()
+	mesh.top_radius = radius
+	mesh.bottom_radius = radius
+	mesh.height = height
+	mesh.radial_segments = 20
+	var instance: MeshInstance3D = MeshInstance3D.new()
+	instance.mesh = mesh
+	instance.position = offset
+	instance.material_override = material
+	parent.add_child(instance)
