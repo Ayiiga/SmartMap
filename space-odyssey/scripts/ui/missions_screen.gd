@@ -12,9 +12,8 @@ func _ready() -> void:
 	start.pressed.connect(_start_training)
 	col.add_child(UI.separator())
 	col.add_child(UI.label("02  ·  TRAINER MK I  |  EARTH LAUNCH + GUIDED ORBIT", 24, UI.ACCENT))
-	col.add_child(UI.label("Status: COMPLETE" if GameState.flight_complete else ("Unlocked — finish training first" if not GameState.training_complete else "READY TO LAUNCH"), 17))
+	col.add_child(UI.label("Status: COMPLETE" if GameState.flight_complete else "READY TO LAUNCH — no training required", 17))
 	var launch: Button = UI.button("REPLAY LAUNCH" if GameState.flight_complete else ("CONTINUE LAUNCH" if GameState.current_mission == "launch_001" and not GameState.flight_checkpoint.is_empty() else "START ROCKET MISSION"), true)
-	launch.disabled = not GameState.training_complete
 	col.add_child(launch)
 	launch.pressed.connect(func() -> void: GameState.start_launch_mission(GameState.flight_complete))
 	col.add_child(UI.separator())
