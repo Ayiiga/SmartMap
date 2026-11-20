@@ -1,0 +1,77 @@
+name: SPACE ODYSSEY · Build Android APK
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'space-odyssey/**'
+      - '.github/workflows/space-odyssey-android.yml'
+  push:
+    branches:
+      - 'feature/space-odyssey-phase2-android'
+      - 'main'
+    paths:
+      - 'space-odyssey/**'
+      - '.github/workflows/space-odyssey-android.yml'
+permissions:
+  contents: read
+jobs:
+  test-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    container:
+      image: barichello/godot-ci:4.4.1
+    defaults:
+      run:
+        working-directory: space-odyssey
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Check tools
+        run: |
+          set -eu
+          godot --version
+          python3 --version
+      - name: Static source and mission checks
+        run: |
+          set -eu
+          python3 tests/phase1_contract_check.py
+          python3 tests/phase2_contract_check.py
+          python3 tests/phase2_release_contract_check.py
+      - name: Parse Godot project
+        run: |
+          set -eu
+          godot --headless --editor --path . --quit > /tmp/godot-import.log 2>&1 || { cat /tmp/godot-import.log; exit 1; }
+          cat /tmp/godot-import.log
+          if grep -Eiq 'SCRIPT ERROR|Parse Error|ERROR:.*(Failed|Could not)' /tmp/godot-import.log; then exit 1; fi
+      - name: Run game smoke tests
+        run: |
+          set -eu
+          godot --headless --path . --script res://tests/phase1_smoke.gd > /tmp/godot-test1.log 2>&1 || { cat /tmp/godot-test1.log; exit 1; }
+          godot --headless --path . --script res://tests/phase2_smoke.gd > /tmp/godot-test2.log 2>&1 || { cat /tmp/godot-test2.log; exit 1; }
+          cat /tmp/godot-test1.log /tmp/godot-test2.log
+      - name: Create disposable debug-signing key
+        run: |
+          set -eu
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
+          echo 'GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey' >> "$GITHUB_ENV"
+          echo 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android' >> "$GITHUB_ENV"
+      - name: Export ARM64 APK
+        run: |
+          set -eu
+          mkdir -p build
+          godot --headless --path . --export-debug Android build/SPACE_ODYSSEY_Debug.apk > /tmp/godot-export.log 2>&1 || { cat /tmp/godot-export.log; exit 1; }
+          cat /tmp/godot-export.log
+          test -s build/SPACE_ODYSSEY_Debug.apk
+          unzip -tq build/SPACE_ODYSSEY_Debug.apk
+          sha256sum build/SPACE_ODYSSEY_Debug.apk > build/SPACE_ODYSSEY_Debug.apk.sha256
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SPACE-ODYSSEY-Android-Debug
+          path: |
+            space-odyssey/build/SPACE_ODYSSEY_Debug.apk
+            space-odyssey/build/SPACE_ODYSSEY_Debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
