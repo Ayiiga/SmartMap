@@ -16,7 +16,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: SPACE-ODYSSEY-Android-Debug
-          run-id: 44824319285
+          run-id: 44829970676
           github-token: ${{ github.token }}
           path: apk
       - name: Independently verify APK and checksum
@@ -35,10 +35,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gh release create 'space-odyssey-phase2-preview-20261120' \
+          gh release create 'space-odyssey-phase2-easy-launch-20261120' \
             apk/SPACE_ODYSSEY_Debug.apk \
             apk/SPACE_ODYSSEY_Debug.apk.sha256 \
-            --title 'SPACE ODYSSEY — Android Phase 2 Preview' \
-            --notes 'Offline Godot 4 Android debug APK for testing. 12 selectable astronauts, astronaut training, boarding, staged rocket flight, telemetry and guided orbit. Engine compilation and headless smoke checks passed in GitHub Actions run 44824319285. Not yet tested on a physical Android phone. No Moon landing, Play Store release or signed production AAB yet.' \
+            --title 'SPACE ODYSSEY — Easy Launch and 3D Upgrade' \
+            --notes 'Updated offline Godot Android debug APK for testing. Direct PLAY ROCKET NOW on home menu (training is optional); large changing LAUNCH → SEPARATE STAGE → ENTER ORBIT control; guided beginner flight and clearer altitude, speed and fuel; more detailed procedural 3D astronaut and spacecraft models; 12 astronaut choices. Godot compilation, physics smoke tests, and APK export passed in GitHub Actions run 44829970676. This debug APK is signed with a different temporary certificate from the earlier preview: if Android reports App not installed, uninstall the previous preview first (that removes its local save). Moon transfer and landing are not included. Physical-device QA remains.' \
             --prerelease \
-            --target '3862c2c1586cb4449e4f1e0f8a8b3dcc6034b102'
+            --target '01e9a29d2931f8f737e7368bc0a0c7a7915d4a54'
