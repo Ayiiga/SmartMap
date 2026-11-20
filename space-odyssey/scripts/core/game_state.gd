@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS: Dictionary = {
 
 ## Three permanent crew roles and one pilot-controlled lander.
 var crew_slots: Dictionary = {"Flight Cadets": "nambe", "Rocket Pilots": "ayiiga", "Science Explorers": "zuuri"}
+var crew_confirmed: bool = false
 var coins: int = 250
 var completed_planets: Dictionary = {"moon": false, "mars": false}
 var landing_grades: Dictionary = {}
@@ -83,12 +84,20 @@ func buy_upgrade(part: String) -> bool:
 	progress_changed.emit()
 	return true
 
+func confirm_crew() -> bool:
+	if not ready_crew():
+		return false
+	crew_confirmed = true
+	save_local()
+	return true
+
 func assign_crew(role: String, crew_id: String) -> bool:
 	if not Crew.GROUPS.has(role):
 		return false
 	if crew_id not in Crew.GROUPS[role]:
 		return false
 	crew_slots[role] = crew_id
+	crew_confirmed = false
 	if role == "Flight Cadets":
 		selected_astronaut = crew_id
 	for role: String in Crew.GROUPS:
@@ -189,6 +198,9 @@ func new_game() -> void:
 
 ## One-tap first flight. Training remains an optional learning mission.
 func new_rocket_game() -> void:
+	if not crew_confirmed:
+		get_tree().change_scene_to_file("res://scenes/ui/crew_screen.tscn")
+		return
 	current_mission = "launch_001"
 	flight_step = 0
 	flight_complete = false
@@ -235,6 +247,7 @@ func save_local() -> bool:
 	var payload: Dictionary = {
 		"profile": profile_name,
 		"crew_slots": crew_slots,
+		"crew_confirmed": crew_confirmed,
 		"coins": coins,
 		"completed_planets": completed_planets,
 		"landing_grades": landing_grades,
@@ -274,6 +287,7 @@ func load_local() -> void:
 			var member_id: String = str(saved_crew.get(role, crew_slots[role]))
 			if member_id in Crew.GROUPS[role]:
 				crew_slots[role] = member_id
+	crew_confirmed = bool(data.get("crew_confirmed", false))
 	coins = maxi(0, int(data.get("coins", 250)))
 	var saved_completions: Variant = data.get("completed_planets", {})
 	if saved_completions is Dictionary:
@@ -427,6 +441,7 @@ func erase_progress() -> void:
 	flight_checkpoint = {}
 	selected_astronaut = "nambe"
 	crew_slots = {"Flight Cadets": "nambe", "Rocket Pilots": "ayiiga", "Science Explorers": "zuuri"}
+	crew_confirmed = false
 	coins = 250
 	completed_planets = {"moon": false, "mars": false}
 	landing_grades = {}
