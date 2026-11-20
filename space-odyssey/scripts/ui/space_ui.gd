@@ -31,18 +31,18 @@ static func button(text: String, accent: bool = false) -> Button:
 	b.add_theme_font_size_override("font_size", 19)
 	b.add_theme_color_override("font_color", FG)
 	var normal: StyleBoxFlat = StyleBoxFlat.new()
-	normal.bg_color = Color("176e9f") if accent else SURFACE
-	normal.border_color = ACCENT if accent else Color("2f506c")
-	normal.set_border_width_all(1)
+	normal.bg_color = Color("955e1b") if accent else SURFACE
+	normal.border_color = Color("f6c46b") if accent else Color("3c608d")
+	normal.set_border_width_all(2 if accent else 1)
 	normal.set_corner_radius_all(14)
 	normal.content_margin_left = 18.0
 	normal.content_margin_right = 18.0
 	b.add_theme_stylebox_override("normal", normal)
 	var hover: StyleBoxFlat = normal.duplicate()
-	hover.bg_color = Color("2381b2") if accent else Color("244663")
+	hover.bg_color = Color("b67c2a") if accent else Color("244663")
 	b.add_theme_stylebox_override("hover", hover)
 	var pressed: StyleBoxFlat = hover.duplicate()
-	pressed.bg_color = Color("215875")
+	pressed.bg_color = Color("6f4818")
 	b.add_theme_stylebox_override("pressed", pressed)
 	var disabled: StyleBoxFlat = normal.duplicate()
 	disabled.bg_color = Color("24303e")
@@ -52,8 +52,8 @@ static func button(text: String, accent: bool = false) -> Button:
 static func panel() -> PanelContainer:
 	var p: PanelContainer = PanelContainer.new()
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.05, 0.11, 0.20, 0.96)
-	style.border_color = Color("355877")
+	style.bg_color = Color(0.04, 0.09, 0.19, 0.95)
+	style.border_color = Color("4b719b")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(20)
 	style.content_margin_left = 22.0
