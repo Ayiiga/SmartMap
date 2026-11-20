@@ -287,7 +287,7 @@ func _close_radio() -> void:
 func _open_pause() -> void:
 	if _pause_overlay != null:
 		return
-	GameState.save_local()
+	GameState.record_comet_result(_dodge_count, false)
 	_pause_overlay = _modal("SPACE MISSION PAUSED", "Your comet mission and best score are saved locally.")
 	var column: VBoxContainer = _pause_overlay.get_node("Backdrop/Panel/Column") as VBoxContainer
 	_add_action(column, "RESUME DODGING", _close_pause, true)
@@ -355,11 +355,12 @@ func _retry() -> void:
 	get_tree().reload_current_scene()
 
 func _settings() -> void:
+	GameState.record_comet_result(_dodge_count, false)
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/ui/settings_screen.tscn")
 
 func _menu() -> void:
-	GameState.save_local()
+	GameState.record_comet_result(_dodge_count, false)
 	get_tree().paused = false
 	get_tree().change_scene_to_file(GameState.MENU)
 
