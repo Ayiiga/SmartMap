@@ -95,6 +95,16 @@ jobs:
           grep -q 'PASS: Twelve astronauts' /tmp/godot-test2.log
           grep -q 'PASS: Bundled original WAV music' /tmp/godot-test3.log
           grep -q 'PASS: Moon/Mars guided touchdown' /tmp/godot-test4.log
+      - name: Boot real menu, three crew and planet scenes; test landing buttons
+        run: |
+          set -eu
+          timeout 120s godot --headless --path . res://tests/phase4_runtime_smoke.tscn > /tmp/odyssey-ui.log 2>&1 || { cat /tmp/odyssey-ui.log; exit 1; }
+          cat /tmp/odyssey-ui.log
+          if grep -Ei 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/odyssey-ui.log | grep -Eiv 'ERROR: [0-9]+ resources still in use at exit'; then
+            echo 'Runtime errors detected in real Godot scenes' >&2
+            exit 1
+          fi
+          grep -q 'PASS: Main menu, 3-crew screen' /tmp/odyssey-ui.log
       - name: Create disposable debug-signing key
         run: |
           set -eu
