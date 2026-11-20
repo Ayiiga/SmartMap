@@ -1,0 +1,62 @@
+name: SPACE ODYSSEY · Publish Moon and Mars Preview APK
+on:
+  push:
+    branches: [feature/space-odyssey-lunar-mars-progression]
+    paths: [.github/workflows/space-odyssey-moon-mars-download.yml]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout dedicated public APK branch
+        uses: actions/checkout@v4
+        with:
+          ref: space-odyssey-apk
+          persist-credentials: true
+      - name: Download the validated Godot build (not an unverified source artifact)
+        uses: actions/download-artifact@v4
+        with:
+          name: SPACE-ODYSSEY-Android-Debug
+          run-id: 44839832638
+          github-token: ${{ github.token }}
+          path: received
+      - name: Verify APK SHA256 and ZIP integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s received/SPACE_ODYSSEY_Debug.apk
+          expected="$(cut -d ' ' -f1 received/SPACE_ODYSSEY_Debug.apk.sha256)"
+          printf '%s  %s\n' "$expected" received/SPACE_ODYSSEY_Debug.apk | sha256sum -c -
+          unzip -tq received/SPACE_ODYSSEY_Debug.apk
+          cp received/SPACE_ODYSSEY_Debug.apk SPACE_ODYSSEY_Moon_Mars_Preview.apk
+          sha256sum SPACE_ODYSSEY_Moon_Mars_Preview.apk > SPACE_ODYSSEY_Moon_Mars_Preview.apk.sha256
+          cat > MOON_MARS_INSTALL_README.txt <<EOF
+          SPACE ODYSSEY - MOON & MARS - OFFLINE ANDROID DEBUG PREVIEW
+          Version: 0.4.0; Android application ID: com.giga3enterprise.spaceodyssey.missionpreview
+          Source: https://github.com/Ayiiga/SmartMap/tree/feature/space-odyssey-lunar-mars-progression
+          Verified build: https://github.com/Ayiiga/SmartMap/actions/runs/44839832638
+          SHA256: $expected
+
+          NEW: Pick one of 4 Flight Cadets, 4 Rocket Pilots and 4 Science Explorers to assemble a three-person crew.
+          Launch from Earth, reach guided orbit, start Moon transfer, use touch steering and thrust to deploy legs and land.
+          Earn GAME ONLY coins, science points, letter grades and trophies. Upgrade engine/landing gear after Moon landing to unlock Mars.
+          Free restart if crashed, or checkpoint recovery using 150 earned GAME coins where a safe checkpoint exists.
+          All gameplay, music, radio messages, mission data and saves are offline. No real-money purchases.
+          Planet-to-planet journeys are deliberately simplified, not physically exact simulations.
+
+          This preview is a SEPARATE Android app with its own fresh local save. It can remain installed alongside the older SPACE ODYSSEY app without uninstalling or deleting the old saves.
+          Device FPS, touch interactions, UI layout and stability still require real-phone QA before any Google Play release.
+          EOF
+          rm -rf received
+      - name: Commit verified APK for direct phone download
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add SPACE_ODYSSEY_Moon_Mars_Preview.apk SPACE_ODYSSEY_Moon_Mars_Preview.apk.sha256 MOON_MARS_INSTALL_README.txt
+          git commit -m 'build(android): publish verified offline Moon and Mars preview APK'
+          git push origin HEAD:space-odyssey-apk
