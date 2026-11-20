@@ -100,9 +100,6 @@ func assign_crew(role: String, crew_id: String) -> bool:
 	crew_confirmed = false
 	if role == "Flight Cadets":
 		selected_astronaut = crew_id
-	for role: String in Crew.GROUPS:
-		if crew_id in Crew.GROUPS[role]:
-			crew_slots[role] = crew_id
 	save_local()
 	progress_changed.emit()
 	return true
