@@ -29,4 +29,5 @@ assert "GameState.buy_upgrade" in workshop
 assert "FLY TO THE MOON" in menu and "FLY TO MARS" in menu
 assert "GAME COINS" in rewards and "BEST GRADE" in rewards
 assert 'permissions/internet=false' in export
+assert 'spaceodyssey.missionpreview' in export, 'Isolated debug application ID prevents losing older local saves'
 print("PASS: three astronauts, piloted Moon/Mars lander, local saved checkpoint, virtual upgrades, grades and rewards")
