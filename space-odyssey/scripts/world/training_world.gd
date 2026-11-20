@@ -13,6 +13,7 @@ var _performance: Label
 var _crew_label: Label
 var _crew_overlay: CanvasLayer
 const Crew = preload("res://scripts/player/crew_catalog.gd")
+const RocketArt = preload("res://scripts/rocket/rocket_art.gd")
 var _targets: Dictionary = {}
 var _sample_mesh: MeshInstance3D
 var _sample_platform: MeshInstance3D
@@ -38,7 +39,7 @@ func _ready() -> void:
 		_sample_mesh.visible = false
 		_sample_platform.visible = false
 	if GameState.training_complete:
-		_status.text = "Training complete! Walk to the rocket, then tap INTERACT to board."
+		_status.text = "Training complete! Tap START ROCKET MISSION to fly."
 
 func _physics_process(_delta: float) -> void:
 	if _player.global_position.y < -8.0:
@@ -69,12 +70,12 @@ func _process(delta: float) -> void:
 func _nearby_hint() -> String:
 	var target: Area3D = _choose_target()
 	if target == null:
-		return "WASD / left joystick: move    •    Drag right side: look    •    SPACE: jump    •    E: interact"
+		return "Move with joystick · Drag to look · Tap START ROCKET MISSION whenever you are ready"
 	match target.name:
 		"Sample":
 			return "Geological practice sample nearby — press E or INTERACT"
 		"Craft":
-			return "Press E or INTERACT to board the rocket" if GameState.training_complete else "Press E or INTERACT to inspect the rocket"
+			return "Tap INTERACT to board the rocket — no training required"
 		"Beacon":
 			return "Navigation beacon — approach to register your first objective"
 	return "Explore the training station"
@@ -113,18 +114,14 @@ func _interact() -> void:
 			else:
 				_set_status("Follow the objectives in order. Reach the beacon first.")
 		"Craft":
-			if GameState.training_complete:
-				GameState.save_checkpoint(_player.position)
-				GameState.start_launch_mission(GameState.flight_complete)
-			elif GameState.objective_index == 2:
-				GameState.save_checkpoint(_player.position)
-				MissionManager.record_event("interact_spacecraft")
-				_set_status("Spacecraft inspected — astronaut training complete!")
-				_show_complete()
-			else:
-				_set_status("The rocket is ready after your training objectives.")
+			GameState.save_checkpoint(_player.position)
+			GameState.start_launch_mission(true)
 		"Beacon":
 			_set_status("Beacon coordinates confirmed. Walk closer to activate it.")
+
+func _go_launch() -> void:
+	GameState.save_checkpoint(_player.position)
+	GameState.start_launch_mission(true)
 
 func _set_status(message: String) -> void:
 	_status.text = message
@@ -235,43 +232,21 @@ func _make_sample(position3: Vector3) -> void:
 	_world_label("SAMPLE COLLECTION", position3 + Vector3(0, 2.2, 0))
 
 func _make_spacecraft(position3: Vector3) -> void:
-	var body: MeshInstance3D = MeshInstance3D.new()
-	body.name = "Spacecraft rocket body"
-	var cylinder: CylinderMesh = CylinderMesh.new()
-	cylinder.top_radius = 1.3
-	cylinder.bottom_radius = 1.3
-	cylinder.height = 10.0
-	cylinder.radial_segments = 14
-	body.mesh = cylinder
-	body.position = position3 + Vector3(0, 5.0, 0)
-	body.material_override = _mat(Color("d5e6ed"))
-	add_child(body)
+	# Same smooth, detailed 3D model is used here and in flight.
+	var parts: Dictionary = RocketArt.build(self, 2)
+	var appearance: Node3D = parts["root"] as Node3D
+	appearance.position = position3
 	var rocket_collision: StaticBody3D = StaticBody3D.new()
 	rocket_collision.position = position3 + Vector3(0, 5.0, 0)
 	var rocket_shape: CollisionShape3D = CollisionShape3D.new()
 	var physical: CylinderShape3D = CylinderShape3D.new()
-	physical.radius = 1.3
-	physical.height = 10.0
+	physical.radius = 1.25
+	physical.height = 9.5
 	rocket_shape.shape = physical
 	rocket_collision.add_child(rocket_shape)
 	add_child(rocket_collision)
-	var nose: MeshInstance3D = MeshInstance3D.new()
-	var cone: CylinderMesh = CylinderMesh.new()
-	cone.top_radius = 0.0
-	cone.bottom_radius = 1.3
-	cone.height = 2.8
-	nose.mesh = cone
-	nose.position = position3 + Vector3(0, 11.3, 0)
-	nose.material_override = _mat(Color("ec8d65"))
-	add_child(nose)
-	for i in range(4):
-		var a: float = TAU * float(i) / 4.0
-		var dx: float = cos(a)
-		var dz: float = sin(a)
-		_box("Rocket landing support", position3 + Vector3(dx * 1.9, 1.2, dz * 1.9), Vector3(0.6, 2.4, 0.65), Color("546675"), false)
-		_box("Rocket base fin", position3 + Vector3(dx * 1.35, 1.4, dz * 1.35), Vector3(0.7, 2.8, 0.7), Color("b35b4d"), false)
-	_target("Craft", position3 + Vector3(0, 1.5, 2.5), 1.5)
-	_world_label("TRAINER MK I — BOARD AFTER TRAINING", position3 + Vector3(0, 13.2, 0))
+	_target("Craft", position3 + Vector3(0, 1.5, 2.5), 1.8)
+	_world_label("ROCKET READY — TAP BOARD OR LAUNCH NOW", position3 + Vector3(0, 15.3, 0))
 
 func _world_label(text: String, pos: Vector3) -> void:
 	var l: Label3D = Label3D.new()
@@ -310,6 +285,10 @@ func _build_hud() -> void:
 	right.offset_right = -18
 	right.offset_top = 15
 	root.add_child(right)
+	var instant: Button = UI.button("🚀  START ROCKET MISSION", true)
+	instant.custom_minimum_size = Vector2(288, 65)
+	right.add_child(instant)
+	instant.pressed.connect(_go_launch)
 	var pause: Button = UI.button("PAUSE / SAVE")
 	pause.custom_minimum_size = Vector2(220, 49)
 	right.add_child(pause)
