@@ -8,6 +8,7 @@ signal stage_separated
 signal orbit_reached
 signal failed(reason: String)
 const RocketMath = preload("res://scripts/rocket/rocket_math.gd")
+const RocketArt = preload("res://scripts/rocket/rocket_art.gd")
 
 enum Phase { READY, STAGE_ONE, SEPARATION, STAGE_TWO, ORBIT, FAILED }
 const TIME_SCALE: float = 2.3
@@ -218,51 +219,7 @@ func restore(data: Dictionary) -> void:
 		_lower_stage.visible = phase != Phase.STAGE_TWO and phase != Phase.ORBIT
 
 func _build_rocket() -> void:
-	_rocket_visual = Node3D.new()
-	add_child(_rocket_visual)
-	_lower_stage = Node3D.new()
-	_rocket_visual.add_child(_lower_stage)
-	_mesh_cylinder(_lower_stage, Vector3(0, 4.0, 0), 1.32, 7.8, Color("dbe9f2"))
-	_mesh_cylinder(_lower_stage, Vector3(0, 0.9, 0), 1.35, 1.4, Color("537da1"))
-	for i: int in range(4):
-		var angle: float = TAU * float(i) / 4.0
-		_mesh_box(_lower_stage, Vector3(cos(angle) * 1.45, 1.75, sin(angle) * 1.45), Vector3(0.65, 2.7, 0.8), Color("ed9457"))
-	for i: int in range(boosters):
-		_mesh_cylinder(_lower_stage, Vector3(-2.0 + float(i) * 4.0, 4.0, 0), 0.63, 6.1, Color("b4d1e4"))
-	_mesh_cylinder(_rocket_visual, Vector3(0, 10.2, 0), 1.08, 4.0, Color("8de0e2"))
-	var cone: CylinderMesh = CylinderMesh.new()
-	cone.bottom_radius = 1.1
-	cone.top_radius = 0.04
-	cone.height = 2.8
-	cone.radial_segments = 12
-	_mesh(_rocket_visual, cone, Vector3(0, 13.5, 0), Color("f18c65"))
-	var flame_mesh: CylinderMesh = CylinderMesh.new()
-	flame_mesh.top_radius = 0.55
-	flame_mesh.bottom_radius = 0.02
-	flame_mesh.height = 3.5
-	_flame = _mesh(_rocket_visual, flame_mesh, Vector3(0, -1.55, 0), Color("ffd066"))
-	_flame.visible = false
-
-func _mesh_cylinder(parent: Node3D, offset: Vector3, radius: float, height: float, color: Color) -> void:
-	var mesh: CylinderMesh = CylinderMesh.new()
-	mesh.top_radius = radius
-	mesh.bottom_radius = radius
-	mesh.height = height
-	mesh.radial_segments = 14
-	_mesh(parent, mesh, offset, color)
-
-func _mesh_box(parent: Node3D, offset: Vector3, size3: Vector3, color: Color) -> void:
-	var mesh: BoxMesh = BoxMesh.new()
-	mesh.size = size3
-	_mesh(parent, mesh, offset, color)
-
-func _mesh(parent: Node3D, mesh: Mesh, offset: Vector3, color: Color) -> MeshInstance3D:
-	var item: MeshInstance3D = MeshInstance3D.new()
-	item.mesh = mesh
-	item.position = offset
-	var material: StandardMaterial3D = StandardMaterial3D.new()
-	material.albedo_color = color
-	material.roughness = 0.72
-	item.material_override = material
-	parent.add_child(item)
-	return item
+	var pieces: Dictionary = RocketArt.build(self, boosters)
+	_rocket_visual = pieces["root"] as Node3D
+	_lower_stage = pieces["lower_stage"] as Node3D
+	_flame = pieces["flame"] as MeshInstance3D
