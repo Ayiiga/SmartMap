@@ -22,7 +22,7 @@ func _ready() -> void:
 	left.add_child(UI.label("JOURNEY BEYOND EARTH", 22, UI.ACCENT))
 	left.add_child(UI.label("An offline astronaut adventure\nEarth training • Rockets • The Moon • Beyond", 19, UI.MUTED))
 	left.add_child(UI.label("TAP PLAY ROCKET TO LAUNCH IMMEDIATELY", 19, Color("8bd9bb")))
-	left.add_child(UI.label("Beginner mode ON · Fly, separate stage, enter orbit", 16, UI.ACCENT))
+	left.add_child(UI.label("Beginner launch · Ship radio · Dodge comets after orbit", 16, UI.ACCENT))
 	var panel: PanelContainer = UI.panel()
 	layout.add_child(panel)
 	var buttons: VBoxContainer = VBoxContainer.new()
@@ -33,6 +33,10 @@ func _ready() -> void:
 	cont.disabled = not GameState.can_continue()
 	if cont.disabled:
 		cont.tooltip_text = "Start a new game first"
+	var comets: Button = _add(buttons, "SPACE MISSION · DODGE COMETS", false, func() -> void: GameState.start_comet_mission())
+	comets.disabled = not GameState.flight_complete
+	if comets.disabled:
+		comets.tooltip_text = "Reach Earth orbit first to unlock the comet mission"
 	_add(buttons, "CHOOSE ASTRONAUT", false, func() -> void: _open("crew_screen"))
 	_add(buttons, "EARTH TRAINING (OPTIONAL)", false, func() -> void: GameState.new_game())
 	_add(buttons, "MISSIONS", false, func() -> void: _open("missions_screen"))
