@@ -38,10 +38,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Check tools
+      - name: Configure Godot export templates and Java 17
         run: |
           set -eu
+          mkdir -p "$HOME/.local/share/godot/export_templates" "$HOME/.config/godot"
+          test -d /root/.local/share/godot/export_templates/4.4.1.stable
+          cp -a /root/.local/share/godot/export_templates/4.4.1.stable "$HOME/.local/share/godot/export_templates/"
+          if test -d /root/.config/godot; then
+            cp -a /root/.config/godot/. "$HOME/.config/godot/"
+          fi
+          test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
+          test -x /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+          SETTINGS="$HOME/.config/godot/editor_settings-4.4.tres"
+          if ! test -f "$SETTINGS"; then
+            printf '[gd_resource type="EditorSettings" format=3]\n' > "$SETTINGS"
+          fi
+          if ! grep -q 'export/android/java_sdk_path' "$SETTINGS"; then
+            printf 'export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"\n' >> "$SETTINGS"
+          fi
           godot --version
+          java -version
       - name: Parse Godot project
         run: |
           set -eu
@@ -54,6 +70,12 @@ jobs:
           godot --headless --path . --script res://tests/phase1_smoke.gd > /tmp/godot-test1.log 2>&1 || { cat /tmp/godot-test1.log; exit 1; }
           godot --headless --path . --script res://tests/phase2_smoke.gd > /tmp/godot-test2.log 2>&1 || { cat /tmp/godot-test2.log; exit 1; }
           cat /tmp/godot-test1.log /tmp/godot-test2.log
+          if grep -Eiq 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/godot-test1.log /tmp/godot-test2.log; then
+            echo 'Godot emitted compilation or runtime errors — stop before APK export' >&2
+            exit 1
+          fi
+          grep -q 'PASS: Phase 1' /tmp/godot-test1.log
+          grep -q 'PASS: Twelve astronauts' /tmp/godot-test2.log
       - name: Create disposable debug-signing key
         run: |
           set -eu
