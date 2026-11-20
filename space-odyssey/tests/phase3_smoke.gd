@@ -10,7 +10,12 @@ func _check() -> void:
 	var errors: Array[String] = []
 	var sample_manager: Node = AUDIO.new()
 	var rhythm: AudioStreamWAV = sample_manager._make_rhythm()
-	if rhythm.data.is_empty() or rhythm.mix_rate != 16000 or rhythm.loop_mode != AudioStreamWAV.LOOP_FORWARD:
+	var dynamic_sample: bool = false
+	for index: int in range(100, mini(3000, rhythm.data.size()), 3):
+		if rhythm.data[index] != 0:
+			dynamic_sample = true
+			break
+	if rhythm.data.is_empty() or rhythm.mix_rate != 16000 or rhythm.loop_mode != AudioStreamWAV.LOOP_FORWARD or not dynamic_sample:
 		errors.append("Offline rhythm did not produce looped 16-bit PCM audio")
 	for effect_name: String in ["launch", "stage", "warning", "impact", "dodge", "success", "scan", "radio"]:
 		var effect: AudioStreamWAV = sample_manager._make_effect(effect_name)
