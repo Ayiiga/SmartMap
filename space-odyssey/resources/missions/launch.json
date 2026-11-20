@@ -1,0 +1,14 @@
+{
+  "id": "launch_001",
+  "title": "Your First Rocket — Earth to Orbit",
+  "destination": "Earth / simplified low Earth orbit",
+  "difficulty": "Beginner",
+  "reward_science_points": 150,
+  "unlocks_after": "training_001",
+  "realism_note": "Earth gravity, mass loss and thrust are simulated with a simplified one-axis pitch profile; orbital insertion is guided and time-compressed, not a numerical orbit solver.",
+  "objectives": [
+    {"id":"ignite","text":"Tap LAUNCH to lift off. Fuel, height and speed will start changing.","success":"rocket_ignited","failure":"rocket_crashed"},
+    {"id":"separate","text":"When the first fuel tank is empty, tap SEPARATE STAGE.","success":"stage_1_separated","failure":"rocket_crashed"},
+    {"id":"insert","text":"Keep climbing until GUIDED ORBIT lights up, then tap it.","success":"guided_orbit_inserted","failure":"rocket_crashed"}
+  ]
+}

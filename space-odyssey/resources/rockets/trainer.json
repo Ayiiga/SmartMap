@@ -1,0 +1,11 @@
+{
+  "id": "trainer_mk1",
+  "name": "Trainer Mk I",
+  "phase": "Phase C flight functionality planned",
+  "parts": [
+    {"id":"capsule", "name":"Command capsule", "dry_mass_kg":1500, "attachment_points":["bottom"], "type":"command"},
+    {"id":"engine", "name":"Liquid engine", "dry_mass_kg":550, "thrust_newtons":85000, "isp_seconds":295, "attachment_points":["top"], "type":"engine"},
+    {"id":"tank", "name":"Fuel tank", "dry_mass_kg":250, "fuel_kg":1200, "attachment_points":["top", "bottom"], "type":"fuel_tank"},
+    {"id":"booster", "name":"Solid booster", "dry_mass_kg":180, "fuel_kg":420, "thrust_newtons":40000, "isp_seconds":220, "attachment_points":["side"], "type":"booster"}
+  ]
+}

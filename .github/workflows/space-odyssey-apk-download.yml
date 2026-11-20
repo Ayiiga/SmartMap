@@ -1,0 +1,48 @@
+name: SPACE ODYSSEY · Publish APK Direct Download
+on:
+  push:
+    branches: [feature/space-odyssey-phase2-android]
+    paths:
+      - .github/workflows/space-odyssey-apk-download.yml
+permissions:
+  contents: write
+  actions: read
+jobs:
+  direct-download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: space-odyssey-apk
+          persist-credentials: true
+      - name: Retrieve APK from successful, source-validated Godot build
+        uses: actions/download-artifact@v4
+        with:
+          name: SPACE-ODYSSEY-Android-Debug
+          run-id: 44829970676
+          github-token: ${{ github.token }}
+          path: tmp-apk
+      - name: Validate and store APK on public download branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_JOB" = "direct-download"
+          test -s tmp-apk/SPACE_ODYSSEY_Debug.apk
+          expected="$(cut -d ' ' -f1 tmp-apk/SPACE_ODYSSEY_Debug.apk.sha256)"
+          printf '%s  %s\n' "$expected" tmp-apk/SPACE_ODYSSEY_Debug.apk | sha256sum -c -
+          unzip -tq tmp-apk/SPACE_ODYSSEY_Debug.apk
+          cp tmp-apk/SPACE_ODYSSEY_Debug.apk SPACE_ODYSSEY_Easy_Launch_3D.apk
+          printf 'SPACE ODYSSEY EASY LAUNCH APK\nSource commit: 01e9a29d2931f8f737e7368bc0a0c7a7915d4a54\nValidated build: https://github.com/Ayiiga/SmartMap/actions/runs/44829970676\nSHA256: %s\n\nThis is a debug preview. If the earlier preview is installed, uninstall it before installing this one because each debug export uses a different temporary signature. Uninstalling removes the previous local save.\n' "$expected" > APK_README.txt
+          sha256sum SPACE_ODYSSEY_Easy_Launch_3D.apk > SPACE_ODYSSEY_Easy_Launch_3D.apk.sha256
+          rm -rf tmp-apk
+      - name: Commit APK to dedicated download branch without modifying main
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = "feature/space-odyssey-phase2-android"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add SPACE_ODYSSEY_Easy_Launch_3D.apk SPACE_ODYSSEY_Easy_Launch_3D.apk.sha256 APK_README.txt
+          git commit -m 'build: publish tested SPACE ODYSSEY easy launch APK'
+          git push origin HEAD:space-odyssey-apk

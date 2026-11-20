@@ -1,0 +1,16 @@
+{
+  "id": "training_001",
+  "title": "First Steps — Astronaut Training",
+  "destination": "Earth · Training Base",
+  "status": "playable",
+  "instructions": "Use the joystick or WASD to walk. Interact with the sample and spacecraft inspection station.",
+  "objectives": [
+    {"id": "beacon", "text": "Reach the illuminated navigation beacon", "success": "player_near_beacon"},
+    {"id": "sample", "text": "Collect a geological practice sample", "success": "interact_sample"},
+    {"id": "craft", "text": "Inspect the parked spacecraft", "success": "interact_spacecraft"}
+  ],
+  "failure_conditions": ["player_reset_requested"],
+  "rewards": {"science_points": 50},
+  "unlock_requirements": [],
+  "checkpoint": "autosave_on_each_objective"
+}

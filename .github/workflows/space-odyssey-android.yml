@@ -1,0 +1,118 @@
+name: SPACE ODYSSEY · Build Android APK
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'space-odyssey/**'
+      - '.github/workflows/space-odyssey-android.yml'
+  push:
+    branches:
+      - 'feature/space-odyssey-phase2-android'
+      - 'feature/space-odyssey-radio-comets-audio'
+      - 'main'
+    paths:
+      - 'space-odyssey/**'
+      - '.github/workflows/space-odyssey-android.yml'
+concurrency:
+  group: odyssey-android-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  static-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check mission data and source contracts
+        working-directory: space-odyssey
+        run: |
+          set -eu
+          python3 tests/phase1_contract_check.py
+          python3 tests/phase2_contract_check.py
+          python3 tests/phase2_release_contract_check.py
+          python3 tests/beginner_accessibility_contract.py
+          python3 tests/phase3_radio_audio_contract.py
+  test-build:
+    needs: static-source
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    container:
+      image: barichello/godot-ci:4.4.1
+    defaults:
+      run:
+        working-directory: space-odyssey
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Configure Godot export templates and Java 17
+        run: |
+          set -eu
+          mkdir -p "$HOME/.local/share/godot/export_templates" "$HOME/.config/godot"
+          test -d /root/.local/share/godot/export_templates/4.4.1.stable
+          cp -a /root/.local/share/godot/export_templates/4.4.1.stable "$HOME/.local/share/godot/export_templates/"
+          if test -d /root/.config/godot; then
+            cp -a /root/.config/godot/. "$HOME/.config/godot/"
+          fi
+          test -s "$HOME/.local/share/godot/export_templates/4.4.1.stable/android_debug.apk"
+          test -x /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+          SETTINGS="$HOME/.config/godot/editor_settings-4.4.tres"
+          if ! test -f "$SETTINGS"; then
+            printf '[gd_resource type="EditorSettings" format=3]\n' > "$SETTINGS"
+          fi
+          if ! grep -q 'export/android/java_sdk_path' "$SETTINGS"; then
+            printf 'export/android/java_sdk_path = "/usr/lib/jvm/java-17-openjdk-amd64"\n' >> "$SETTINGS"
+          fi
+          godot --version
+          java -version
+      - name: Parse Godot project
+        run: |
+          set -eu
+          godot --headless --editor --path . --quit > /tmp/godot-import.log 2>&1 || { cat /tmp/godot-import.log; exit 1; }
+          cat /tmp/godot-import.log
+          if grep -Eiq 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/godot-import.log; then exit 1; fi
+      - name: Run game smoke tests
+        run: |
+          set -eu
+          echo "== Phase 1 engine smoke ==" 
+          timeout 90s godot --headless --path . --script res://tests/phase1_smoke.gd > /tmp/godot-test1.log 2>&1 || { cat /tmp/godot-test1.log; exit 1; }
+          echo "== Phase 2 rocket smoke ==" 
+          timeout 90s godot --headless --path . --script res://tests/phase2_smoke.gd > /tmp/godot-test2.log 2>&1 || { cat /tmp/godot-test2.log; exit 1; }
+          echo "== Phase 2.5 sound / comets smoke ==" 
+          timeout 90s godot --headless --path . --script res://tests/phase3_smoke.gd > /tmp/godot-test3.log 2>&1 || { cat /tmp/godot-test3.log; exit 1; }
+          cat /tmp/godot-test1.log /tmp/godot-test2.log /tmp/godot-test3.log
+          # Standalone Godot --script tests can emit a harmless engine shutdown
+          # warning: "ERROR: 1 resources still in use at exit". Reject all
+          # other errors and script parse/compilation failures.
+          if grep -Ei 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/godot-test1.log /tmp/godot-test2.log /tmp/godot-test3.log | grep -Eiv 'ERROR: [0-9]+ resources still in use at exit'; then
+            echo 'Godot emitted compilation or runtime errors — stop before APK export' >&2
+            exit 1
+          fi
+          grep -q 'PASS: Phase 1' /tmp/godot-test1.log
+          grep -q 'PASS: Twelve astronauts' /tmp/godot-test2.log
+          grep -q 'PASS: Bundled original WAV music' /tmp/godot-test3.log
+      - name: Create disposable debug-signing key
+        run: |
+          set -eu
+          mkdir -p "$HOME/.android"
+          keytool -genkeypair -noprompt -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=Android Debug,O=Android,C=US'
+          echo "GODOT_ANDROID_KEYSTORE_DEBUG_PATH=$HOME/.android/debug.keystore" >> "$GITHUB_ENV"
+          echo 'GODOT_ANDROID_KEYSTORE_DEBUG_USER=androiddebugkey' >> "$GITHUB_ENV"
+          echo 'GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD=android' >> "$GITHUB_ENV"
+      - name: Export ARM64 APK
+        run: |
+          set -eu
+          mkdir -p build
+          godot --headless --path . --export-debug Android build/SPACE_ODYSSEY_Debug.apk > /tmp/godot-export.log 2>&1 || { cat /tmp/godot-export.log; exit 1; }
+          cat /tmp/godot-export.log
+          test -s build/SPACE_ODYSSEY_Debug.apk
+          unzip -tq build/SPACE_ODYSSEY_Debug.apk
+          sha256sum build/SPACE_ODYSSEY_Debug.apk > build/SPACE_ODYSSEY_Debug.apk.sha256
+      - name: Upload verified APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: SPACE-ODYSSEY-Android-Debug
+          path: |
+            space-odyssey/build/SPACE_ODYSSEY_Debug.apk
+            space-odyssey/build/SPACE_ODYSSEY_Debug.apk.sha256
+          if-no-files-found: error
+          retention-days: 30
