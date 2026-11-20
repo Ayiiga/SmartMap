@@ -17,7 +17,14 @@ func _ready() -> void:
 	col.add_child(launch)
 	launch.pressed.connect(func() -> void: GameState.start_launch_mission(GameState.flight_complete))
 	col.add_child(UI.separator())
-	for entry: String in ["03  Lunar Transfer — Phase 3", "04  Moon Landing — Phase 3", "05  Lunar Samples — Phase 3", "06  Mars Expedition — Future"]:
+	col.add_child(UI.label("03  ·  COMET CORRIDOR  |  SHIP RADIO + DODGE", 23, UI.ACCENT))
+	col.add_child(UI.label("Status: %s · Best: %d safe dodges" % ["UNLOCKED" if GameState.flight_complete else "LOCKED — finish Earth orbit", GameState.comet_best], 17))
+	var comets: Button = UI.button("PLAY COMET DODGE" if not GameState.comet_completed else "REPLAY COMET DODGE", true)
+	comets.disabled = not GameState.flight_complete
+	col.add_child(comets)
+	comets.pressed.connect(func() -> void: GameState.start_comet_mission())
+	col.add_child(UI.separator())
+	for entry: String in ["04  Lunar Transfer — Future", "05  Moon Landing — Future", "06  Mars Expedition — Future"]:
 		col.add_child(UI.label("LOCKED  ·  %s" % entry, 17, UI.MUTED))
 	var back: Button = UI.button("BACK")
 	col.add_child(back)
