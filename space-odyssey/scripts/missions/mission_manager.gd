@@ -2,6 +2,7 @@ extends Node
 ## Data-driven mission definitions and progression in Phase 1.
 const TRAINING_PATH: String = "res://resources/missions/training.json"
 const LAUNCH_PATH: String = "res://resources/missions/launch.json"
+const COMET_PATH: String = "res://resources/missions/comet_001.json"
 var missions: Dictionary = {}
 
 func _ready() -> void:
@@ -19,6 +20,12 @@ func _ready() -> void:
 		launch.close()
 		if data is Dictionary:
 			missions[str(data.get("id", "launch_001"))] = data
+	var comet_file: FileAccess = FileAccess.open(COMET_PATH, FileAccess.READ)
+	if comet_file != null:
+		var comet_data: Variant = JSON.parse_string(comet_file.get_as_text())
+		comet_file.close()
+		if comet_data is Dictionary:
+			missions[str(comet_data.get("id", "comet_001"))] = comet_data
 
 func flight_objective() -> String:
 	if GameState.flight_complete:
