@@ -20,7 +20,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: SPACE-ODYSSEY-Android-Debug
-          run-id: 44839832638
+          run-id: 44840245392
           github-token: ${{ github.token }}
           path: received
       - name: Verify APK SHA256 and ZIP integrity
@@ -37,7 +37,7 @@ jobs:
           SPACE ODYSSEY - MOON & MARS - OFFLINE ANDROID DEBUG PREVIEW
           Version: 0.4.0; Android application ID: com.giga3enterprise.spaceodyssey.missionpreview
           Source: https://github.com/Ayiiga/SmartMap/tree/feature/space-odyssey-lunar-mars-progression
-          Verified build: https://github.com/Ayiiga/SmartMap/actions/runs/44839832638
+          Verified build: https://github.com/Ayiiga/SmartMap/actions/runs/44840245392
           SHA256: $expected
 
           NEW: Pick one of 4 Flight Cadets, 4 Rocket Pilots and 4 Science Explorers to assemble a three-person crew.
