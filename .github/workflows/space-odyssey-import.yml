@@ -1,0 +1,57 @@
+name: SPACE ODYSSEY · Import Godot source
+on:
+  push:
+    branches:
+      - feature/space-odyssey-phase2-android
+    paths:
+      - .github/workflows/space-odyssey-import.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  import-source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Fetch verified original source
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --connect-timeout 20 --max-time 180 -o /tmp/odyssey.zip 'https://d2ol7oe51mr4n9.cloudfront.net/user_3Jm8iZ27GBiMSLizSEsUD80Qark/a68070fe-8df7-424e-b878-e1325e088c7e.zip'
+          echo '94c170f0664afcd5e7a003a54941290ec34bea247c9f78d4d5e4557d384b5ba1  /tmp/odyssey.zip' | sha256sum -c -
+      - name: Extract and verify game files
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import zipfile
+          from pathlib import Path
+          with zipfile.ZipFile('/tmp/odyssey.zip') as z:
+              for item in z.infolist():
+                  path = Path(item.filename)
+                  if path.is_absolute() or '..' in path.parts:
+                      raise ValueError('Unsafe ZIP path')
+                  if item.filename.startswith('space-odyssey/'):
+                      z.extract(item, '.')
+          for required in ['space-odyssey/project.godot', 'space-odyssey/scenes/ui/main_menu.tscn', 'space-odyssey/scripts/rocket/rocket_vehicle.gd', 'space-odyssey/tests/phase2_smoke.gd']:
+              if not Path(required).is_file():
+                  raise FileNotFoundError(required)
+          PY
+          cd space-odyssey
+          python3 tests/phase1_contract_check.py
+          python3 tests/phase2_contract_check.py
+          python3 tests/phase2_release_contract_check.py
+      - name: Commit source on isolated development branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REF_NAME" = 'feature/space-odyssey-phase2-android'
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add space-odyssey
+          if ! git diff --cached --quiet; then
+            git commit -m 'feat: import offline Godot SPACE ODYSSEY Phase 2'
+            git push origin HEAD:"$GITHUB_REF_NAME"
+          fi
