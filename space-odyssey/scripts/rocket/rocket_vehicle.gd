@@ -37,9 +37,21 @@ var _rocket_visual: Node3D
 var _lower_stage: Node3D
 var _flame: MeshInstance3D
 
+func _design() -> Dictionary:
+	var state: Node = get_node_or_null("/root/GameState")
+	if state != null:
+		var saved: Variant = state.get("rocket_design")
+		if saved is Dictionary:
+			return saved
+	return {"fuel_tanks": 1, "boosters": 0}
+
 func _ready() -> void:
-	configure(GameState.rocket_design)
-	assisted = bool(GameState.settings.get("assisted_controls", true))
+	configure(_design())
+	var state: Node = get_node_or_null("/root/GameState")
+	if state != null:
+		var opts: Variant = state.get("settings")
+		if opts is Dictionary:
+			assisted = bool(opts.get("assisted_controls", true))
 	_build_rocket()
 
 func configure(design: Dictionary) -> void:
@@ -172,13 +184,13 @@ func snapshot() -> Dictionary:
 		"fuel_one_kg": fuel_one_kg, "fuel_two_kg": fuel_two_kg,
 		"throttle": throttle, "pitch_deg": pitch_deg,
 		"flight_seconds": flight_seconds,
-		"design": GameState.rocket_design.duplicate(true)
+		"design": _design().duplicate(true)
 	}
 
 func restore(data: Dictionary) -> void:
 	if data.is_empty():
 		return
-	var saved_design: Variant = data.get("design", GameState.rocket_design)
+	var saved_design: Variant = data.get("design", _design())
 	if saved_design is Dictionary:
 		configure(saved_design)
 		# A workshop redesign must not change the shape of a paused mission in progress.
