@@ -63,7 +63,7 @@ func _ready() -> void:
 
 func planet_unlocked(planet: String) -> bool:
 	if planet == "moon":
-		return flight_complete
+		return flight_complete or flight_rewards_claimed
 	if planet == "mars":
 		return bool(completed_planets.get("moon", false)) and int(upgrades.get("engine", 1)) >= 2 and int(upgrades.get("landing_gear", 1)) >= 2
 	return false
@@ -180,16 +180,11 @@ func award_landing(planet: String, grade: String, soft_landing: bool) -> void:
 	progress_changed.emit()
 
 func new_game() -> void:
+	# Optional training replay must not erase previously earned grades, coins or unlocks.
 	current_mission = "training_001"
-	flight_step = 0
-	flight_complete = false
-	flight_rewards_claimed = false
-	flight_checkpoint = {}
 	objective_index = 0
 	training_complete = false
-	science_points = 0
 	checkpoint_position = [0.0, 1.5, 10.0]
-	mission_rewards_claimed = false
 	# Player workshop designs are deliberately preserved across a new training run.
 	active_session = true
 	has_started = true
@@ -203,7 +198,8 @@ func new_rocket_game() -> void:
 		return
 	current_mission = "launch_001"
 	flight_step = 0
-	flight_complete = false
+	# A replay does not take away an already earned orbit or completed planet.
+	flight_complete = flight_complete or flight_rewards_claimed
 	flight_checkpoint = {}
 	objective_index = 0
 	training_complete = false
@@ -357,7 +353,7 @@ func start_launch_mission(reset_flight: bool = false) -> void:
 	current_mission = "launch_001"
 	if reset_flight or flight_checkpoint.is_empty():
 		flight_step = 0
-		flight_complete = false
+		flight_complete = flight_complete or flight_rewards_claimed
 		flight_checkpoint = {}
 	# Reward protection deliberately survives retries.
 	has_started = true
@@ -366,7 +362,7 @@ func start_launch_mission(reset_flight: bool = false) -> void:
 	get_tree().change_scene_to_file(FLIGHT)
 
 func record_flight_step(new_step: int) -> void:
-	if new_step != flight_step + 1 or flight_complete:
+	if new_step != flight_step + 1:
 		return
 	flight_step = new_step
 	if flight_step == 3:
