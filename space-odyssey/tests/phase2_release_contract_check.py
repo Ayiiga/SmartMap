@@ -61,7 +61,7 @@ assert 'SPACE ODYSSEY' in project
 assert 'gl_compatibility' in project
 assert 'window/handheld/orientation=0' in project
 assert 'platform="Android"' in preset
-assert 'package/unique_name="com.giga3enterprise.spaceodyssey"' in preset
+assert 'package/unique_name="com.giga3enterprise.spaceodyssey.missionpreview"' in preset
 assert 'permissions/internet=false' in preset
 assert 'architectures/arm64-v8a=true' in preset
 version_match = re.search(r'package/version_code=([0-9]+)', preset)
