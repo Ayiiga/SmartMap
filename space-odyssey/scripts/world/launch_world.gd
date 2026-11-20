@@ -258,7 +258,7 @@ func _update_ui() -> void:
 		RocketVehicle.Phase.ORBIT: stage_text = "ORBIT ACHIEVED"
 		RocketVehicle.Phase.FAILED: stage_text = "FLIGHT ENDED"
 	_telemetry.text = "HEIGHT  %d m\nSPEED   %d m/s\nFUEL      %d%%" % [roundi(_rocket.altitude_m), roundi(_rocket.current_speed_m_s()), _rocket.active_fuel_percent()]
-	_details.text = "%s\nThrottle %d%% · Mass %.0f kg\nPilot: %s" % [stage_text, roundi(_rocket.throttle * 100.0), _rocket.current_mass_kg(), str(Crew.profile_for(GameState.selected_astronaut)["name"])]
+	_details.text = "%s\nThrottle %d%% · Mass %.0f kg\nPilot: %s" % [stage_text, roundi(_rocket.throttle * 100.0), _rocket.current_mass_kg(), GameState.pilot_name()]
 	_assist_button.text = "GUIDED FLIGHT: ON" if _rocket.assisted else "GUIDED FLIGHT: OFF"
 	_launch_button.disabled = false
 	match _rocket.phase:
@@ -425,7 +425,7 @@ func _radio_guidance() -> void:
 		RocketVehicle.Phase.STAGE_TWO:
 			hint = "Keep thrust steady. When the orbit button unlocks, tap ENTER ORBIT."
 		RocketVehicle.Phase.ORBIT:
-			hint = "Earth orbit complete. Tap DODGE COMETS to enter the next mission."
+			hint = "Earth orbit complete. Tap FLY TO MOON to pilot your landing."
 		RocketVehicle.Phase.FAILED:
 			hint = "Tap RETRY for another safe launch."
 	GameAudio.communicate(hint)
@@ -441,6 +441,11 @@ func _settings() -> void:
 	_save_flight()
 	get_tree().paused = false
 	get_tree().change_scene_to_file("res://scenes/ui/settings_screen.tscn")
+
+func _moon_transfer() -> void:
+	_save_flight()
+	get_tree().paused = false
+	GameState.begin_transfer("moon")
 
 func _comet_mission() -> void:
 	_save_flight()
@@ -502,9 +507,12 @@ func _resume() -> void:
 func _show_completion() -> void:
 	if _finish_overlay != null and is_instance_valid(_finish_overlay):
 		return
-	_finish_overlay = _modal("YOU REACHED EARTH ORBIT!", "Mission 02 complete · 120 km guided orbit\n+150 science points on first completion\nNext: Comet dodge · Moon transfer planned later")
+	_finish_overlay = _modal("YOU REACHED EARTH ORBIT!", "Mission 02 complete · 120 km guided orbit\n+150 science points on first completion\nNext: Guided transfer and player-controlled Moon landing")
 	var actions: VBoxContainer = _finish_overlay.get_node("Center/Panel/Buttons") as VBoxContainer
-	var dodge: Button = UI.button("ENTER SPACE · DODGE COMETS", true)
+	var moon: Button = UI.button("FLY TO MOON  ·  PILOT THE LANDING", true)
+	actions.add_child(moon)
+	moon.pressed.connect(_moon_transfer)
+	var dodge: Button = UI.button("OPTIONAL: DODGE COMETS")
 	actions.add_child(dodge)
 	dodge.pressed.connect(_comet_mission)
 	var back: Button = UI.button("SAVE & MAIN MENU")
