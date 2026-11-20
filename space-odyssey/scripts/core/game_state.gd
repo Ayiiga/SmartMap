@@ -55,6 +55,20 @@ func new_game() -> void:
 	save_local()
 	get_tree().change_scene_to_file(TRAINING)
 
+## One-tap first flight. Training remains an optional learning mission.
+func new_rocket_game() -> void:
+	current_mission = "launch_001"
+	flight_step = 0
+	flight_complete = false
+	flight_checkpoint = {}
+	objective_index = 0
+	training_complete = false
+	checkpoint_position = [0.0, 1.5, 10.0]
+	active_session = true
+	has_started = true
+	save_local()
+	get_tree().change_scene_to_file(FLIGHT)
+
 func restart_training() -> void:
 	current_mission = "training_001"
 	objective_index = 0
@@ -136,8 +150,7 @@ func next_astronaut() -> void:
 	set_astronaut(ids[(ids.find(selected_astronaut) + 1) % ids.size()])
 
 func start_launch_mission(reset_flight: bool = false) -> void:
-	if not training_complete:
-		return
+	# Boarding and launching are available to all players; training is optional.
 	current_mission = "launch_001"
 	if reset_flight or flight_checkpoint.is_empty():
 		flight_step = 0
