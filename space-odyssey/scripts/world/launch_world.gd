@@ -23,6 +23,7 @@ var _autosave_timer: float = 0.0
 var _debris: Node3D
 var _debris_velocity: float = 0.0
 var _last_status: String = ""
+var _auto_step_timer: float = 0.0
 
 func _ready() -> void:
 	GameState.current_mission = "launch_001"
@@ -109,100 +110,89 @@ func _build_hud() -> void:
 	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(root)
-	var left: PanelContainer = UI.panel()
-	left.position = Vector2(16, 14)
-	left.custom_minimum_size = Vector2(330, 0)
-	root.add_child(left)
-	var info_col: VBoxContainer = VBoxContainer.new()
-	left.add_child(info_col)
-	info_col.add_child(UI.label("TRAINER MK I  ·  EARTH", 19, UI.ACCENT))
-	_telemetry = UI.label("Altitude 0 m", 22)
-	info_col.add_child(_telemetry)
-	_details = UI.label("Stage 1", 16, Color("9de3c7"))
-	info_col.add_child(_details)
-	var center: PanelContainer = UI.panel()
-	center.anchor_left = 0.32
-	center.anchor_right = 0.77
-	center.offset_top = 14
-	root.add_child(center)
-	var mission_col: VBoxContainer = VBoxContainer.new()
-	center.add_child(mission_col)
-	mission_col.add_child(UI.label("MISSION 02 · FIRST FLIGHT", 19, UI.ACCENT))
-	_instruction = UI.label("Tap LAUNCH to begin", 18)
-	mission_col.add_child(_instruction)
-	var upper: VBoxContainer = VBoxContainer.new()
-	upper.anchor_left = 1
-	upper.anchor_right = 1
-	upper.offset_left = -235
-	upper.offset_right = -16
-	upper.offset_top = 14
-	root.add_child(upper)
-	var pause: Button = _sized_button("PAUSE / SAVE", 210, 49)
-	upper.add_child(pause)
+	var telemetry_panel: PanelContainer = UI.panel()
+	telemetry_panel.position = Vector2(14, 12)
+	telemetry_panel.custom_minimum_size = Vector2(315, 0)
+	root.add_child(telemetry_panel)
+	var readings: VBoxContainer = VBoxContainer.new()
+	telemetry_panel.add_child(readings)
+	readings.add_child(UI.label("EARTH ROCKET · LIVE READINGS", 17, UI.ACCENT))
+	_telemetry = UI.label("Height: 0 m", 24)
+	readings.add_child(_telemetry)
+	_details = UI.label("Stage 1 · Ready", 15, Color("a8ead6"))
+	readings.add_child(_details)
+	var mission_panel: PanelContainer = UI.panel()
+	mission_panel.anchor_left = 0.32
+	mission_panel.anchor_right = 0.76
+	mission_panel.offset_top = 12
+	root.add_child(mission_panel)
+	var header: VBoxContainer = VBoxContainer.new()
+	mission_panel.add_child(header)
+	header.add_child(UI.label("FIRST FLIGHT · FOLLOW THE STEPS", 19, UI.ACCENT))
+	_instruction = UI.label("STEP 1/3 · Tap the big LAUNCH button", 18)
+	header.add_child(_instruction)
+	var pause: Button = UI.button("PAUSE / SAVE")
+	pause.anchor_left = 1.0
+	pause.anchor_right = 1.0
+	pause.offset_left = -230
+	pause.offset_right = -15
+	pause.offset_top = 14
+	pause.offset_bottom = 66
+	root.add_child(pause)
 	pause.pressed.connect(_toggle_pause)
 	_fps = UI.label("", 13, UI.ACCENT)
-	upper.add_child(_fps)
-	var action_col: VBoxContainer = VBoxContainer.new()
-	action_col.anchor_top = 1
-	action_col.anchor_bottom = 1
-	action_col.offset_left = 17
-	action_col.offset_right = 285
-	action_col.offset_top = -253
-	action_col.offset_bottom = -14
-	action_col.add_theme_constant_override("separation", 8)
-	root.add_child(action_col)
-	_launch_button = _sized_button("1  LAUNCH ROCKET", 250, 66, true)
-	action_col.add_child(_launch_button)
-	_launch_button.pressed.connect(_launch)
-	_separate_button = _sized_button("2  SEPARATE STAGE", 250, 66, true)
-	action_col.add_child(_separate_button)
-	_separate_button.pressed.connect(_stage)
-	_orbit_button = _sized_button("3  GUIDED ORBIT", 250, 66, true)
-	action_col.add_child(_orbit_button)
-	_orbit_button.pressed.connect(_orbit)
-	var controls: VBoxContainer = VBoxContainer.new()
-	controls.anchor_left = 1
-	controls.anchor_right = 1
-	controls.anchor_top = 1
-	controls.anchor_bottom = 1
-	controls.offset_left = -565
-	controls.offset_right = -18
-	controls.offset_top = -252
-	controls.offset_bottom = -10
-	controls.add_theme_constant_override("separation", 8)
-	root.add_child(controls)
-	controls.add_child(UI.label("FLIGHT CONTROLS", 16, UI.ACCENT))
-	var row_one: HBoxContainer = UI.row()
-	controls.add_child(row_one)
-	var less: Button = _sized_button("THROTTLE −", 165, 55)
-	row_one.add_child(less)
+	_fps.anchor_left = 1.0
+	_fps.anchor_right = 1.0
+	_fps.offset_left = -210
+	_fps.offset_top = 68
+	root.add_child(_fps)
+	var left_controls: VBoxContainer = VBoxContainer.new()
+	left_controls.anchor_top = 1.0
+	left_controls.anchor_bottom = 1.0
+	left_controls.offset_left = 20
+	left_controls.offset_right = 380
+	left_controls.offset_top = -175
+	left_controls.offset_bottom = -16
+	left_controls.add_theme_constant_override("separation", 7)
+	root.add_child(left_controls)
+	left_controls.add_child(UI.label("OPTIONAL: THROTTLE CONTROL", 15, UI.ACCENT))
+	var throttle_row: HBoxContainer = UI.row()
+	left_controls.add_child(throttle_row)
+	var less: Button = _sized_button("−  LESS", 146, 54)
+	throttle_row.add_child(less)
 	less.pressed.connect(func() -> void: _change_throttle(-0.1))
-	var more: Button = _sized_button("THROTTLE +", 165, 55)
-	row_one.add_child(more)
+	var more: Button = _sized_button("+  MORE", 146, 54)
+	throttle_row.add_child(more)
 	more.pressed.connect(func() -> void: _change_throttle(0.1))
-	var row_two: HBoxContainer = UI.row()
-	controls.add_child(row_two)
-	var down: Button = _sized_button("TILT −", 165, 55)
-	row_two.add_child(down)
-	down.pressed.connect(func() -> void: _steer(-5.0))
-	var up: Button = _sized_button("TILT +", 165, 55)
-	row_two.add_child(up)
-	up.pressed.connect(func() -> void: _steer(5.0))
-	_assist_button = _sized_button("ASSIST: ON", 200, 50)
-	controls.add_child(_assist_button)
+	_assist_button = _sized_button("GUIDED FLIGHT: ON", 295, 47)
+	left_controls.add_child(_assist_button)
 	_assist_button.pressed.connect(_toggle_assist)
-	var bottom: VBoxContainer = VBoxContainer.new()
-	bottom.anchor_left = 0.27
-	bottom.anchor_right = 0.55
-	bottom.anchor_top = 1
-	bottom.anchor_bottom = 1
-	bottom.offset_top = -170
-	bottom.offset_bottom = -25
-	root.add_child(bottom)
-	_status = UI.label("", 17, Color("9ce4c3"))
-	bottom.add_child(_status)
-	bottom.add_child(UI.label("L = Launch · X = Stage · O = Orbit · +/− = Throttle", 13, UI.MUTED))
-
+	var primary: VBoxContainer = VBoxContainer.new()
+	primary.anchor_left = 1.0
+	primary.anchor_right = 1.0
+	primary.anchor_top = 1.0
+	primary.anchor_bottom = 1.0
+	primary.offset_left = -345
+	primary.offset_right = -16
+	primary.offset_top = -156
+	primary.offset_bottom = -16
+	primary.add_theme_constant_override("separation", 6)
+	root.add_child(primary)
+	primary.add_child(UI.label("YOUR NEXT ACTION ↓", 17, Color("ffdf83")))
+	_launch_button = _sized_button("1  LAUNCH ROCKET", 318, 80, true)
+	primary.add_child(_launch_button)
+	_launch_button.pressed.connect(_next_step)
+	var center_status: VBoxContainer = VBoxContainer.new()
+	center_status.anchor_left = 0.34
+	center_status.anchor_right = 0.71
+	center_status.anchor_top = 1.0
+	center_status.anchor_bottom = 1.0
+	center_status.offset_top = -134
+	center_status.offset_bottom = -20
+	root.add_child(center_status)
+	_status = UI.label("Guided flight is ON · No steering required", 17, Color("a8ead6"))
+	center_status.add_child(_status)
+	center_status.add_child(UI.label("Launch → Stage separation → Orbit", 15, UI.MUTED))
 func _sized_button(text: String, width: int, height: int, accent: bool = false) -> Button:
 	var b: Button = UI.button(text, accent)
 	b.custom_minimum_size = Vector2(width, height)
@@ -211,6 +201,14 @@ func _sized_button(text: String, width: int, height: int, accent: bool = false) 
 
 func _process(delta: float) -> void:
 	_update_ui()
+	# Assisted mode prevents first-time users from becoming stranded between stages.
+	if _rocket.assisted and (_rocket.phase == RocketVehicle.Phase.SEPARATION or _rocket.can_insert_orbit()):
+		_auto_step_timer += delta
+		if _auto_step_timer >= 5.0:
+			_auto_step_timer = 0.0
+			_next_step()
+	else:
+		_auto_step_timer = 0.0
 	var desired: Vector3 = _rocket.global_position + Vector3(22, 12, 27)
 	_camera.global_position = _camera.global_position.lerp(desired, minf(1.0, delta * 3.0))
 	_camera.look_at(_rocket.global_position + Vector3(0, 7, 0), Vector3.UP)
@@ -238,31 +236,66 @@ func _process(delta: float) -> void:
 		_fps.text = ""
 
 func _update_ui() -> void:
-	if _telemetry == null:
+	if _telemetry == null or _rocket == null:
 		return
 	var stage_text: String = "READY"
 	match _rocket.phase:
-		RocketVehicle.Phase.STAGE_ONE: stage_text = "STAGE 1 — ASCENT"
-		RocketVehicle.Phase.SEPARATION: stage_text = "ENGINE OFF — SEPARATE"
-		RocketVehicle.Phase.STAGE_TWO: stage_text = "STAGE 2 — ASCENT"
-		RocketVehicle.Phase.ORBIT: stage_text = "ORBIT REACHED"
-		RocketVehicle.Phase.FAILED: stage_text = "LAUNCH FAILED"
-	_telemetry.text = "HEIGHT   %d m\nSPEED    %d m/s\nFUEL       %d%%" % [roundi(_rocket.altitude_m), roundi(_rocket.current_speed_m_s()), _rocket.active_fuel_percent()]
-	_details.text = "%s\nThrottle %d%%  ·  Tilt %d°\nMass %.0f kg  ·  %s" % [stage_text, roundi(_rocket.throttle * 100.0), roundi(_rocket.pitch_deg), _rocket.current_mass_kg(), str(Crew.profile_for(GameState.selected_astronaut)["name"])]
-	_instruction.text = MissionManager.flight_objective()
-	_launch_button.disabled = _rocket.phase != RocketVehicle.Phase.READY
-	_separate_button.disabled = not _rocket.can_separate() or GameState.flight_step < 1
-	_orbit_button.disabled = not _rocket.can_insert_orbit() or GameState.flight_step < 2
-	_assist_button.text = "FLIGHT ASSIST: ON" if _rocket.assisted else "FLIGHT ASSIST: OFF"
-	if _rocket.phase == RocketVehicle.Phase.SEPARATION:
-		_separate_button.text = "2  SEPARATE NOW!"
-	else:
-		_separate_button.text = "2  SEPARATE STAGE"
-	if _rocket.can_insert_orbit():
-		_orbit_button.text = "3  ORBIT READY!"
-	else:
-		_orbit_button.text = "3  GUIDED ORBIT"
+		RocketVehicle.Phase.STAGE_ONE: stage_text = "STAGE 1 ASCENT"
+		RocketVehicle.Phase.SEPARATION: stage_text = "STAGE 1 EMPTY"
+		RocketVehicle.Phase.STAGE_TWO: stage_text = "STAGE 2 ASCENT"
+		RocketVehicle.Phase.ORBIT: stage_text = "ORBIT ACHIEVED"
+		RocketVehicle.Phase.FAILED: stage_text = "FLIGHT ENDED"
+	_telemetry.text = "HEIGHT  %d m\nSPEED   %d m/s\nFUEL      %d%%" % [roundi(_rocket.altitude_m), roundi(_rocket.current_speed_m_s()), _rocket.active_fuel_percent()]
+	_details.text = "%s\nThrottle %d%% · Mass %.0f kg\nPilot: %s" % [stage_text, roundi(_rocket.throttle * 100.0), _rocket.current_mass_kg(), str(Crew.profile_for(GameState.selected_astronaut)["name"])]
+	_assist_button.text = "GUIDED FLIGHT: ON" if _rocket.assisted else "GUIDED FLIGHT: OFF"
+	_launch_button.disabled = false
+	match _rocket.phase:
+		RocketVehicle.Phase.READY:
+			_launch_button.text = "1   LAUNCH ROCKET  ▶"
+			_instruction.text = "STEP 1/3 · Tap LAUNCH. The rocket will lift off automatically."
+		RocketVehicle.Phase.STAGE_ONE:
+			if _rocket.can_separate():
+				_launch_button.text = "2   SEPARATE STAGE  ▶"
+				_instruction.text = "STEP 2/3 · Stage 1 is nearly empty. Tap SEPARATE."
+			else:
+				_launch_button.text = "ASCENDING...  🚀"
+				_instruction.text = "STEP 1/3 · Rocket ascending. Watch height and fuel. Next: STAGE."
+		RocketVehicle.Phase.SEPARATION:
+			_launch_button.text = "2   SEPARATE STAGE  ▶"
+			_instruction.text = "STEP 2/3 · Tap SEPARATE to release the first stage."
+		RocketVehicle.Phase.STAGE_TWO:
+			if _rocket.can_insert_orbit():
+				_launch_button.text = "3   ENTER EARTH ORBIT  ▶"
+				_instruction.text = "STEP 3/3 · Orbit is ready. Tap ENTER EARTH ORBIT."
+			else:
+				_launch_button.text = "CLIMBING TO ORBIT..."
+				_instruction.text = "STEP 3/3 · Stage 2 firing. Wait for orbit to unlock."
+		RocketVehicle.Phase.ORBIT:
+			_launch_button.text = "MISSION COMPLETE ✓"
+			_launch_button.disabled = true
+			_instruction.text = "SUCCESS · You reached simplified Earth orbit!"
+		RocketVehicle.Phase.FAILED:
+			_launch_button.text = "RETRY LAUNCH"
+			_instruction.text = "Flight ended. Tap RETRY to start safely again."
 
+func _next_step() -> void:
+	match _rocket.phase:
+		RocketVehicle.Phase.READY:
+			_launch()
+		RocketVehicle.Phase.STAGE_ONE:
+			if _rocket.can_separate():
+				_stage()
+			else:
+				_set_status("Rocket is climbing. Keep guided flight ON; stage will be ready shortly.")
+		RocketVehicle.Phase.SEPARATION:
+			_stage()
+		RocketVehicle.Phase.STAGE_TWO:
+			if _rocket.can_insert_orbit():
+				_orbit()
+			else:
+				_set_status("Keep going! Orbit unlocks when height and speed are sufficient.")
+		RocketVehicle.Phase.FAILED:
+			_retry()
 func _launch() -> void:
 	if not _rocket.ignite():
 		_set_status("This rocket is already flying. Follow the next mission step.")
