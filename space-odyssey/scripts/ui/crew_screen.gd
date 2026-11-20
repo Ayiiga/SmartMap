@@ -1,88 +1,99 @@
 extends Control
-## Accessible, scrollable 12-astronaut chooser organized into three mission roles.
+## Three crew members are required: cadet, pilot and scientist. Each role has four options.
 const UI = preload("res://scripts/ui/space_ui.gd")
 const Crew = preload("res://scripts/player/crew_catalog.gd")
-var _feedback: Label
-var _choices: Dictionary = {}
+var _cards: Dictionary = {}
+var _summary: Label
+var _confirm: Button
 
 func _ready() -> void:
 	UI.backdrop(self)
-	var margin: MarginContainer = MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	margin.add_theme_constant_override("margin_left", 35)
-	margin.add_theme_constant_override("margin_right", 35)
-	margin.add_theme_constant_override("margin_top", 16)
-	margin.add_theme_constant_override("margin_bottom", 18)
-	add_child(margin)
+	var margins: MarginContainer = MarginContainer.new()
+	margins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for side: String in ["left", "right", "top", "bottom"]:
+		margins.add_theme_constant_override("margin_%s" % side, 20)
+	add_child(margins)
 	var layout: VBoxContainer = VBoxContainer.new()
-	layout.add_theme_constant_override("separation", 8)
-	margin.add_child(layout)
-	layout.add_child(UI.label("CHOOSE YOUR ASTRONAUT", 32))
-	layout.add_child(UI.label("Pick a name from any of the three roles. Everyone is unlocked; your choice is saved offline.", 16, UI.MUTED))
-	var scrolling: ScrollContainer = ScrollContainer.new()
-	scrolling.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scrolling.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	layout.add_child(scrolling)
-	var groups: VBoxContainer = VBoxContainer.new()
-	groups.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	groups.add_theme_constant_override("separation", 10)
-	scrolling.add_child(groups)
-	for role: String in Crew.GROUPS:
-		groups.add_child(UI.label(role.to_upper(), 19, UI.ACCENT))
-		var grid: GridContainer = GridContainer.new()
-		grid.columns = 4
-		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		grid.add_theme_constant_override("h_separation", 9)
-		grid.add_theme_constant_override("v_separation", 8)
-		groups.add_child(grid)
+	layout.add_theme_constant_override("separation", 9)
+	margins.add_child(layout)
+	layout.add_child(UI.label("ASSEMBLE YOUR SPACE CREW  ·  3 OF 3", 34, Color("efcf77")))
+	layout.add_child(UI.label("Choose one cadet, one rocket pilot and one science explorer. All astronauts are free to select.", 17, UI.MUTED))
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	layout.add_child(scroll)
+	var columns: HBoxContainer = HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 16)
+	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(columns)
+	for role: String in ["Flight Cadets", "Rocket Pilots", "Science Explorers"]:
+		var panel: PanelContainer = UI.panel()
+		panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		columns.add_child(panel)
+		var stack: VBoxContainer = VBoxContainer.new()
+		stack.add_theme_constant_override("separation", 8)
+		panel.add_child(stack)
+		stack.add_child(UI.label(role.to_upper(), 21, UI.ACCENT))
+		stack.add_child(UI.label(_role_guide(role), 15, UI.MUTED))
 		for crew_id: String in Crew.GROUPS[role]:
 			var profile: Dictionary = Crew.profile_for(crew_id)
-			var card: PanelContainer = UI.panel()
-			card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			grid.add_child(card)
-			var stack: VBoxContainer = VBoxContainer.new()
-			stack.add_theme_constant_override("separation", 5)
-			card.add_child(stack)
-			var suit_band: ColorRect = ColorRect.new()
-			suit_band.color = Color(str(profile["suit"]))
-			suit_band.custom_minimum_size = Vector2(150, 15)
-			stack.add_child(suit_band)
-			stack.add_child(UI.label(str(profile["name"]), 22))
-			stack.add_child(UI.label(str(profile["tip"]), 13, UI.MUTED))
-			var choose: Button = UI.button("SELECT", true)
-			choose.custom_minimum_size.y = 48.0
-			stack.add_child(choose)
-			_choices[crew_id] = choose
-			choose.pressed.connect(_choose.bind(crew_id))
-	_feedback = UI.label("", 17, Color("8bd9bb"))
-	layout.add_child(_feedback)
+			var row: HBoxContainer = HBoxContainer.new()
+			row.add_theme_constant_override("separation", 8)
+			stack.add_child(row)
+			var swatch: ColorRect = ColorRect.new()
+			swatch.color = Color(str(profile["suit"]))
+			swatch.custom_minimum_size = Vector2(20, 42)
+			row.add_child(swatch)
+			var button: Button = UI.button(str(profile["name"]))
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			button.custom_minimum_size = Vector2(205, 53)
+			row.add_child(button)
+			button.pressed.connect(_select.bind(role, crew_id))
+			_cards[role + ":" + crew_id] = button
+	_summary = UI.label("", 17, Color("d8eefd"))
+	layout.add_child(_summary)
 	var actions: HBoxContainer = UI.row()
 	layout.add_child(actions)
-	var play: Button = UI.button("PLAY ROCKET / CONTINUE", true)
-	actions.add_child(play)
-	play.pressed.connect(_play)
+	_confirm = UI.button("CONFIRM 3 CREW & START ROCKET", true)
+	_confirm.custom_minimum_size = Vector2(375, 67)
+	actions.add_child(_confirm)
+	_confirm.pressed.connect(_start)
 	var menu: Button = UI.button("BACK TO MENU")
 	actions.add_child(menu)
 	menu.pressed.connect(func() -> void: get_tree().change_scene_to_file(GameState.MENU))
 	_refresh()
 
-func _play() -> void:
-	if GameState.can_continue():
-		GameState.continue_game()
-	else:
-		GameState.new_rocket_game()
+func _role_guide(role: String) -> String:
+	match role:
+		"Flight Cadets":
+			return "Learns exploration and field safety"
+		"Rocket Pilots":
+			return "Pilots launches and landing craft"
+		_:
+			return "Collects science and rewards"
 
-func _choose(crew_id: String) -> void:
-	GameState.set_astronaut(crew_id)
+func _select(role: String, crew_id: String) -> void:
+	GameState.assign_crew(role, crew_id)
 	_refresh()
 
 func _refresh() -> void:
-	var chosen: Dictionary = Crew.profile_for(GameState.selected_astronaut)
-	_feedback.text = "%s (%s) selected — saved on this device." % [str(chosen["name"]), str(chosen["role"])]
-	for crew_id: String in _choices:
-		var button: Button = _choices[crew_id] as Button
-		button.text = "SELECTED" if crew_id == GameState.selected_astronaut else "SELECT"
-		button.disabled = crew_id == GameState.selected_astronaut
+	var names: Array[String] = []
+	for role: String in ["Flight Cadets", "Rocket Pilots", "Science Explorers"]:
+		var chosen: String = str(GameState.crew_slots.get(role, ""))
+		names.append(str(Crew.profile_for(chosen)["name"]))
+		for crew_id: String in Crew.GROUPS[role]:
+			var button: Button = _cards.get(role + ":" + crew_id) as Button
+			if button != null:
+				button.text = ("SELECTED  ✓  " if chosen == crew_id else "CHOOSE  ") + str(Crew.profile_for(crew_id)["name"])
+				button.disabled = chosen == crew_id
+	_summary.text = "YOUR CREW: %s  |  %s  |  %s" % [names[0], names[1], names[2]]
+	_confirm.disabled = not GameState.ready_crew()
+
+func _start() -> void:
+	if not GameState.confirm_crew():
+		_summary.text = "Choose one member for each of the three crew roles."
+		return
+	GameState.new_rocket_game()
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
