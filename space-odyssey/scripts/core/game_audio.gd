@@ -73,7 +73,7 @@ func speech_supported() -> bool:
 func _make_rhythm() -> AudioStreamWAV:
 	# An original 4-bar composition with syncopated hand drum, highlife-style
 	# plucked pentatonic melody, shaker and bell accents (not a sampled song).
-	var bars: int = 4
+	var bars: int = 2
 	var seconds: float = float(bars * 4) * 60.0 / BPM
 	var samples: int = roundi(seconds * float(RATE))
 	var pcm: PackedByteArray = PackedByteArray()
@@ -95,7 +95,9 @@ func _make_rhythm() -> AudioStreamWAV:
 		var bell: float = 0.0
 		if fposmod(beat, 4.0) < 0.23:
 			bell = sin(TAU * 784.0 * t) * exp(-fposmod(beat, 4.0) * 7.5) * 0.05
-		_write_pcm(pcm, i, (pluck + kick + clap + shaker + bell) * 0.78)
+		var raw_sample: int = clampi(roundi((pluck + kick + clap + shaker + bell) * 0.78 * 32767.0), -32768, 32767)
+		pcm[i * 2] = raw_sample & 255
+		pcm[i * 2 + 1] = (raw_sample >> 8) & 255
 	var clip: AudioStreamWAV = _stream(pcm, samples)
 	clip.loop_mode = AudioStreamWAV.LOOP_FORWARD
 	clip.loop_begin = 0
@@ -121,7 +123,9 @@ func _make_effect(name: String) -> AudioStreamWAV:
 			"scan": tone = 440.0 + t * 400.0
 			_: tone = 660.0
 		var signal_value: float = (sin(TAU * tone * t) * 0.75 + sin(TAU * tone * 1.5 * t) * 0.16) * fade * 0.36
-		_write_pcm(pcm, i, signal_value)
+		var raw_sample: int = clampi(roundi(signal_value * 32767.0), -32768, 32767)
+		pcm[i * 2] = raw_sample & 255
+		pcm[i * 2 + 1] = (raw_sample >> 8) & 255
 	return _stream(pcm, samples)
 
 func _stream(raw: PackedByteArray, samples: int) -> AudioStreamWAV:
@@ -133,7 +137,3 @@ func _stream(raw: PackedByteArray, samples: int) -> AudioStreamWAV:
 	audio.loop_end = samples
 	return audio
 
-func _write_pcm(pcm: PackedByteArray, frame: int, value: float) -> void:
-	var value16: int = clampi(roundi(value * 32767.0), -32768, 32767)
-	pcm[frame * 2] = value16 & 255
-	pcm[frame * 2 + 1] = (value16 >> 8) & 255
