@@ -426,6 +426,12 @@ func _toggle_pause() -> void:
 	retry.pressed.connect(func() -> void:
 		get_tree().paused = false
 		GameState.restart_training())
+	var settings_button: Button = UI.button("SETTINGS · MUSIC / SOUND")
+	col.add_child(settings_button)
+	settings_button.pressed.connect(func() -> void:
+		_save_position()
+		get_tree().paused = false
+		get_tree().change_scene_to_file("res://scenes/ui/settings_screen.tscn"))
 	var menu: Button = UI.button("SAVE & MAIN MENU")
 	col.add_child(menu)
 	menu.pressed.connect(_back_to_menu)
