@@ -25,10 +25,16 @@ func _ready() -> void:
 	left.add_child(UI.label("Beginner launch · Ship radio · Dodge comets after orbit", 16, UI.ACCENT))
 	var panel: PanelContainer = UI.panel()
 	layout.add_child(panel)
+	var scroll: ScrollContainer = ScrollContainer.new()
+	scroll.custom_minimum_size = Vector2(344, 585)
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	panel.add_child(scroll)
 	var buttons: VBoxContainer = VBoxContainer.new()
-	buttons.add_theme_constant_override("separation", 9)
-	panel.add_child(buttons)
+	buttons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	buttons.add_theme_constant_override("separation", 8)
+	scroll.add_child(buttons)
 	_add(buttons, "PLAY ROCKET NOW  ▶", true, func() -> void: GameState.new_rocket_game())
+	_add(buttons, "SETTINGS · MUSIC / SPEAKER", false, func() -> void: _open("settings_screen"))
 	var cont: Button = _add(buttons, "CONTINUE", false, func() -> void: GameState.continue_game())
 	cont.disabled = not GameState.can_continue()
 	if cont.disabled:
@@ -42,7 +48,6 @@ func _ready() -> void:
 	_add(buttons, "MISSIONS", false, func() -> void: _open("missions_screen"))
 	_add(buttons, "ROCKET WORKSHOP", false, func() -> void: _open("workshop_screen"))
 	_add(buttons, "DISCOVER", false, func() -> void: _open("discover_screen"))
-	_add(buttons, "SETTINGS", false, func() -> void: _open("settings_screen"))
 	_add(buttons, "EXIT", false, func() -> void: get_tree().quit())
 	buttons.add_child(UI.label("No login · No ads · No network needed", 13, UI.MUTED))
 
