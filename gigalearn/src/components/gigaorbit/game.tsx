@@ -9,12 +9,16 @@ import {
   newMission, newProgress, restoreMission, restoreProgress, SAMPLE_POINTS, sampleDistance,
   type ControlInput, type Destination, type HandlingMode, type Mission, type PilotProgress,
 } from "@/lib/gigaorbit/engine";
+import {
+  AWARDS, STORE, buyItem, claimAward, itemPrice, preparedMission,
+  recordCrash, recordSuccess, useItem, type ShopItem,
+} from "@/lib/gigaorbit/economy";
 
 const Scene = dynamic(() => import("./scene").then((mod) => mod.GigaOrbitScene), {
   ssr: false,
   loading: () => <div className="grid h-full place-items-center text-sm font-semibold text-cyan-200">Preparing 3D spacecraft…</div>,
 });
-type View = "menu" | "game" | "map" | "help" | "settings";
+type View = "menu" | "game" | "map" | "help" | "settings" | "workshop" | "awards";
 type MoveAxis = { x: number; y: number };
 const PROGRESS_KEY = "gigaorbit_web_pilot_v1";
 const MISSION_KEY = "gigaorbit_web_mission_v1";
@@ -137,6 +141,8 @@ export default function GigaOrbitGame() {
   const syncView = useCallback((next: View) => { viewRef.current = next; setView(next); }, []);
   const syncProgress = useCallback((next: PilotProgress) => {
     progressRef.current = next; setProgress(next);
+    try { window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(next)); }
+    catch { /* Local storage is optional */ }
   }, []);
   const syncPaused = useCallback((next: boolean) => { pausedRef.current = next; setPaused(next); }, []);
 
@@ -157,7 +163,7 @@ export default function GigaOrbitGame() {
       try {
         window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressRef.current));
         const m = missionRef.current;
-        if (m && !["complete", "failed"].includes(m.stage) && viewRef.current === "game") {
+        if (m && !["complete", "failed"].includes(m.stage)) {
           window.localStorage.setItem(MISSION_KEY, JSON.stringify(m));
         } else if (!m || ["complete", "failed"].includes(m.stage)) {
           window.localStorage.removeItem(MISSION_KEY);
@@ -180,9 +186,18 @@ export default function GigaOrbitGame() {
         const next = advance(old, motionRef.current, dt);
         if (old.stage !== next.stage) {
           motionRef.current = { ...NO_INPUT };
+          if (next.stage === "orbit") syncProgress(claimAward(progressRef.current, "first_orbit"));
+          if (next.stage === "eva") {
+            syncProgress(claimAward(progressRef.current, next.destination === "moon" ? "moon_landed" : "mars_landed"));
+          }
+          if (next.stage === "failed") {
+            const damagedHull = recordCrash(progressRef.current);
+            next.hull = damagedHull.hull;
+            syncProgress(damagedHull);
+          }
           if (next.stage === "complete") {
             next.awarded = !progressRef.current.completed.includes(next.destination);
-            syncProgress(award(progressRef.current, next));
+            syncProgress(recordSuccess(award(progressRef.current, next), next));
           }
           setMessage(next.message);
         }
@@ -233,7 +248,7 @@ export default function GigaOrbitGame() {
   const start = (destination: Destination) => {
     if (!canChoose(destination, progressRef.current)) { setMessage("Finish your Moon mission first to unlock Mars."); return; }
     setSelectedDestination(destination);
-    syncMission(newMission(destination, progressRef.current.mode));
+    syncMission(preparedMission(destination, progressRef.current));
     syncPaused(false); syncView("game"); setMessage(null); playCue(440);
   };
   const continueSaved = () => {
@@ -241,7 +256,11 @@ export default function GigaOrbitGame() {
     syncMission(savedMission); syncPaused(false); syncView("game"); setMessage("Your locally saved flight has resumed.");
   };
   const backToMenu = () => {
-    if (missionRef.current && !["complete", "failed"].includes(missionRef.current.stage)) setSavedMission({ ...missionRef.current });
+    if (missionRef.current && !["complete", "failed"].includes(missionRef.current.stage)) {
+      const snapshot = { ...missionRef.current };
+      setSavedMission(snapshot);
+      try { window.localStorage.setItem(MISSION_KEY, JSON.stringify(snapshot)); } catch { /* Private browsing */ }
+    }
     syncPaused(false); syncView("menu"); setMessage(null); motionRef.current = { ...NO_INPUT };
   };
   const performAction = (name: "stage" | "transfer" | "gear" | "retry" | "eva") => {
@@ -256,7 +275,7 @@ export default function GigaOrbitGame() {
     const next = interact(m);
     if (next.stage === "complete" && m.stage !== "complete") {
       next.awarded = !progressRef.current.completed.includes(next.destination);
-      syncProgress(award(progressRef.current, next));
+      syncProgress(recordSuccess(award(progressRef.current, next), next));
     }
     syncMission(next); setMessage(next.message);
     if (next.samples > m.samples || next.stage === "complete") playCue(740);
@@ -269,6 +288,21 @@ export default function GigaOrbitGame() {
   const resetForNewMission = () => {
     const m = missionRef.current;
     start(m?.destination ?? selectedDestination);
+  };
+  const purchase = (item: ShopItem) => {
+    const result = buyItem(progressRef.current, item);
+    if (result.ok) { syncProgress(result.progress); playCue(610); }
+    setMessage(result.message);
+  };
+  const activateKit = (item: "fuelCell" | "repairKit") => {
+    const activeMission = viewRef.current === "game" ? missionRef.current : null;
+    const result = useItem(progressRef.current, activeMission, item);
+    if (result.ok) {
+      syncProgress(result.progress);
+      if (result.mission) syncMission(result.mission);
+      playCue(720);
+    }
+    setMessage(result.message);
   };
   const gameBackground = backgroundFor(mission);
 
@@ -299,7 +333,7 @@ export default function GigaOrbitGame() {
                       <PrimaryButton onClick={() => start("moon")}>🚀 START EARTH → MOON</PrimaryButton>
                       {savedMission && <PrimaryButton outline onClick={continueSaved}>▶ CONTINUE SAVED FLIGHT</PrimaryButton>}
                     </div>
-                    <p className="text-xs text-slate-300">No login. No payment. Local progress. Touchscreen or keyboard controls. Science-inspired arcade timings.</p>
+                    <p className="text-xs text-slate-300">No login or real-money payment. Earn virtual coins, collect awards, buy fuel and repair equipment. Saves stay on this device.</p>
                   </section>
                   <section className="rounded-2xl border border-cyan-300/35 bg-[#060e28]/85 p-4 shadow-[0_8px_42px_rgba(0,0,0,.4)] backdrop-blur-xl sm:p-6">
                     <p className="text-xs font-extrabold uppercase tracking-[.2em] text-cyan-300">Mission dashboard</p>
@@ -307,11 +341,13 @@ export default function GigaOrbitGame() {
                       <Image src="/gigaorbit/mission-flow.webp" alt="Earth-to-Moon mission concept" fill sizes="340px" className="object-cover" />
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-lg bg-white/10 p-2"><p className="text-xl font-black text-cyan-200">{progress.credits}</p><p className="text-[10px]">Credits</p></div>
+                      <div className="rounded-lg bg-white/10 p-2"><p className="text-xl font-black text-cyan-200">{progress.credits}</p><p className="text-[10px]">🪙 Coins</p></div>
                       <div className="rounded-lg bg-white/10 p-2"><p className="text-xl font-black text-cyan-200">{progress.xp}</p><p className="text-[10px]">XP</p></div>
                       <div className="rounded-lg bg-white/10 p-2"><p className="text-xl font-black text-cyan-200">{progress.completed.length}/2</p><p className="text-[10px]">Missions</p></div>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
+                      <PrimaryButton outline onClick={() => syncView("workshop")}>🛠️ ROCKET WORKSHOP</PrimaryButton>
+                      <PrimaryButton outline onClick={() => syncView("awards")}>🏆 AWARDS & PRIZES</PrimaryButton>
                       <PrimaryButton outline onClick={() => syncView("map")}>🪐 DESTINATIONS</PrimaryButton>
                       <PrimaryButton outline onClick={() => syncView("help")}>🎮 HOW TO PLAY</PrimaryButton>
                       <PrimaryButton outline onClick={() => syncView("settings")}>⚙ SETTINGS</PrimaryButton>
