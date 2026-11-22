@@ -16,8 +16,8 @@ func _ready() -> void:
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.add_theme_constant_override("separation", 15)
 	layout.add_child(left)
-	left.add_child(UI.label("SPACE ODYSSEY", 49, Color("f5f8ff")))
-	left.add_child(UI.label("JOURNEY BEYOND EARTH  ·  OFFLINE 3D ADVENTURE", 18, Color("81cfff")))
+	left.add_child(UI.label("GigaOrbit", 52, Color("f5f8ff")))
+	left.add_child(UI.label("BEYOND EARTH  ·  LAUNCH. EXPLORE. DISCOVER.", 18, Color("81cfff")))
 	var summary: PanelContainer = UI.panel()
 	left.add_child(summary)
 	var details: VBoxContainer = VBoxContainer.new()
