@@ -16,7 +16,7 @@ func _run() -> void:
 	GameState.upgrades["landing_gear"] = 2
 	GameState.moon_eva_sample_collected = false
 	GameState.moon_eva_complete = false
-	for name: String in ["main_menu", "crew_screen", "workshop_screen", "rewards_screen", "settings_screen"]:
+	for name: String in ["main_menu", "crew_screen", "missions_screen", "workshop_screen", "rewards_screen", "settings_screen"]:
 		await _probe("res://scenes/ui/%s.tscn" % name, name)
 	await _probe("res://scenes/world/launch_world.tscn", "launch_world")
 	GameState.destination_planet = "moon"
@@ -48,7 +48,10 @@ func _probe(path: String, screen: String) -> void:
 	match screen:
 		"main_menu":
 			_expect_button(node, "ASSEMBLE 3 ASTRONAUTS", screen)
+			_expect_button(node, "MISSIONS & PLANETS", screen)
+		"missions_screen":
 			_expect_button(node, "FLY TO THE MOON", screen)
+			_expect_button(node, "FLY TO MARS", screen)
 		"crew_screen":
 			_expect_button(node, "CONFIRM 3 CREW", screen)
 			_expect_button(node, "NAMBE", screen, false)
@@ -78,8 +81,11 @@ func _probe(path: String, screen: String) -> void:
 				if not GameState.moon_eva_complete:
 					failures.append("Moon EVA sample return did not award completion")
 		"planet_landing":
-			_expect_button(node, "BRAKE / THRUST", screen)
-			var legs: Button = _find_button(node, "DEPLOY LEGS")
+			_expect_button(node, "BRAKE", screen)
+			_expect_button(node, "FUEL +35", screen)
+			if node.find_child("FlightStick", true, false) == null:
+				failures.append("Landing steering joystick missing")
+			var legs: Button = _find_button(node, "GEAR")
 			if legs == null:
 				failures.append("Landing gear button missing")
 			else:
@@ -87,7 +93,7 @@ func _probe(path: String, screen: String) -> void:
 				var sim: Object = node.get("_sim") as Object
 				if sim == null or not bool(sim.get("legs")):
 					failures.append("Landing legs button did not deploy gear")
-			var throttle: Button = _find_button(node, "BRAKE / THRUST")
+			var throttle: Button = _find_button(node, "BRAKE")
 			if throttle != null:
 				var sim2: Object = node.get("_sim") as Object
 				var before: float = float(sim2.get("throttle"))
