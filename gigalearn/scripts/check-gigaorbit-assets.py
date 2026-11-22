@@ -44,5 +44,17 @@ for token in ('function advance(', 'function interact(', 'function award(', 'fun
 
 redirect_block = (ROOT / "next.config.ts").read_text(encoding="utf-8").split("async redirects()", 1)[1].split("images:", 1)[0]
 assert "gigaorbit" not in redirect_block, "Playable route is redirected away"
-print("PASS: 8 real user-supplied WebP assets, playable 3D scene source, touch controls, save/progression and route wiring")
+PLAY = ROOT / "src" / "app" / "gigaorbit" / "play" / "page.tsx"
+VERSION = ROOT / "src" / "app" / "gigaorbit" / "version" / "route.ts"
+ECONOMY = ROOT / "src" / "lib" / "gigaorbit" / "economy.ts"
+for extra in (PLAY, VERSION, ECONOMY):
+    assert extra.is_file(), f"Missing playable route/economy/release diagnostic: {extra}"
+shop_source = ECONOMY.read_text(encoding="utf-8")
+for token in ("buyItem(", "applyConsumable(", "claimAward(", "recordCrash(", "fuelCell", "repairKit", "tank", "armor", "suit"):
+    assert token in shop_source, f"Purchase/equipment system missing: {token}"
+for token in ("ROCKET WORKSHOP", "AWARDS & PRIZES", "REFUEL +35", "REPAIR +35", "applyConsumable("):
+    assert token in game, f"Actual in-game economy control missing: {token}"
+assert "GigaOrbitGame" in PLAY.read_text(encoding="utf-8")
+assert "play-economy-2026-11-22" in VERSION.read_text(encoding="utf-8")
+print("PASS: 8 authentic WebP assets, real 3D, touch controls, save, shop, awards, cache-bypass route and release diagnostic")
 print("NOT VERIFIED: Android physical touchscreen, browser WebGL rendering, actual frame rates or Vercel live deployment")

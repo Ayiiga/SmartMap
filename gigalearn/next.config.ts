@@ -25,6 +25,15 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      // Game HTML should never be held indefinitely by an old PWA navigation cache.
+      ...["/gigaorbit", "/gigaorbit/play", "/gigaorbit/version"].map((source) => ({
+        source,
+        headers: [{ key: "Cache-Control", value: "no-cache, max-age=0, must-revalidate" }],
+      })),
+      {
+        source: "/sw.js",
+        headers: [{ key: "Cache-Control", value: "no-cache, max-age=0, must-revalidate" }],
+      },
       {
         source: "/icons/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
@@ -117,6 +126,15 @@ const withPwaConfig = withPWA({
     navigateFallback: "/offline",
     navigateFallbackDenylist: [/^\/api\//, /^\/_next\/data\//],
     runtimeCaching: [
+      {
+        urlPattern: /\/gigaorbit(?:\/play)?(?:\?.*)?$/i,
+        handler: "NetworkFirst",
+        options: {
+          cacheName: "gigaorbit-game-navigation-v3",
+          networkTimeoutSeconds: 5,
+          expiration: { maxEntries: 4, maxAgeSeconds: 2 * 24 * 60 * 60 },
+        },
+      },
       {
         urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
         handler: "NetworkFirst",

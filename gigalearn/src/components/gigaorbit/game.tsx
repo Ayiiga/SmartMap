@@ -6,15 +6,19 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   advance, action, award, canChoose, canInteract, destinations, interact,
-  newMission, newProgress, restoreMission, restoreProgress, SAMPLE_POINTS, sampleDistance,
+  newProgress, restoreMission, restoreProgress, SAMPLE_POINTS, sampleDistance,
   type ControlInput, type Destination, type HandlingMode, type Mission, type PilotProgress,
 } from "@/lib/gigaorbit/engine";
+import {
+  AWARDS, STORE, buyItem, claimAward, itemPrice, preparedMission,
+  recordCrash, recordSuccess, applyConsumable, type ShopItem,
+} from "@/lib/gigaorbit/economy";
 
 const Scene = dynamic(() => import("./scene").then((mod) => mod.GigaOrbitScene), {
   ssr: false,
   loading: () => <div className="grid h-full place-items-center text-sm font-semibold text-cyan-200">Preparing 3D spacecraft…</div>,
 });
-type View = "menu" | "game" | "map" | "help" | "settings";
+type View = "menu" | "game" | "map" | "help" | "settings" | "workshop" | "awards";
 type MoveAxis = { x: number; y: number };
 const PROGRESS_KEY = "gigaorbit_web_pilot_v1";
 const MISSION_KEY = "gigaorbit_web_mission_v1";
@@ -137,6 +141,8 @@ export default function GigaOrbitGame() {
   const syncView = useCallback((next: View) => { viewRef.current = next; setView(next); }, []);
   const syncProgress = useCallback((next: PilotProgress) => {
     progressRef.current = next; setProgress(next);
+    try { window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(next)); }
+    catch { /* Local storage is optional */ }
   }, []);
   const syncPaused = useCallback((next: boolean) => { pausedRef.current = next; setPaused(next); }, []);
 
@@ -157,7 +163,7 @@ export default function GigaOrbitGame() {
       try {
         window.localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressRef.current));
         const m = missionRef.current;
-        if (m && !["complete", "failed"].includes(m.stage) && viewRef.current === "game") {
+        if (m && !["complete", "failed"].includes(m.stage)) {
           window.localStorage.setItem(MISSION_KEY, JSON.stringify(m));
         } else if (!m || ["complete", "failed"].includes(m.stage)) {
           window.localStorage.removeItem(MISSION_KEY);
@@ -180,9 +186,18 @@ export default function GigaOrbitGame() {
         const next = advance(old, motionRef.current, dt);
         if (old.stage !== next.stage) {
           motionRef.current = { ...NO_INPUT };
+          if (next.stage === "orbit") syncProgress(claimAward(progressRef.current, "first_orbit"));
+          if (next.stage === "eva") {
+            syncProgress(claimAward(progressRef.current, next.destination === "moon" ? "moon_landed" : "mars_landed"));
+          }
+          if (next.stage === "failed") {
+            const damagedHull = recordCrash(progressRef.current);
+            next.hull = damagedHull.hull;
+            syncProgress(damagedHull);
+          }
           if (next.stage === "complete") {
             next.awarded = !progressRef.current.completed.includes(next.destination);
-            syncProgress(award(progressRef.current, next));
+            syncProgress(recordSuccess(award(progressRef.current, next), next));
           }
           setMessage(next.message);
         }
@@ -233,7 +248,8 @@ export default function GigaOrbitGame() {
   const start = (destination: Destination) => {
     if (!canChoose(destination, progressRef.current)) { setMessage("Finish your Moon mission first to unlock Mars."); return; }
     setSelectedDestination(destination);
-    syncMission(newMission(destination, progressRef.current.mode));
+    syncMission(preparedMission(destination, progressRef.current));
+    setSavedMission(null);
     syncPaused(false); syncView("game"); setMessage(null); playCue(440);
   };
   const continueSaved = () => {
@@ -241,7 +257,11 @@ export default function GigaOrbitGame() {
     syncMission(savedMission); syncPaused(false); syncView("game"); setMessage("Your locally saved flight has resumed.");
   };
   const backToMenu = () => {
-    if (missionRef.current && !["complete", "failed"].includes(missionRef.current.stage)) setSavedMission({ ...missionRef.current });
+    if (missionRef.current && !["complete", "failed"].includes(missionRef.current.stage)) {
+      const snapshot = { ...missionRef.current };
+      setSavedMission(snapshot);
+      try { window.localStorage.setItem(MISSION_KEY, JSON.stringify(snapshot)); } catch { /* Private browsing */ }
+    }
     syncPaused(false); syncView("menu"); setMessage(null); motionRef.current = { ...NO_INPUT };
   };
   const performAction = (name: "stage" | "transfer" | "gear" | "retry" | "eva") => {
@@ -256,7 +276,7 @@ export default function GigaOrbitGame() {
     const next = interact(m);
     if (next.stage === "complete" && m.stage !== "complete") {
       next.awarded = !progressRef.current.completed.includes(next.destination);
-      syncProgress(award(progressRef.current, next));
+      syncProgress(recordSuccess(award(progressRef.current, next), next));
     }
     syncMission(next); setMessage(next.message);
     if (next.samples > m.samples || next.stage === "complete") playCue(740);
@@ -269,6 +289,35 @@ export default function GigaOrbitGame() {
   const resetForNewMission = () => {
     const m = missionRef.current;
     start(m?.destination ?? selectedDestination);
+  };
+  const purchase = (item: ShopItem) => {
+    const result = buyItem(progressRef.current, item);
+    if (result.ok) { syncProgress(result.progress); playCue(610); }
+    setMessage(result.message);
+  };
+  const activateKit = (item: "fuelCell" | "repairKit") => {
+    const activeMission = viewRef.current === "game" ? missionRef.current : null;
+    const result = applyConsumable(progressRef.current, activeMission, item);
+    if (result.ok) {
+      syncProgress(result.progress);
+      if (result.mission) syncMission(result.mission);
+      else if (item === "repairKit" && savedMission) {
+        const fixed = { ...savedMission, hull: Math.min(savedMission.maxHull, savedMission.hull + 35) };
+        setSavedMission(fixed); syncMission(fixed);
+        try { window.localStorage.setItem(MISSION_KEY, JSON.stringify(fixed)); } catch { /* Play continues */ }
+      }
+      playCue(720);
+    }
+    setMessage(result.message);
+  };
+  const openWorkshopFromFlight = () => {
+    const current = missionRef.current;
+    if (current && !["complete", "failed"].includes(current.stage)) {
+      const snapshot = { ...current };
+      setSavedMission(snapshot);
+      try { window.localStorage.setItem(MISSION_KEY, JSON.stringify(snapshot)); } catch { /* Optional saving */ }
+    }
+    syncPaused(false); syncView("workshop");
   };
   const gameBackground = backgroundFor(mission);
 
@@ -291,7 +340,7 @@ export default function GigaOrbitGame() {
               {view === "menu" && (
                 <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-center">
                   <section className="space-y-4 pt-2 sm:space-y-6 sm:pt-10">
-                    <span className="inline-flex rounded-full border border-cyan-300/45 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-200">Play now · Browser 3D mission</span>
+                    <span className="inline-flex rounded-full border border-cyan-300/45 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-200">Play now · 3D missions + coin workshop</span>
                     <h1 className="max-w-3xl text-5xl font-black tracking-[-.045em] text-white drop-shadow-xl sm:text-7xl">Giga<span className="bg-gradient-to-r from-cyan-300 to-violet-400 bg-clip-text text-transparent">Orbit</span><span className="block text-[.50em] font-bold tracking-normal">Beyond Earth</span></h1>
                     <p className="text-lg font-extrabold text-cyan-200">Launch. Explore. Discover.</p>
                     <p className="max-w-lg text-sm leading-7 text-slate-200 sm:text-base">Pilot a real-time 3D rocket from Earth, navigate space, land safely, walk on the Moon and collect research samples. Earn credits and unlock Mars.</p>
@@ -299,7 +348,7 @@ export default function GigaOrbitGame() {
                       <PrimaryButton onClick={() => start("moon")}>🚀 START EARTH → MOON</PrimaryButton>
                       {savedMission && <PrimaryButton outline onClick={continueSaved}>▶ CONTINUE SAVED FLIGHT</PrimaryButton>}
                     </div>
-                    <p className="text-xs text-slate-300">No login. No payment. Local progress. Touchscreen or keyboard controls. Science-inspired arcade timings.</p>
+                    <p className="text-xs text-slate-300">No login or real-money payment. Earn virtual coins, collect awards, buy fuel and repair equipment. Saves stay on this device.</p>
                   </section>
                   <section className="rounded-2xl border border-cyan-300/35 bg-[#060e28]/85 p-4 shadow-[0_8px_42px_rgba(0,0,0,.4)] backdrop-blur-xl sm:p-6">
                     <p className="text-xs font-extrabold uppercase tracking-[.2em] text-cyan-300">Mission dashboard</p>
@@ -307,11 +356,13 @@ export default function GigaOrbitGame() {
                       <Image src="/gigaorbit/mission-flow.webp" alt="Earth-to-Moon mission concept" fill sizes="340px" className="object-cover" />
                     </div>
                     <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="rounded-lg bg-white/10 p-2"><p className="text-xl font-black text-cyan-200">{progress.credits}</p><p className="text-[10px]">Credits</p></div>
+                      <div className="rounded-lg bg-white/10 p-2"><p className="text-xl font-black text-cyan-200">{progress.credits}</p><p className="text-[10px]">🪙 Coins</p></div>
                       <div className="rounded-lg bg-white/10 p-2"><p className="text-xl font-black text-cyan-200">{progress.xp}</p><p className="text-[10px]">XP</p></div>
                       <div className="rounded-lg bg-white/10 p-2"><p className="text-xl font-black text-cyan-200">{progress.completed.length}/2</p><p className="text-[10px]">Missions</p></div>
                     </div>
                     <div className="mt-4 grid grid-cols-2 gap-2">
+                      <PrimaryButton outline onClick={() => syncView("workshop")}>🛠️ ROCKET WORKSHOP</PrimaryButton>
+                      <PrimaryButton outline onClick={() => syncView("awards")}>🏆 AWARDS & PRIZES</PrimaryButton>
                       <PrimaryButton outline onClick={() => syncView("map")}>🪐 DESTINATIONS</PrimaryButton>
                       <PrimaryButton outline onClick={() => syncView("help")}>🎮 HOW TO PLAY</PrimaryButton>
                       <PrimaryButton outline onClick={() => syncView("settings")}>⚙ SETTINGS</PrimaryButton>
@@ -352,6 +403,63 @@ export default function GigaOrbitGame() {
                   <div className="mt-5 flex flex-wrap gap-3"><PrimaryButton onClick={() => start("moon")}>START TRAINING MISSION</PrimaryButton><PrimaryButton outline onClick={() => syncView("menu")}>BACK</PrimaryButton></div>
                 </section>
               )}
+              {view === "workshop" && (
+                <section className="mx-auto max-w-4xl rounded-2xl border border-cyan-300/35 bg-[#07142e]/95 p-4 sm:p-8">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-2xl font-black sm:text-4xl">🛠️ Rocket workshop & store</h1>
+                    <PrimaryButton outline onClick={() => syncView("menu")}>← BACK</PrimaryButton>
+                  </div>
+                  <p className="mt-2 text-base font-bold text-amber-300">🪙 {progress.credits} coins · Hull {progress.hull}/{100 + progress.upgrades.armor * 20}</p>
+                  <p className="mt-2 text-sm text-slate-300">Earn coins through completed missions and one-time achievement prizes. Spend them on actual spacecraft equipment. No real-money purchases.</p>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {STORE.map(item => {
+                      const price = itemPrice(item.id, progress);
+                      const level = item.category === "upgrade" ? progress.upgrades[item.id as "tank" | "armor" | "suit"] : null;
+                      return <article key={item.id} className="rounded-xl border border-white/15 bg-white/[.06] p-4">
+                        <p className="text-lg font-extrabold">{item.icon} {item.name}</p>
+                        <p className="mt-1 min-h-10 text-sm leading-5 text-slate-300">{item.description}</p>
+                        <p className="mt-2 text-xs text-cyan-200">{level !== null ? `Upgrade level: ${level}/3` : `Owned: ${progress.inventory[item.id as "fuelCell" | "repairKit"]}`}</p>
+                        <button type="button" disabled={level === 3 || progress.credits < price} onClick={() => purchase(item.id)} className="mt-3 min-h-11 w-full rounded-lg bg-cyan-300 px-3 font-extrabold text-[#061328] disabled:opacity-45">{level === 3 ? "MAX LEVEL" : `BUY · 🪙 ${price}`}</button>
+                      </article>;
+                    })}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <PrimaryButton outline disabled={progress.inventory.repairKit <= 0 || progress.hull >= 100 + progress.upgrades.armor * 20} onClick={() => activateKit("repairKit")}>🛠️ USE REPAIR KIT ({progress.inventory.repairKit})</PrimaryButton>
+                    {savedMission && <PrimaryButton outline onClick={continueSaved}>▶ CONTINUE SAVED FLIGHT</PrimaryButton>}
+                    <PrimaryButton onClick={() => start("moon")}>🚀 START MOON MISSION</PrimaryButton>
+                  </div>
+                  {message && <p role="status" className="mt-4 rounded-lg bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+                </section>
+              )}
+              {view === "awards" && (
+                <section className="mx-auto max-w-3xl rounded-2xl border border-amber-300/35 bg-[#09122e]/95 p-5 sm:p-8">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-2xl font-black sm:text-4xl">🏆 Awards & virtual prizes</h1>
+                    <PrimaryButton outline onClick={() => syncView("menu")}>← BACK</PrimaryButton>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-300">Unlock one-time achievement medals and coin prizes by playing. These are fictional game rewards, not Ghana cedi cash awards or gambling.</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {AWARDS.map(a => <article key={a.id} className="rounded-xl border border-white/15 bg-white/[.06] p-4">
+                      <p className="text-lg font-extrabold">{progress.milestones.includes(a.id) ? "🥇" : "🔒"} {a.title}</p>
+                      <p className="mt-2 text-sm text-slate-300">{a.description}</p>
+                      <p className="mt-2 font-extrabold text-amber-300">Prize: {a.prize} coins + 25 XP</p>
+                      <p className="mt-2 text-xs font-bold text-cyan-300">{progress.milestones.includes(a.id) ? "AWARDED ✓" : "NOT YET EARNED"}</p>
+                    </article>)}
+                    <article className="rounded-xl border border-white/15 bg-white/[.06] p-4">
+                      <p className="text-lg font-extrabold">{progress.completed.includes("moon") ? "🏅" : "🔒"} Lunar Pioneer</p>
+                      <p className="mt-2 text-sm text-slate-300">Return lunar samples to mission control.</p>
+                      <p className="mt-2 font-extrabold text-amber-300">500 coins + 200 XP</p>
+                    </article>
+                    <article className="rounded-xl border border-white/15 bg-white/[.06] p-4">
+                      <p className="text-lg font-extrabold">{progress.completed.includes("mars") ? "🏅" : "🔒"} Mars Pathfinder</p>
+                      <p className="mt-2 text-sm text-slate-300">Complete a Martian expedition.</p>
+                      <p className="mt-2 font-extrabold text-amber-300">800 coins + 350 XP</p>
+                    </article>
+                  </div>
+                  <p className="mt-4 text-sm font-bold text-cyan-200">Your badges: {progress.badges.length ? progress.badges.join(" · ") : "Complete missions to earn your first award."}</p>
+                  <div className="mt-4"><PrimaryButton onClick={() => syncView("workshop")}>SPEND COINS IN WORKSHOP</PrimaryButton></div>
+                </section>
+              )}
               {view === "settings" && (
                 <section className="mx-auto max-w-xl rounded-2xl border border-cyan-300/30 bg-slate-950/85 p-6 sm:p-9">
                   <h1 className="text-3xl font-black">Flight settings</h1><p className="mt-3 text-slate-200">Choose handling for your next expedition.</p>
@@ -385,10 +493,24 @@ export default function GigaOrbitGame() {
             {mission.stage === "transfer" && <><p>TRANSFER <strong className="float-right text-cyan-200">{Math.round(mission.transfer)}%</strong></p><div className="mt-2 h-2 rounded-full bg-white/20"><div className="h-2 rounded-full bg-cyan-400" style={{ width: `${mission.transfer}%` }} /></div></>}
             {mission.stage === "landing" && <><p>ALTITUDE <strong className="float-right text-cyan-200">{Math.ceil(mission.landingAltitude)} m</strong></p><p className="mt-2">DESCENT <strong className="float-right text-cyan-200">{mission.descent.toFixed(1)} m/s</strong></p><p className="mt-2">TARGET <strong className="float-right text-cyan-200">{Math.abs(mission.offset).toFixed(0)} m</strong></p></>}
             {mission.stage === "eva" && <><p>SAMPLES <strong className="float-right text-cyan-200">{mission.samples}/{SAMPLE_POINTS[mission.destination].length}</strong></p><p className="mt-2">TO TARGET <strong className="float-right text-cyan-200">{Math.round(sampleDistance(mission))} m</strong></p></>}
-            <p className="mt-3 border-t border-white/15 pt-2">FUEL <strong className="float-right text-cyan-200">{Math.round(mission.fuel)}%</strong></p>
-            <div className="mt-1 h-1.5 rounded-full bg-white/15"><div className="h-1.5 rounded-full bg-cyan-400" style={{ width: `${mission.fuel}%` }}/></div>
+            <p className="mt-3 border-t border-white/15 pt-2">FUEL <strong className="float-right text-cyan-200">{Math.round(100 * mission.fuel / mission.maxFuel)}%</strong></p>
+            <div className="mt-1 h-1.5 rounded-full bg-white/15"><div className="h-1.5 rounded-full bg-cyan-400" style={{ width: `${100 * mission.fuel / mission.maxFuel}%` }}/></div>
+            <p className="mt-2">HULL <strong className="float-right text-cyan-200">{Math.round(mission.hull)}/{mission.maxHull}</strong></p>
+            <p className="mt-2 text-amber-200">🪙 {progress.credits} coins</p>
           </div>
 
+          {!["complete", "failed", "eva"].includes(mission.stage) && (
+            <div className="pointer-events-auto absolute right-3 top-[100px] z-[6] flex max-w-[42%] flex-col gap-2 sm:right-6 sm:top-[110px]">
+              <button type="button" disabled={paused || progress.inventory.fuelCell < 1 || mission.fuel >= mission.maxFuel - 0.01}
+                onClick={() => activateKit("fuelCell")} className="min-h-11 rounded-lg border border-cyan-300/40 bg-[#06243d]/85 px-2 text-[11px] font-bold text-cyan-100 backdrop-blur-sm disabled:opacity-45">
+                ⛽ REFUEL +35 ({progress.inventory.fuelCell})
+              </button>
+              <button type="button" disabled={paused || progress.inventory.repairKit < 1 || mission.hull >= mission.maxHull - 0.01}
+                onClick={() => activateKit("repairKit")} className="min-h-11 rounded-lg border border-orange-300/40 bg-[#2c2037]/85 px-2 text-[11px] font-bold text-orange-100 backdrop-blur-sm disabled:opacity-45">
+                🛠️ REPAIR +35 ({progress.inventory.repairKit})
+              </button>
+            </div>
+          )}
           {mission.stage === "orbit" && <div className="pointer-events-auto absolute bottom-[11%] left-1/2 z-[7] w-max max-w-[94%] -translate-x-1/2"><PrimaryButton onClick={() => performAction("transfer")}>🪐 BEGIN {mission.destination.toUpperCase()} TRANSFER</PrimaryButton></div>}
           {mission.stage === "complete" && <div className="absolute inset-0 z-[9] grid place-items-center bg-[#03091d]/88 p-4 backdrop-blur-md">
             <div className="w-full max-w-lg rounded-3xl border border-cyan-200/40 bg-gradient-to-br from-[#0b2746] to-[#1b1240] p-6 text-center shadow-2xl">
@@ -398,6 +520,7 @@ export default function GigaOrbitGame() {
               <p className="mt-2 text-xs text-slate-300">First-completion rewards are awarded once. Mars unlocks after the Moon.</p>
               <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                 <PrimaryButton onClick={() => { setSavedMission(null); backToMenu(); }}>MISSION CONTROL</PrimaryButton>
+                <PrimaryButton outline onClick={() => { setSavedMission(null); syncView("awards"); }}>🏆 VIEW AWARDS</PrimaryButton>
                 <PrimaryButton outline onClick={() => start(mission.destination === "moon" ? "mars" : "moon")} disabled={mission.destination === "moon" && !canChoose("mars", progress)}>NEXT MISSION</PrimaryButton>
               </div>
             </div>
@@ -406,6 +529,7 @@ export default function GigaOrbitGame() {
             <div className="w-full max-w-md rounded-3xl border border-orange-400/50 bg-[#101932] p-6 text-center">
               <p className="text-4xl">⚠️</p><h2 className="mt-3 text-2xl font-black">MISSION INTERRUPTED</h2>
               <p className="mt-3 text-sm text-orange-100">{mission.message}</p>
+              <p className="mt-3 text-xs text-amber-100">Hard landings reduce hull integrity. Repair it in the workshop; retrying missions is free.</p>
               <div className="mt-6 flex flex-wrap justify-center gap-3"><PrimaryButton onClick={resetForNewMission}>RETRY FOR FREE</PrimaryButton><PrimaryButton outline onClick={backToMenu}>MAIN MENU</PrimaryButton></div>
             </div>
           </div>}
@@ -464,7 +588,7 @@ export default function GigaOrbitGame() {
           {paused && <div className="absolute inset-0 z-[9] grid place-items-center bg-[#010617]/90 p-4">
             <div className="w-full max-w-sm rounded-2xl border border-cyan-300/40 bg-[#101931] p-6 text-center">
               <h2 className="text-3xl font-black">PAUSED</h2><p className="my-3 text-sm text-slate-300">Your mission and progress are saved on this device.</p>
-              <div className="flex flex-col gap-3"><PrimaryButton onClick={() => syncPaused(false)}>RESUME MISSION</PrimaryButton><PrimaryButton outline onClick={resetForNewMission}>RESTART MISSION</PrimaryButton><PrimaryButton outline onClick={backToMenu}>SAVE & MAIN MENU</PrimaryButton></div>
+              <div className="flex flex-col gap-3"><PrimaryButton onClick={() => syncPaused(false)}>RESUME MISSION</PrimaryButton><PrimaryButton outline onClick={openWorkshopFromFlight}>VISIT WORKSHOP (FLIGHT SAVED)</PrimaryButton><PrimaryButton outline onClick={resetForNewMission}>RESTART MISSION</PrimaryButton><PrimaryButton outline onClick={backToMenu}>SAVE & MAIN MENU</PrimaryButton></div>
             </div>
           </div>}
           {message && !paused && !["complete", "failed"].includes(mission.stage) && <div role="status" className="pointer-events-none absolute left-1/2 top-[76px] z-[6] w-[min(92vw,470px)] -translate-x-1/2 rounded-lg bg-[#072542]/75 px-3 py-1.5 text-center text-[10px] font-semibold text-cyan-100 sm:text-xs">{message}</div>}
