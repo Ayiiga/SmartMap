@@ -1,6 +1,6 @@
 import type { Map as MapLibreMapType } from "maplibre-gl";
 import type { MapStyle } from "@/types/smart-map";
-import { SATELLITE_HYBRID_STYLE, SATELLITE_RASTER_STYLE } from "@/lib/map/satellite-style";
+import { SATELLITE_HYBRID_STYLE } from "@/lib/map/satellite-style";
 
 /** Free vector styles via OpenFreeMap — no API key required. */
 export const MAP_STYLE_URLS: Record<MapStyle, string> = {
