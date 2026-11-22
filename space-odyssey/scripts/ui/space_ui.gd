@@ -1,20 +1,24 @@
 extends RefCounted
 ## Reusable touch-friendly controls, local visual style; no plugins.
-const STARS = preload("res://scripts/ui/starfield.gd")
 const SURFACE: Color = Color("142740")
 const ACCENT: Color = Color("52b8ff")
 const FG: Color = Color("f5f8ff")
 const MUTED: Color = Color("b7c9db")
 
 static func backdrop(root: Control) -> void:
-	var background: ColorRect = ColorRect.new()
-	background.color = Color("071221")
-	background.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.add_child(background)
-	var stars: Control = STARS.new()
-	stars.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.add_child(stars)
+	# Bundled user-supplied space artwork is available without internet.
+	var photo: TextureRect = TextureRect.new()
+	photo.texture = preload("res://assets/textures/earth-orbit.webp")
+	photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	photo.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(photo)
+	var shade: ColorRect = ColorRect.new()
+	shade.color = Color(0.015, 0.030, 0.075, 0.68)
+	shade.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(shade)
 
 static func label(text: String, font_size: int = 21, color: Color = FG) -> Label:
 	var l: Label = Label.new()
@@ -27,8 +31,8 @@ static func label(text: String, font_size: int = 21, color: Color = FG) -> Label
 static func button(text: String, accent: bool = false) -> Button:
 	var b: Button = Button.new()
 	b.text = text
-	b.custom_minimum_size = Vector2(235, 55)
-	b.add_theme_font_size_override("font_size", 19)
+	b.custom_minimum_size = Vector2(205, 52)
+	b.add_theme_font_size_override("font_size", 18)
 	b.add_theme_color_override("font_color", FG)
 	var normal: StyleBoxFlat = StyleBoxFlat.new()
 	normal.bg_color = Color("955e1b") if accent else SURFACE
@@ -52,14 +56,14 @@ static func button(text: String, accent: bool = false) -> Button:
 static func panel() -> PanelContainer:
 	var p: PanelContainer = PanelContainer.new()
 	var style: StyleBoxFlat = StyleBoxFlat.new()
-	style.bg_color = Color(0.04, 0.09, 0.19, 0.95)
+	style.bg_color = Color(0.025, 0.060, 0.13, 0.84)
 	style.border_color = Color("4b719b")
 	style.set_border_width_all(1)
 	style.set_corner_radius_all(20)
-	style.content_margin_left = 22.0
-	style.content_margin_right = 22.0
-	style.content_margin_top = 18.0
-	style.content_margin_bottom = 18.0
+	style.content_margin_left = 15.0
+	style.content_margin_right = 15.0
+	style.content_margin_top = 12.0
+	style.content_margin_bottom = 12.0
 	p.add_theme_stylebox_override("panel", style)
 	return p
 
