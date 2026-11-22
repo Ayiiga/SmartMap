@@ -18,7 +18,7 @@ type View = "menu" | "game" | "map" | "help" | "settings";
 type MoveAxis = { x: number; y: number };
 const PROGRESS_KEY = "gigaorbit_web_pilot_v1";
 const MISSION_KEY = "gigaorbit_web_mission_v1";
-const NO_INPUT: ControlInput = { x: 0, y: 0, boost: false, brake: false, throttleDelta: 0 };
+const NO_INPUT: ControlInput = { x: 0, y: 0, boost: false, brake: false, throttleDelta: 0, jump: false };
 
 function Joystick({ onChange }: { onChange: (value: MoveAxis) => void }) {
   const pointerId = useRef<number | null>(null);
@@ -106,6 +106,23 @@ export default function GigaOrbitGame() {
   const [message, setMessage] = useState<string | null>(null);
   const [selectedDestination, setSelectedDestination] = useState<Destination>("moon");
   const [mute, setMute] = useState(false);
+  const playCue = useCallback((frequency: number) => {
+    if (mute) return;
+    try {
+      const ctx = new window.AudioContext();
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, ctx.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * 1.25, ctx.currentTime + 0.16);
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.23);
+      oscillator.connect(gain); gain.connect(ctx.destination);
+      oscillator.start(); oscillator.stop(ctx.currentTime + 0.24);
+      oscillator.onended = () => { void ctx.close(); };
+    } catch { /* Browser without Web Audio continues silently */ }
+  }, [mute]);
   const motionRef = useRef<ControlInput>({ ...NO_INPUT });
   const missionRef = useRef<Mission | null>(null);
   const progressRef = useRef<PilotProgress>(newProgress());
@@ -163,7 +180,10 @@ export default function GigaOrbitGame() {
         const next = advance(old, motionRef.current, dt);
         if (old.stage !== next.stage) {
           motionRef.current = { ...NO_INPUT };
-          if (next.stage === "complete") syncProgress(award(progressRef.current, next));
+          if (next.stage === "complete") {
+            next.awarded = !progressRef.current.completed.includes(next.destination);
+            syncProgress(award(progressRef.current, next));
+          }
           setMessage(next.message);
         }
         missionRef.current = next;
@@ -186,7 +206,8 @@ export default function GigaOrbitGame() {
       if (key === "arrowright" || key === "d") motionRef.current.x = 1;
       if (key === "arrowup" || key === "w") motionRef.current.y = -1;
       if (key === "arrowdown" || key === "s") motionRef.current.y = 1;
-      if (key === " " || key === "b") motionRef.current.brake = true;
+      if (key === " " && missionRef.current?.stage === "eva") motionRef.current.jump = true;
+      else if (key === " " || key === "b") motionRef.current.brake = true;
       if (key === "shift") motionRef.current.boost = true;
       if (key === "=" || key === "+") motionRef.current.throttleDelta = 1;
       if (key === "-" || key === "_") motionRef.current.throttleDelta = -1;
@@ -199,6 +220,7 @@ export default function GigaOrbitGame() {
       const key = e.key.toLowerCase();
       if (["arrowleft", "arrowright", "a", "d"].includes(key)) motionRef.current.x = 0;
       if (["arrowup", "arrowdown", "w", "s"].includes(key)) motionRef.current.y = 0;
+      if (key === " ") motionRef.current.jump = false;
       if (key === " " || key === "b") motionRef.current.brake = false;
       if (key === "shift") motionRef.current.boost = false;
       if (["=", "+", "-", "_"].includes(key)) motionRef.current.throttleDelta = 0;
@@ -212,7 +234,7 @@ export default function GigaOrbitGame() {
     if (!canChoose(destination, progressRef.current)) { setMessage("Finish your Moon mission first to unlock Mars."); return; }
     setSelectedDestination(destination);
     syncMission(newMission(destination, progressRef.current.mode));
-    syncPaused(false); syncView("game"); setMessage(null);
+    syncPaused(false); syncView("game"); setMessage(null); playCue(440);
   };
   const continueSaved = () => {
     if (!savedMission) return;
@@ -226,14 +248,18 @@ export default function GigaOrbitGame() {
     const m = missionRef.current;
     if (!m) return;
     const next = action(m, name);
-    if (next !== m) { syncMission(next); setMessage(next.message); }
+    if (next !== m) { syncMission(next); setMessage(next.message); playCue(name === "stage" ? 660 : 520); }
   };
   const performInteract = () => {
     const m = missionRef.current;
     if (!m) return;
     const next = interact(m);
-    if (next.stage === "complete" && m.stage !== "complete") syncProgress(award(progressRef.current, next));
+    if (next.stage === "complete" && m.stage !== "complete") {
+      next.awarded = !progressRef.current.completed.includes(next.destination);
+      syncProgress(award(progressRef.current, next));
+    }
     syncMission(next); setMessage(next.message);
+    if (next.samples > m.samples || next.stage === "complete") playCue(740);
   };
   const changeMode = (mode: HandlingMode) => {
     const next = { ...progressRef.current, mode };
@@ -329,7 +355,7 @@ export default function GigaOrbitGame() {
                   <div className="mt-5 flex flex-wrap gap-2"><PrimaryButton outline={progress.mode !== "explorer"} onClick={() => changeMode("explorer")}>EXPLORER MODE</PrimaryButton><PrimaryButton outline={progress.mode !== "pilot"} onClick={() => changeMode("pilot")}>PILOT MODE</PrimaryButton></div>
                   <p className="mt-4 text-sm text-slate-300">Explorer offers gentle steering assistance and landing stabilization. Pilot gives more manual control.</p>
                   <div className="mt-6 flex flex-wrap gap-2"><PrimaryButton outline onClick={() => setMute((v) => !v)}>{mute ? "🔇 EFFECTS OFF" : "🔊 EFFECTS ON"}</PrimaryButton><PrimaryButton onClick={() => syncView("menu")}>SAVE & BACK</PrimaryButton></div>
-                  <p className="mt-3 text-xs text-slate-400">Audio effects are reserved for a later update; no sound plays in this version.</p>
+                  <p className="mt-3 text-xs text-slate-400">Original synthetic mission chimes play after user actions when effects are on. No streamed music is required.</p>
                 </section>
               )}
               {message && <p role="status" className="mt-4 rounded-lg bg-[#142e40]/85 p-3 text-sm text-cyan-200">{message}</p>}
@@ -365,7 +391,7 @@ export default function GigaOrbitGame() {
             <div className="w-full max-w-lg rounded-3xl border border-cyan-200/40 bg-gradient-to-br from-[#0b2746] to-[#1b1240] p-6 text-center shadow-2xl">
               <p className="text-5xl">🏆</p><h2 className="mt-3 text-3xl font-black">MISSION COMPLETED!</h2>
               <p className="mt-3 text-cyan-100">Samples returned safely from the {mission.destination === "moon" ? "Moon" : "Martian surface"}.</p>
-              <p className="mt-3 text-lg font-black text-amber-300">+{mission.destination === "moon" ? 500 : 800} credits · +{mission.destination === "moon" ? 200 : 350} XP</p>
+              <p className="mt-3 text-lg font-black text-amber-300">{mission.awarded ? `+${mission.destination === "moon" ? 500 : 800} credits · +${mission.destination === "moon" ? 200 : 350} XP` : "Replay complete · First-clear rewards already secured"}</p>
               <p className="mt-2 text-xs text-slate-300">First-completion rewards are awarded once. Mars unlocks after the Moon.</p>
               <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                 <PrimaryButton onClick={() => { setSavedMission(null); backToMenu(); }}>MISSION CONTROL</PrimaryButton>
@@ -422,7 +448,10 @@ export default function GigaOrbitGame() {
                 {mission.stage === "eva" && (
                   <>
                     <p className="max-w-[180px] rounded-lg bg-[#06142b]/80 p-2 text-right text-[11px] text-cyan-100">{mission.samples === SAMPLE_POINTS[mission.destination].length ? "Return to the rocket (0,0)" : "Follow the glowing cyan sample"}</p>
-                    <HoldButton label="RUN" color="gray" onStart={() => { motionRef.current.boost = true; }} onEnd={() => { motionRef.current.boost = false; }} />
+                    <div className="flex gap-2">
+                      <HoldButton label="RUN" color="gray" onStart={() => { motionRef.current.boost = true; }} onEnd={() => { motionRef.current.boost = false; }} />
+                      <HoldButton label="JUMP" color="orange" onStart={() => { motionRef.current.jump = true; }} onEnd={() => { motionRef.current.jump = false; }} />
+                    </div>
                     <button type="button" onClick={performInteract} disabled={!canInteract(mission)} className="min-h-[54px] rounded-xl border border-white/30 bg-gradient-to-r from-cyan-300 to-blue-500 px-5 text-sm font-black text-[#06162c] disabled:cursor-not-allowed disabled:opacity-55">{mission.samples === SAMPLE_POINTS[mission.destination].length ? "RETURN SAMPLE" : "COLLECT SAMPLE"}</button>
                   </>
                 )}
