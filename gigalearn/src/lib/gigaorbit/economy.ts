@@ -91,7 +91,7 @@ export function recordCrash(progress: PilotProgress): PilotProgress {
 }
 export function recordSuccess(progress: PilotProgress, mission: Mission): PilotProgress {
   return { ...progress,
-    hull: Math.max(30, Math.min(progress.hull, mission.hull)),
+    hull: Math.max(30, Math.min(mission.maxHull, mission.hull)),
     flights: progress.flights + 1,
   };
 }
