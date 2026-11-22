@@ -21,12 +21,16 @@ for method in ["assign_crew", "confirm_crew", "begin_transfer", "begin_landing",
 assert "Crew.GROUPS[role]" in crew and "CONFIRM 3 CREW" in crew
 assert "func advance(" in flight and "func restore(" in flight and "func grade(" in flight
 assert "gravity()" in flight and "vertical_velocity_m_s" in flight
-for feature in ["STEER LEFT", "STEER RIGHT", "BRAKE / THRUST", "DEPLOY LEGS", "RESTART FROM BEGINNING", "REVIVE FROM CHECKPOINT"]:
+for feature in ["FLIGHT_STICK.new()", "▲ BRAKE", "▼ LESS", "GEAR", "FUEL +35", "RESTART FROM BEGINNING", "REVIVE FROM CHECKPOINT", "_repair_recover", "_refuel"] :
     assert feature in landing, feature
 assert 'GameState.award_landing(' in landing
 assert 'GameState.begin_landing(_target)' in transfer
 assert "GameState.buy_upgrade" in workshop
-assert "FLY TO THE MOON" in menu and "FLY TO MARS" in menu
+assert "GameState.buy_supply" in workshop and "func use_supply(" in state
+assert "\"supplies\":" in state and "data.get(\"supplies\"" in state
+missions = read("scripts/ui/missions_screen.gd")
+assert "MISSIONS & PLANETS" in menu
+assert "FLY TO THE MOON" in missions and "FLY TO MARS" in missions
 assert "GAME COINS" in rewards and "BEST GRADE" in rewards
 assert 'permissions/internet=false' in export
 assert 'spaceodyssey.missionpreview' in export, 'Isolated debug application ID prevents losing older local saves'

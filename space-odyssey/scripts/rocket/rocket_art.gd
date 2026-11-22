@@ -9,10 +9,10 @@ static func build(parent: Node3D, booster_count: int = 2) -> Dictionary:
 	var lower: Node3D = Node3D.new()
 	lower.name = "LowerStage"
 	root.add_child(lower)
-	var hull: Material = _paint(Color("e4edf1"), 0.32, 0.24)
+	var hull: Material = _paint(Color("e4edf1"), 0.24, 0.48)
 	var dark: Material = _paint(Color("192f45"), 0.35, 0.50)
 	var orange: Material = _paint(Color("e97746"), 0.45, 0.10)
-	var steel: Material = _paint(Color("839aab"), 0.25, 0.52)
+	var steel: Material = _paint(Color("839aab"), 0.22, 0.68)
 	var teal: Material = _paint(Color("7cced8"), 0.24, 0.42)
 	var glass: Material = _paint(Color("102c52"), 0.13, 0.30)
 	_cylinder(lower, Vector3(0, 4.5, 0), 1.24, 7.6, hull)
@@ -54,6 +54,47 @@ static func build(parent: Node3D, booster_count: int = 2) -> Dictionary:
 	flame.visible = false
 	return {"root": root, "lower_stage": lower, "flame": flame}
 
+## Dedicated lunar/Martian lander, rather than reusing an ascent rocket with thin rods.
+## Lightweight metallic PBR surfaces and retractable landing legs are fully offline.
+static func build_lander(parent: Node3D) -> Dictionary:
+	var root: Node3D = Node3D.new()
+	root.name = "GigaOrbitLander"
+	parent.add_child(root)
+	var white: Material = _paint(Color("edf2f6"), 0.27, 0.55)
+	var steel: Material = _paint(Color("8da2b5"), 0.28, 0.70)
+	var foil: Material = _paint(Color("d4ad58"), 0.43, 0.69)
+	var dark: Material = _paint(Color("142538"), 0.20, 0.58)
+	var glass: Material = _paint(Color("153b64"), 0.08, 0.44)
+	# Faceted gold descent stage, silver pressure cabin and rounded top hatch.
+	_cylinder(root, Vector3(0, 1.25, 0), 1.60, 1.65, foil)
+	_cylinder(root, Vector3(0, 2.40, 0), 1.08, 1.85, white)
+	_cylinder(root, Vector3(0, 3.42, 0), 1.02, 0.25, steel)
+	_sphere(root, Vector3(0, 3.58, 0), Vector3(1.0, 0.42, 1.0), white)
+	_cylinder(root, Vector3(0, 0.40, 0), 0.72, 0.55, dark)
+	for side: float in [-1.0, 1.0]:
+		_cylinder(root, Vector3(side * 0.92, 1.18, 0), 0.24, 0.75, steel)
+		_box(root, Vector3(side * 0.72, 2.6, -0.80), Vector3(0.40, 0.24, 0.06), dark)
+	for y: float in [2.30, 2.83]:
+		_sphere(root, Vector3(0, y, -1.02), Vector3(0.38, 0.30, 0.12), glass)
+	# Low-cost scientific antennas, docking details and gold engine hardware.
+	_cylinder(root, Vector3(0.40, 4.08, 0.15), 0.045, 1.0, steel)
+	_sphere(root, Vector3(0.40, 4.55, 0.15), Vector3(0.14, 0.14, 0.14), steel)
+	_box(root, Vector3(0, 0.85, -1.32), Vector3(1.0, 0.48, 0.15), foil)
+	var legs: Array[Node3D] = []
+	for sx: float in [-1.0, 1.0]:
+		for sz: float in [-1.0, 1.0]:
+			var gear: Node3D = Node3D.new()
+			root.add_child(gear)
+			var angle: float = -PI / 4.0 if sx > 0 else PI / 4.0
+			var rod: MeshInstance3D = _cylinder(gear, Vector3(sx * 1.42, 0.60, sz * 1.42), 0.095, 2.6, steel)
+			rod.rotation.z = angle
+			_box(gear, Vector3(sx * 2.23, -0.25, sz * 2.23), Vector3(0.85, 0.15, 0.85), foil)
+			legs.append(gear)
+	var flame: MeshInstance3D = _cylinder(root, Vector3(0, -0.72, 0), 0.45, 1.6, _glow(Color("9deaff")), 0.0)
+	flame.name = "LanderThruster"
+	flame.visible = false
+	return {"root": root, "flame": flame, "gear_nodes": legs}
+
 static func _paint(color: Color, roughness: float, metallic: float) -> StandardMaterial3D:
 	var mat: StandardMaterial3D = StandardMaterial3D.new()
 	mat.albedo_color = color
@@ -71,7 +112,7 @@ static func _cylinder(parent: Node3D, pos: Vector3, radius: float, height: float
 	mesh.height = height
 	mesh.top_radius = radius if top_radius < 0.0 else top_radius
 	mesh.bottom_radius = radius
-	mesh.radial_segments = 28
+	mesh.radial_segments = 36
 	mesh.rings = 2
 	return _mesh(parent, mesh, pos, mat)
 

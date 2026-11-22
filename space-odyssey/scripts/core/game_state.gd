@@ -35,6 +35,8 @@ var landing_grades: Dictionary = {}
 var landing_attempts: Dictionary = {"moon": 0, "mars": 0}
 var badges: Array[String] = []
 var upgrades: Dictionary = {"engine": 1, "fuel": 1, "landing_gear": 1}
+# Consumables are offline inventory, kept separate from permanent rocket upgrades.
+var supplies: Dictionary = {"fuel_cell": 0, "repair_kit": 0}
 var destination_planet: String = "moon"
 var landing_checkpoint: Dictionary = {}
 var checkpoint_revive: bool = false
@@ -87,6 +89,36 @@ func buy_upgrade(part: String) -> bool:
 	save_local()
 	progress_changed.emit()
 	return true
+
+func supply_price(item: String) -> int:
+	return int({"fuel_cell": 80, "repair_kit": 100}.get(item, 100000))
+
+func buy_supply(item: String) -> bool:
+	if not supplies.has(item) or int(supplies[item]) >= 20 or coins < supply_price(item):
+		return false
+	coins -= supply_price(item)
+	supplies[item] = int(supplies[item]) + 1
+	save_local()
+	progress_changed.emit()
+	return true
+
+func use_supply(item: String) -> bool:
+	if not supplies.has(item) or int(supplies[item]) <= 0:
+		return false
+	supplies[item] = int(supplies[item]) - 1
+	save_local()
+	progress_changed.emit()
+	return true
+
+func can_repair_checkpoint(planet: String) -> bool:
+	return planet_unlocked(planet) and int(supplies.get("repair_kit", 0)) > 0 and str(landing_checkpoint.get("planet", "")) == planet and not landing_checkpoint.is_empty()
+
+func repair_lander_checkpoint(planet: String) -> bool:
+	if not can_repair_checkpoint(planet):
+		return false
+	if not use_supply("repair_kit"):
+		return false
+	return begin_landing(planet, true)
 
 func confirm_crew() -> bool:
 	if not ready_crew():
@@ -293,6 +325,7 @@ func save_local() -> bool:
 		"landing_attempts": landing_attempts,
 		"badges": badges,
 		"upgrades": upgrades,
+		"supplies": supplies,
 		"destination_planet": destination_planet,
 		"landing_checkpoint": landing_checkpoint,
 		"moon_eva_complete": moon_eva_complete,
@@ -346,6 +379,10 @@ func load_local() -> void:
 		badges.clear()
 		for item: Variant in badges_data:
 			badges.append(str(item))
+	var saved_supplies: Variant = data.get("supplies", {})
+	if saved_supplies is Dictionary:
+		for item: String in supplies:
+			supplies[item] = clampi(int(saved_supplies.get(item, 0)), 0, 20)
 	var saved_upgrades: Variant = data.get("upgrades", {})
 	if saved_upgrades is Dictionary:
 		for item: String in upgrades:
@@ -495,6 +532,7 @@ func erase_progress() -> void:
 	landing_attempts = {"moon": 0, "mars": 0}
 	badges = []
 	upgrades = {"engine": 1, "fuel": 1, "landing_gear": 1}
+	supplies = {"fuel_cell": 0, "repair_kit": 0}
 	destination_planet = "moon"
 	landing_checkpoint = {}
 	checkpoint_revive = false
