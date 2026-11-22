@@ -24,9 +24,14 @@ var _assist_button: Button
 var _overlay: CanvasLayer
 var _last_warning: String = ""
 var _completed: bool = false
+var _terrain_noise: FastNoiseLite = FastNoiseLite.new()
 
 func _ready() -> void:
 	_world = GameState.destination_planet if GameState.destination_planet in ["moon", "mars"] else "moon"
+	_terrain_noise.seed = 27183 if _world == "moon" else 1729
+	_terrain_noise.frequency = 0.045
+	_terrain_noise.fractal_type = FastNoiseLite.FRACTAL_FBM
+	_terrain_noise.fractal_octaves = 3
 	_sim = Lander.new()
 	_sim.configure(_world, int(GameState.upgrades.get("landing_gear", 1)), int(GameState.upgrades.get("engine", 1)), int(GameState.upgrades.get("fuel", 1)))
 	_assisted = bool(GameState.settings.get("assisted_controls", true))
@@ -97,17 +102,17 @@ func _make_world() -> void:
 func _make_terrain() -> void:
 	var tool: SurfaceTool = SurfaceTool.new()
 	tool.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var base: Color = Color("a8acb7") if _world == "moon" else Color("b45f3a")
-	for ix: int in range(40):
-		for iz: int in range(40):
-			var x: float = (float(ix) - 20.0) * 6.0
-			var z: float = (float(iz) - 20.0) * 6.0
+	var base: Color = Color("858c9a") if _world == "moon" else Color("aa6145")
+	for ix: int in range(60):
+		for iz: int in range(60):
+			var x: float = (float(ix) - 30.0) * 4.0
+			var z: float = (float(iz) - 30.0) * 4.0
 			var a: Vector3 = Vector3(x, _ground(x, z), z)
-			var b: Vector3 = Vector3(x + 6.0, _ground(x + 6.0, z), z)
-			var c: Vector3 = Vector3(x, _ground(x, z + 6.0), z + 6.0)
-			var d: Vector3 = Vector3(x + 6.0, _ground(x + 6.0, z + 6.0), z + 6.0)
+			var b: Vector3 = Vector3(x + 4.0, _ground(x + 4.0, z), z)
+			var c: Vector3 = Vector3(x, _ground(x, z + 4.0), z + 4.0)
+			var d: Vector3 = Vector3(x + 4.0, _ground(x + 4.0, z + 4.0), z + 4.0)
 			for p: Vector3 in [a, c, b, b, c, d]:
-				var brightness: float = 0.83 + 0.15 * sin(p.x * 0.31 + p.z * 0.18)
+				var brightness: float = 0.78 + 0.20 * (0.5 + 0.5 * _terrain_noise.get_noise_2d(p.x * 2.1, p.z * 2.1))
 				tool.set_color(base * brightness)
 				tool.add_vertex(p)
 	tool.generate_normals()
@@ -129,7 +134,8 @@ func _ground(x: float, z: float) -> float:
 		var d: float = Vector2(x, z).distance_to(center)
 		crater -= 5.0 * exp(-pow((d / 16.0), 2.0))
 		crater += 2.6 * exp(-pow(((d - 19.0) / 7.0), 2.0))
-	return hills + crater
+	return hills + crater + _terrain_noise.get_noise_2d(x, z) * (4.2 if _world == "mars" else 2.6)
+		+ _terrain_noise.get_noise_2d(x * 4.0, z * 4.0) * 0.35
 
 func _mat(color: Color, glow: bool) -> StandardMaterial3D:
 	var m: StandardMaterial3D = StandardMaterial3D.new()
@@ -167,7 +173,7 @@ func _ball(location: Vector3, radius: float, color: Color, glow: bool) -> MeshIn
 func _rock(location: Vector3, radius: float) -> void:
 	var color: Color = Color("8e8b86") if _world == "moon" else Color("9a553e")
 	var rock: MeshInstance3D = _ball(location, radius, color, false)
-	rock.scale = Vector3(1.5, 0.50, 1.1)
+	rock.scale = Vector3(1.3, 0.78, 1.15)
 
 func _build_hud() -> void:
 	# Only essential real-time controls stay on screen.
