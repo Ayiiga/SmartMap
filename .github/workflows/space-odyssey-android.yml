@@ -124,6 +124,14 @@ jobs:
           test -s build/SPACE_ODYSSEY_Debug.apk
           unzip -tq build/SPACE_ODYSSEY_Debug.apk
           sha256sum build/SPACE_ODYSSEY_Debug.apk > build/SPACE_ODYSSEY_Debug.apk.sha256
+      - name: Export side-by-side quality test APK
+        run: |
+          set -eu
+          godot --headless --path . --export-debug "Android Side by Side" build/GigaOrbit_SideBySide.apk > /tmp/godot-sidebyside-export.log 2>&1 || { cat /tmp/godot-sidebyside-export.log; exit 1; }
+          cat /tmp/godot-sidebyside-export.log
+          test -s build/GigaOrbit_SideBySide.apk
+          unzip -tq build/GigaOrbit_SideBySide.apk
+          sha256sum build/GigaOrbit_SideBySide.apk > build/GigaOrbit_SideBySide.apk.sha256
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
@@ -131,5 +139,7 @@ jobs:
           path: |
             space-odyssey/build/SPACE_ODYSSEY_Debug.apk
             space-odyssey/build/SPACE_ODYSSEY_Debug.apk.sha256
+            space-odyssey/build/GigaOrbit_SideBySide.apk
+            space-odyssey/build/GigaOrbit_SideBySide.apk.sha256
           if-no-files-found: error
           retention-days: 30
