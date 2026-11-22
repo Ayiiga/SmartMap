@@ -181,7 +181,7 @@ function Terrain({ mars }: { mars: boolean }) {
           <meshStandardMaterial color={mars ? "#ad6551" : "#b6bbc6"} roughness={0.95} />
         </mesh>
       ))}
-      <mesh position={[0, -2.10, -7]} rotation={[-Math.PI / 2, 0, 0]}>
+      <mesh position={[0, -2.10, 0]} rotation={[-Math.PI / 2, 0, 0]}>
         <torusGeometry args={[2.6, 0.09, 8, 48]} />
         <meshBasicMaterial color="#5cefdc" transparent opacity={0.9} />
       </mesh>
@@ -226,6 +226,7 @@ function SceneElements({ mission }: { mission: Mission }) {
         craft.current.position.lerp(new THREE.Vector3(mission.stage === "landing" ? mission.offset * 0.07 : Math.sin(mission.heading / 38) * 1.0, y, 0), smooth * 2);
         craft.current.rotation.z = THREE.MathUtils.lerp(craft.current.rotation.z, -mission.heading / 80, smooth * 2);
         craft.current.rotation.y = THREE.MathUtils.lerp(craft.current.rotation.y, mission.heading / 140, smooth * 2);
+        craft.current.rotation.x = THREE.MathUtils.lerp(craft.current.rotation.x, (mission.pitch ?? 0) / 80, smooth * 2);
       }
       camera.position.lerp(new THREE.Vector3(2.6, surface ? 4.6 : 2.5, surface ? 12 : 10.6), smooth);
       camera.lookAt(0, surface ? 0.2 : 0.8, surface ? -4 : 0);
@@ -258,7 +259,7 @@ function SceneElements({ mission }: { mission: Mission }) {
               </group>
             )
           ))}
-          <group position={[4.8, -0.7, 3.2]} scale={0.6}><Rocket lander flame={false} /></group>
+          <group position={[2.1, -0.7, 1.4]} scale={0.6}><Rocket lander flame={false} /></group>
           <LunarRover />
         </>
       )}
