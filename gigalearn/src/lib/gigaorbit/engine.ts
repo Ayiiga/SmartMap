@@ -238,7 +238,16 @@ export function restoreMission(raw: string | null): Mission | null {
     if (f && (f.destination === "moon" || f.destination === "mars")
       && ["launch", "orbit", "transfer", "landing", "eva"].includes(f.stage)
       && Number.isFinite(f.altitudeKm) && Number.isFinite(f.fuel) && Number.isFinite(f.evaZ)
-      && Number.isFinite(f.evaX) && Number.isFinite(f.throttle) && Number.isFinite(f.landingAltitude)) return f;
+      && Number.isFinite(f.evaX) && Number.isFinite(f.throttle) && Number.isFinite(f.landingAltitude)) {
+      const defaults = newMission(f.destination, f.mode === "pilot" ? "pilot" : "explorer");
+      return {
+        ...defaults, ...f,
+        maxFuel: Number.isFinite(f.maxFuel) && f.maxFuel >= 100 ? Math.min(f.maxFuel, 160) : 100,
+        maxHull: Number.isFinite(f.maxHull) && f.maxHull >= 100 ? Math.min(f.maxHull, 160) : 100,
+        hull: Number.isFinite(f.hull) ? Math.max(30, Math.min(160, f.hull)) : 100,
+        suitLevel: Number.isFinite(f.suitLevel) ? Math.max(0, Math.min(3, f.suitLevel)) : 0,
+      };
+    }
   } catch { /* recover from interrupted/corrupt storage */ }
   return null;
 }
