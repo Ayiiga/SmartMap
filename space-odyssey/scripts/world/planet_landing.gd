@@ -134,8 +134,9 @@ func _ground(x: float, z: float) -> float:
 		var d: float = Vector2(x, z).distance_to(center)
 		crater -= 5.0 * exp(-pow((d / 16.0), 2.0))
 		crater += 2.6 * exp(-pow(((d - 19.0) / 7.0), 2.0))
-	return hills + crater + _terrain_noise.get_noise_2d(x, z) * (4.2 if _world == "mars" else 2.6)
-		+ _terrain_noise.get_noise_2d(x * 4.0, z * 4.0) * 0.35
+	var relief: float = _terrain_noise.get_noise_2d(x, z) * (4.2 if _world == "mars" else 2.6)
+	var grit: float = _terrain_noise.get_noise_2d(x * 4.0, z * 4.0) * 0.35
+	return hills + crater + relief + grit
 
 func _mat(color: Color, glow: bool) -> StandardMaterial3D:
 	var m: StandardMaterial3D = StandardMaterial3D.new()
