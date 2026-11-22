@@ -17,8 +17,9 @@ function LiveLocationBootstrap() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const fullscreen = MAP_FULLSCREEN.has(pathname ?? "/");
-  const hideBottomNav = HIDE_BOTTOM_NAV.has(pathname ?? "/");
+  const gigaOrbitShowcase = pathname === "/gigaorbit";
+  const fullscreen = MAP_FULLSCREEN.has(pathname ?? "/") || gigaOrbitShowcase;
+  const hideBottomNav = HIDE_BOTTOM_NAV.has(pathname ?? "/") || gigaOrbitShowcase;
   const authRoute = AUTH_ROUTES.has(pathname ?? "") || (pathname ?? "").startsWith("/auth/");
 
   return (
@@ -31,14 +32,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             : "min-h-[100dvh] pb-24"
       }
     >
-      <LiveLocationBootstrap />
+      {!gigaOrbitShowcase && <LiveLocationBootstrap />}
       {!authRoute && !fullscreen && (
         <div className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
           <OfflineBanner />
         </div>
       )}
       {children}
-      {!authRoute && <AddToHomeScreenPrompt />}
+      {!authRoute && !gigaOrbitShowcase && <AddToHomeScreenPrompt />}
       {!authRoute && !hideBottomNav && <BottomNav />}
     </div>
   );
