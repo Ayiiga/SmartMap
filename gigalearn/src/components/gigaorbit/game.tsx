@@ -301,9 +301,23 @@ export default function GigaOrbitGame() {
     if (result.ok) {
       syncProgress(result.progress);
       if (result.mission) syncMission(result.mission);
+      else if (item === "repairKit" && savedMission) {
+        const fixed = { ...savedMission, hull: Math.min(savedMission.maxHull, savedMission.hull + 35) };
+        setSavedMission(fixed); syncMission(fixed);
+        try { window.localStorage.setItem(MISSION_KEY, JSON.stringify(fixed)); } catch { /* Play continues */ }
+      }
       playCue(720);
     }
     setMessage(result.message);
+  };
+  const openWorkshopFromFlight = () => {
+    const current = missionRef.current;
+    if (current && !["complete", "failed"].includes(current.stage)) {
+      const snapshot = { ...current };
+      setSavedMission(snapshot);
+      try { window.localStorage.setItem(MISSION_KEY, JSON.stringify(snapshot)); } catch { /* Optional saving */ }
+    }
+    syncPaused(false); syncView("workshop");
   };
   const gameBackground = backgroundFor(mission);
 
@@ -326,7 +340,7 @@ export default function GigaOrbitGame() {
               {view === "menu" && (
                 <div className="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-center">
                   <section className="space-y-4 pt-2 sm:space-y-6 sm:pt-10">
-                    <span className="inline-flex rounded-full border border-cyan-300/45 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-200">Play now · Browser 3D mission</span>
+                    <span className="inline-flex rounded-full border border-cyan-300/45 bg-cyan-300/10 px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest text-cyan-200">Play now · 3D missions + coin workshop</span>
                     <h1 className="max-w-3xl text-5xl font-black tracking-[-.045em] text-white drop-shadow-xl sm:text-7xl">Giga<span className="bg-gradient-to-r from-cyan-300 to-violet-400 bg-clip-text text-transparent">Orbit</span><span className="block text-[.50em] font-bold tracking-normal">Beyond Earth</span></h1>
                     <p className="text-lg font-extrabold text-cyan-200">Launch. Explore. Discover.</p>
                     <p className="max-w-lg text-sm leading-7 text-slate-200 sm:text-base">Pilot a real-time 3D rocket from Earth, navigate space, land safely, walk on the Moon and collect research samples. Earn credits and unlock Mars.</p>
@@ -411,6 +425,7 @@ export default function GigaOrbitGame() {
                   </div>
                   <div className="mt-4 flex flex-wrap gap-3">
                     <PrimaryButton outline disabled={progress.inventory.repairKit <= 0 || progress.hull >= 100 + progress.upgrades.armor * 20} onClick={() => activateKit("repairKit")}>🛠️ USE REPAIR KIT ({progress.inventory.repairKit})</PrimaryButton>
+                    {savedMission && <PrimaryButton outline onClick={continueSaved}>▶ CONTINUE SAVED FLIGHT</PrimaryButton>}
                     <PrimaryButton onClick={() => start("moon")}>🚀 START MOON MISSION</PrimaryButton>
                   </div>
                   {message && <p role="status" className="mt-4 rounded-lg bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
@@ -573,7 +588,7 @@ export default function GigaOrbitGame() {
           {paused && <div className="absolute inset-0 z-[9] grid place-items-center bg-[#010617]/90 p-4">
             <div className="w-full max-w-sm rounded-2xl border border-cyan-300/40 bg-[#101931] p-6 text-center">
               <h2 className="text-3xl font-black">PAUSED</h2><p className="my-3 text-sm text-slate-300">Your mission and progress are saved on this device.</p>
-              <div className="flex flex-col gap-3"><PrimaryButton onClick={() => syncPaused(false)}>RESUME MISSION</PrimaryButton><PrimaryButton outline onClick={() => { syncView("workshop"); syncPaused(false); }}>VISIT WORKSHOP (FLIGHT SAVED)</PrimaryButton><PrimaryButton outline onClick={resetForNewMission}>RESTART MISSION</PrimaryButton><PrimaryButton outline onClick={backToMenu}>SAVE & MAIN MENU</PrimaryButton></div>
+              <div className="flex flex-col gap-3"><PrimaryButton onClick={() => syncPaused(false)}>RESUME MISSION</PrimaryButton><PrimaryButton outline onClick={openWorkshopFromFlight}>VISIT WORKSHOP (FLIGHT SAVED)</PrimaryButton><PrimaryButton outline onClick={resetForNewMission}>RESTART MISSION</PrimaryButton><PrimaryButton outline onClick={backToMenu}>SAVE & MAIN MENU</PrimaryButton></div>
             </div>
           </div>}
           {message && !paused && !["complete", "failed"].includes(mission.stage) && <div role="status" className="pointer-events-none absolute left-1/2 top-[76px] z-[6] w-[min(92vw,470px)] -translate-x-1/2 rounded-lg bg-[#072542]/75 px-3 py-1.5 text-center text-[10px] font-semibold text-cyan-100 sm:text-xs">{message}</div>}
