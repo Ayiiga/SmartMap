@@ -95,7 +95,7 @@ func _make_world() -> void:
 	_camera.fov = 63.0
 	_camera.current = true
 	add_child(_camera)
-	_camera.position = Vector3(18, 20, 34)
+	_camera.position = Vector3(9, 11, 19)
 	_camera.look_at(Vector3(0, 8, 0), Vector3.UP)
 
 func _make_terrain() -> void:
@@ -282,8 +282,8 @@ func _physics_process(delta: float) -> void:
 	var visual_y: float = minf(25.0, 0.65 + _sim.altitude_m * 0.10)
 	_craft.position = _craft.position.lerp(Vector3(_sim.horizontal_m, visual_y, 0.0), minf(1.0, delta * 8.0))
 	_craft.rotation_degrees.z = lerpf(_craft.rotation_degrees.z, -_steering * 8.0, minf(1.0, delta * 7.0))
-	_camera.position = _camera.position.lerp(Vector3(18 + _sim.horizontal_m * 0.5, 16 + visual_y * 0.35, 32), minf(1.0, delta * 2.6))
-	_camera.look_at(Vector3(_sim.horizontal_m * 0.45, visual_y * 0.45, 0), Vector3.UP)
+	_camera.position = _camera.position.lerp(Vector3(9.0 + _sim.horizontal_m * 0.85, 7.5 + visual_y * 0.45, 18.0), minf(1.0, delta * 3.0))
+	_camera.look_at(Vector3(_sim.horizontal_m * 0.75, 1.5 + visual_y * 0.66, 0), Vector3.UP)
 	_checkpoint_timer += delta
 	if _checkpoint_timer > 6.0 and _sim.altitude_m > 65.0 and _sim.altitude_m < 260.0 and _sim.vertical_velocity_m_s > -10.0:
 		_checkpoint_timer = 0.0
