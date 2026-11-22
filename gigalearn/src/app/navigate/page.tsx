@@ -12,7 +12,6 @@ import {
   Loader2,
   MapPinned,
 } from "lucide-react";
-import { PlaceAutocomplete } from "@/components/smart-map/place-autocomplete";
 import { LocationHud, LocationPermissionCard } from "@/components/smart-map/location-hud";
 import { LiveLayerToggles } from "@/components/smart-map/live-layer-toggles";
 import { RouteInputCard } from "@/components/smart-map/route-input-card";
