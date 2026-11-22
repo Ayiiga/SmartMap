@@ -42,7 +42,7 @@ static func build(parent: Node3D, booster_count: int = 2) -> Dictionary:
 		_sphere(root, Vector3(0, y, -1.14), Vector3(0.32, 0.32, 0.14), glass)
 	_box(root, Vector3(0, 10.1, 1.05), Vector3(0.55, 0.9, 0.16), teal)
 	var label: Label3D = Label3D.new()
-	label.text = "ODYSSEY 01"
+	label.text = "GIGAORBIT 01"
 	label.font_size = 44
 	label.pixel_size = 0.007
 	label.modulate = Color("153047")
