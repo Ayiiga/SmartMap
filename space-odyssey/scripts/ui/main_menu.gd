@@ -56,6 +56,8 @@ func _ready() -> void:
 	moon.disabled = not GameState.flight_complete
 	var mars: Button = _add(buttons, "4  FLY TO MARS", GameState.planet_unlocked("mars"), func() -> void: GameState.begin_transfer("mars"))
 	mars.disabled = not GameState.planet_unlocked("mars")
+	var eva: Button = _add(buttons, "MOON SURFACE · ASTRONAUT EVA", false, func() -> void: GameState.begin_moon_eva())
+	eva.disabled = not bool(GameState.completed_planets.get("moon", false))
 	_add(buttons, "ROCKET WORKSHOP / UPGRADES", false, func() -> void: _open("workshop_screen"))
 	_add(buttons, "TROPHIES / GRADES / REWARDS", false, func() -> void: _open("rewards_screen"))
 	var resume: Button = _add(buttons, "CONTINUE SAVED MISSION", false, func() -> void: GameState.continue_game())
