@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { award, newMission, newProgress, restoreMission, restoreProgress } from "./engine";
-import { AWARDS, buyItem, claimAward, itemPrice, preparedMission, recordCrash, recordSuccess, useItem } from "./economy";
+import { AWARDS, buyItem, claimAward, itemPrice, preparedMission, recordCrash, recordSuccess, applyConsumable } from "./economy";
 
 describe("GigaOrbit coin economy and achievement integrity", () => {
   it("grants 250 fictional starter coins only once, including existing pilot migrations", () => {
