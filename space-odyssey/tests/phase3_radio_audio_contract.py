@@ -45,7 +45,8 @@ assert "SHIELDS" in comets and "REQUIRED_DODGES" in comets
 assert "GameState.record_comet_result" in comets
 assert "DODGE COMETS" in ship
 assert "REQUEST ROCKET STATUS" in ship and "WHAT SHOULD I DO NEXT?" in ship
-assert "COMET DODGING" in menu
+assert "MISSIONS & PLANETS" in menu
+assert "PLAY COMET DODGE" in read("scripts/ui/missions_screen.gd")
 assert "package/version_code=7" in export
 assert "permissions/internet=false" in export
 print("PASS: offline audio settings, original rhythm, optional TTS, comet dodge controls and mission progression")
