@@ -11,7 +11,7 @@ import {
 } from "@/lib/gigaorbit/engine";
 import {
   AWARDS, STORE, buyItem, claimAward, itemPrice, preparedMission,
-  recordCrash, recordSuccess, useItem, type ShopItem,
+  recordCrash, recordSuccess, applyConsumable, type ShopItem,
 } from "@/lib/gigaorbit/economy";
 
 const Scene = dynamic(() => import("./scene").then((mod) => mod.GigaOrbitScene), {
@@ -297,7 +297,7 @@ export default function GigaOrbitGame() {
   };
   const activateKit = (item: "fuelCell" | "repairKit") => {
     const activeMission = viewRef.current === "game" ? missionRef.current : null;
-    const result = useItem(progressRef.current, activeMission, item);
+    const result = applyConsumable(progressRef.current, activeMission, item);
     if (result.ok) {
       syncProgress(result.progress);
       if (result.mission) syncMission(result.mission);
