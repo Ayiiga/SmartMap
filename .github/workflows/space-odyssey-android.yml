@@ -34,6 +34,7 @@ jobs:
           python3 tests/beginner_accessibility_contract.py
           python3 tests/phase3_radio_audio_contract.py
           python3 tests/phase4_progression_contract.py
+          python3 tests/phase5_gigaorbit_contract.py
   test-build:
     needs: static-source
     runs-on: ubuntu-latest
@@ -104,7 +105,7 @@ jobs:
             echo 'Runtime errors detected in real Godot scenes' >&2
             exit 1
           fi
-          grep -q 'PASS: Main menu, 3-crew screen' /tmp/odyssey-ui.log
+          grep -q 'PASS: Main menu, crew' /tmp/odyssey-ui.log
       - name: Create disposable debug-signing key
         run: |
           set -eu
