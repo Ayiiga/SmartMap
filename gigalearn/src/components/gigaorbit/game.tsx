@@ -388,6 +388,62 @@ export default function GigaOrbitGame() {
                   <div className="mt-5 flex flex-wrap gap-3"><PrimaryButton onClick={() => start("moon")}>START TRAINING MISSION</PrimaryButton><PrimaryButton outline onClick={() => syncView("menu")}>BACK</PrimaryButton></div>
                 </section>
               )}
+              {view === "workshop" && (
+                <section className="mx-auto max-w-4xl rounded-2xl border border-cyan-300/35 bg-[#07142e]/95 p-4 sm:p-8">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-2xl font-black sm:text-4xl">🛠️ Rocket workshop & store</h1>
+                    <PrimaryButton outline onClick={() => syncView("menu")}>← BACK</PrimaryButton>
+                  </div>
+                  <p className="mt-2 text-base font-bold text-amber-300">🪙 {progress.credits} coins · Hull {progress.hull}/{100 + progress.upgrades.armor * 20}</p>
+                  <p className="mt-2 text-sm text-slate-300">Earn coins through completed missions and one-time achievement prizes. Spend them on actual spacecraft equipment. No real-money purchases.</p>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {STORE.map(item => {
+                      const price = itemPrice(item.id, progress);
+                      const level = item.category === "upgrade" ? progress.upgrades[item.id as "tank" | "armor" | "suit"] : null;
+                      return <article key={item.id} className="rounded-xl border border-white/15 bg-white/[.06] p-4">
+                        <p className="text-lg font-extrabold">{item.icon} {item.name}</p>
+                        <p className="mt-1 min-h-10 text-sm leading-5 text-slate-300">{item.description}</p>
+                        <p className="mt-2 text-xs text-cyan-200">{level !== null ? `Upgrade level: ${level}/3` : `Owned: ${progress.inventory[item.id as "fuelCell" | "repairKit"]}`}</p>
+                        <button type="button" disabled={level === 3 || progress.credits < price} onClick={() => purchase(item.id)} className="mt-3 min-h-11 w-full rounded-lg bg-cyan-300 px-3 font-extrabold text-[#061328] disabled:opacity-45">{level === 3 ? "MAX LEVEL" : `BUY · 🪙 ${price}`}</button>
+                      </article>;
+                    })}
+                  </div>
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <PrimaryButton outline disabled={progress.inventory.repairKit <= 0 || progress.hull >= 100 + progress.upgrades.armor * 20} onClick={() => activateKit("repairKit")}>🛠️ USE REPAIR KIT ({progress.inventory.repairKit})</PrimaryButton>
+                    <PrimaryButton onClick={() => start("moon")}>🚀 START MOON MISSION</PrimaryButton>
+                  </div>
+                  {message && <p role="status" className="mt-4 rounded-lg bg-cyan-200/10 p-3 text-sm text-cyan-100">{message}</p>}
+                </section>
+              )}
+              {view === "awards" && (
+                <section className="mx-auto max-w-3xl rounded-2xl border border-amber-300/35 bg-[#09122e]/95 p-5 sm:p-8">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h1 className="text-2xl font-black sm:text-4xl">🏆 Awards & virtual prizes</h1>
+                    <PrimaryButton outline onClick={() => syncView("menu")}>← BACK</PrimaryButton>
+                  </div>
+                  <p className="mt-3 text-sm text-slate-300">Unlock one-time achievement medals and coin prizes by playing. These are fictional game rewards, not Ghana cedi cash awards or gambling.</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {AWARDS.map(a => <article key={a.id} className="rounded-xl border border-white/15 bg-white/[.06] p-4">
+                      <p className="text-lg font-extrabold">{progress.milestones.includes(a.id) ? "🥇" : "🔒"} {a.title}</p>
+                      <p className="mt-2 text-sm text-slate-300">{a.description}</p>
+                      <p className="mt-2 font-extrabold text-amber-300">Prize: {a.prize} coins + 25 XP</p>
+                      <p className="mt-2 text-xs font-bold text-cyan-300">{progress.milestones.includes(a.id) ? "AWARDED ✓" : "NOT YET EARNED"}</p>
+                    </article>)}
+                    <article className="rounded-xl border border-white/15 bg-white/[.06] p-4">
+                      <p className="text-lg font-extrabold">{progress.completed.includes("moon") ? "🏅" : "🔒"} Lunar Pioneer</p>
+                      <p className="mt-2 text-sm text-slate-300">Return lunar samples to mission control.</p>
+                      <p className="mt-2 font-extrabold text-amber-300">500 coins + 200 XP</p>
+                    </article>
+                    <article className="rounded-xl border border-white/15 bg-white/[.06] p-4">
+                      <p className="text-lg font-extrabold">{progress.completed.includes("mars") ? "🏅" : "🔒"} Mars Pathfinder</p>
+                      <p className="mt-2 text-sm text-slate-300">Complete a Martian expedition.</p>
+                      <p className="mt-2 font-extrabold text-amber-300">800 coins + 350 XP</p>
+                    </article>
+                  </div>
+                  <p className="mt-4 text-sm font-bold text-cyan-200">Your badges: {progress.badges.length ? progress.badges.join(" · ") : "Complete missions to earn your first award."}</p>
+                  <div className="mt-4"><PrimaryButton onClick={() => syncView("workshop")}>SPEND COINS IN WORKSHOP</PrimaryButton></div>
+                </section>
+              )}
               {view === "settings" && (
                 <section className="mx-auto max-w-xl rounded-2xl border border-cyan-300/30 bg-slate-950/85 p-6 sm:p-9">
                   <h1 className="text-3xl font-black">Flight settings</h1><p className="mt-3 text-slate-200">Choose handling for your next expedition.</p>
