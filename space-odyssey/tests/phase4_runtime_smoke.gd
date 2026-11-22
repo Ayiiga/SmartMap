@@ -14,18 +14,22 @@ func _run() -> void:
 	GameState.completed_planets["moon"] = true
 	GameState.upgrades["engine"] = 2
 	GameState.upgrades["landing_gear"] = 2
+	GameState.moon_eva_sample_collected = false
+	GameState.moon_eva_complete = false
 	for name: String in ["main_menu", "crew_screen", "workshop_screen", "rewards_screen", "settings_screen"]:
 		await _probe("res://scenes/ui/%s.tscn" % name, name)
+	await _probe("res://scenes/world/launch_world.tscn", "launch_world")
 	GameState.destination_planet = "moon"
 	await _probe("res://scenes/world/planet_transfer.tscn", "planet_transfer")
 	await _probe("res://scenes/world/planet_landing.tscn", "planet_landing")
+	await _probe("res://scenes/world/moon_eva.tscn", "moon_eva")
 	GameState.destination_planet = "mars"
 	await _probe("res://scenes/world/planet_transfer.tscn", "planet_transfer")
 	await _probe("res://scenes/world/planet_landing.tscn", "planet_landing")
 	for failure: String in failures:
 		push_error(failure)
 	if failures.is_empty():
-		print("PASS: Main menu, 3-crew screen, workshop, rewards, settings, Moon/Mars transfer and lander scenes start with working touch controls")
+		print("PASS: Main menu, crew, flight joystick, Moon EVA sample/return, Moon/Mars transfer and landers start")
 		get_tree().quit(0)
 	else:
 		get_tree().quit(1)
@@ -56,6 +60,23 @@ func _probe(path: String, screen: String) -> void:
 			_expect_button(node, "UPGRADE ROCKET", screen)
 		"planet_transfer":
 			_expect_button(node, "BEGIN GUIDED TRANSFER", screen)
+		"launch_world":
+			if node.find_child("FlightStick", true, false) == null:
+				failures.append("GigaOrbit rocket steering joystick missing")
+		"moon_eva":
+			_expect_button(node, "PAUSE / SAVE", screen)
+			var astronaut: Node3D = node.get("_player") as Node3D
+			if astronaut == null:
+				failures.append("Moon EVA astronaut missing")
+			else:
+				astronaut.position = Vector3(12.0, 1.0, -11.0)
+				node.call("_interact")
+				if not GameState.moon_eva_sample_collected:
+					failures.append("Moon EVA sample collection failed")
+				astronaut.position = Vector3(0.0, 1.0, 12.0)
+				node.call("_interact")
+				if not GameState.moon_eva_complete:
+					failures.append("Moon EVA sample return did not award completion")
 		"planet_landing":
 			_expect_button(node, "BRAKE / THRUST", screen)
 			var legs: Button = _find_button(node, "DEPLOY LEGS")
@@ -73,6 +94,7 @@ func _probe(path: String, screen: String) -> void:
 				throttle.pressed.emit()
 				if float(sim2.get("throttle")) <= before:
 					failures.append("Brake/thrust button failed to increase engine throttle")
+	get_tree().paused = false
 	node.queue_free()
 	await get_tree().process_frame
 
