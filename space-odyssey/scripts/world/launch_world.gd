@@ -354,7 +354,7 @@ func _on_launched() -> void:
 	_save_flight()
 	_set_status("Liftoff! Keep throttle high until SEPARATE lights up.")
 	GameAudio.effect("launch")
-	GameAudio.communicate("Odyssey to pilot. Liftoff confirmed. Keep assisted flight on until stage separation.")
+	GameAudio.communicate("GigaOrbit mission control to pilot. Liftoff confirmed. Keep assisted flight on until stage separation.")
 
 func _on_separated() -> void:
 	if GameState.flight_step == 1:
