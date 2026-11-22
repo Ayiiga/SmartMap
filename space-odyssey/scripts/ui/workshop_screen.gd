@@ -8,6 +8,7 @@ var _summary: Label
 var _balance: Label
 var _message: Label
 var _upgrade_buttons: Dictionary = {}
+var _supply_buttons: Dictionary = {}
 
 func _ready() -> void:
 	UI.backdrop(self)
@@ -65,7 +66,20 @@ func _ready() -> void:
 		row.add_child(button)
 		button.pressed.connect(_purchase.bind(item))
 		_upgrade_buttons[item] = button
-	_message = UI.label("First successful Moon landing gives 800 game coins. No real-money purchases.", 16, Color("a9f1d8"))
+	content_col.add_child(UI.label("FLIGHT SUPPLIES · BUY WITH EARNED COINS", 23, UI.ACCENT))
+	content_col.add_child(UI.label("Fuel cells refill the lander during descent. Repair kits restore a failed landing from a saved checkpoint.", 16, UI.MUTED))
+	for item: String in ["fuel_cell", "repair_kit"]:
+		var kit_row: HBoxContainer = UI.row()
+		content_col.add_child(kit_row)
+		var title: Label = UI.label("FUEL CELL  +35" if item == "fuel_cell" else "REPAIR KIT · CHECKPOINT", 20, Color("a9f1d8"))
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		kit_row.add_child(title)
+		var buy: Button = UI.button("BUY", true)
+		buy.custom_minimum_size = Vector2(250, 55)
+		kit_row.add_child(buy)
+		buy.pressed.connect(_buy_supply.bind(item))
+		_supply_buttons[item] = buy
+	_message = UI.label("Earn coins in missions; no real-money purchases or cash prizes.", 16, Color("a9f1d8"))
 	content_col.add_child(_message)
 	_recalculate()
 	_refresh()
@@ -105,6 +119,15 @@ func _purchase(item: String) -> void:
 		_message.text = "Not enough earned game coins or maximum upgrade level reached."
 	_refresh()
 
+func _buy_supply(item: String) -> void:
+	var price: int = GameState.supply_price(item)
+	if GameState.buy_supply(item):
+		GameAudio.effect("success")
+		_message.text = "Purchased %s for %d coins · Saved offline." % [item.replace("_", " "), price]
+	else:
+		_message.text = "Insufficient coins or full inventory."
+	_refresh()
+
 func _refresh() -> void:
 	_balance.text = "GAME COINS: %d     |     MARS: %s" % [GameState.coins, "UNLOCKED" if GameState.planet_unlocked("mars") else "ENGINE + LANDING GEAR LEVEL 2 REQUIRED"]
 	for item: String in _upgrade_buttons:
@@ -112,6 +135,12 @@ func _refresh() -> void:
 		var level: int = int(GameState.upgrades.get(item, 1))
 		button.text = "LEVEL %d  ✓" % level if level >= 3 else "LVL %d → %d   |   %d COINS" % [level, level + 1, GameState.upgrade_price(item)]
 		button.disabled = not GameState.can_upgrade(item)
+	for item: String in _supply_buttons:
+		var buy: Button = _supply_buttons[item] as Button
+		var count: int = int(GameState.supplies.get(item, 0))
+		var price: int = GameState.supply_price(item)
+		buy.text = "OWN %d  ·  BUY %d COINS" % [count, price]
+		buy.disabled = count >= 20 or GameState.coins < price
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
