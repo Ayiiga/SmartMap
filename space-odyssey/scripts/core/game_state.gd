@@ -10,6 +10,7 @@ const TRAINING: String = "res://scenes/world/training_world.tscn"
 const FLIGHT: String = "res://scenes/world/launch_world.tscn"
 const TRANSFER: String = "res://scenes/world/planet_transfer.tscn"
 const LANDING: String = "res://scenes/world/planet_landing.tscn"
+const MOON_EVA: String = "res://scenes/world/moon_eva.tscn"
 const COMETS: String = "res://scenes/world/comet_field.tscn"
 const DEFAULT_SETTINGS: Dictionary = {
 	"graphics": 0,
@@ -37,6 +38,9 @@ var upgrades: Dictionary = {"engine": 1, "fuel": 1, "landing_gear": 1}
 var destination_planet: String = "moon"
 var landing_checkpoint: Dictionary = {}
 var checkpoint_revive: bool = false
+var moon_eva_complete: bool = false
+var moon_eva_sample_collected: bool = false
+var moon_eva_position: Array = [0.0, 1.5, 4.0]
 var comet_best: int = 0
 var comet_completed: bool = false
 var comet_clear_count: int = 0
@@ -140,6 +144,42 @@ func begin_landing(planet: String, using_checkpoint: bool = false) -> bool:
 	get_tree().change_scene_to_file(LANDING)
 	return true
 
+func begin_moon_eva() -> bool:
+	if not bool(completed_planets.get("moon", false)):
+		return false
+	current_mission = "eva_moon"
+	active_session = true
+	has_started = true
+	save_local()
+	get_tree().change_scene_to_file(MOON_EVA)
+	return true
+
+func collect_moon_sample() -> void:
+	if not bool(completed_planets.get("moon", false)) or moon_eva_sample_collected:
+		return
+	moon_eva_sample_collected = true
+	save_local()
+	progress_changed.emit()
+
+func complete_moon_eva() -> bool:
+	if not moon_eva_sample_collected or not bool(completed_planets.get("moon", false)):
+		return false
+	moon_eva_sample_collected = false
+	moon_eva_position = [0.0, 1.5, 4.0]
+	if not moon_eva_complete:
+		moon_eva_complete = true
+		science_points += 125
+		coins += 200
+		if "Lunar Field Scientist" not in badges:
+			badges.append("Lunar Field Scientist")
+	save_local()
+	progress_changed.emit()
+	return true
+
+func save_moon_eva_position(pos: Vector3) -> void:
+	moon_eva_position = [clampf(pos.x, -60.0, 60.0), maxf(0.5, pos.y), clampf(pos.z, -60.0, 60.0)]
+	save_local()
+
 func save_landing_checkpoint(snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
 		return
@@ -234,6 +274,8 @@ func continue_game() -> bool:
 		destination = LANDING
 	elif current_mission.begins_with("transfer_") and planet_unlocked(destination_planet):
 		destination = TRANSFER
+	elif current_mission == "eva_moon" and bool(completed_planets.get("moon", false)):
+		destination = MOON_EVA
 	get_tree().change_scene_to_file(destination)
 	return true
 
@@ -253,6 +295,9 @@ func save_local() -> bool:
 		"upgrades": upgrades,
 		"destination_planet": destination_planet,
 		"landing_checkpoint": landing_checkpoint,
+		"moon_eva_complete": moon_eva_complete,
+		"moon_eva_sample_collected": moon_eva_sample_collected,
+		"moon_eva_position": moon_eva_position,
 		"comet_best": comet_best,
 		"comet_completed": comet_completed,
 		"comet_clear_count": comet_clear_count,
@@ -309,6 +354,11 @@ func load_local() -> void:
 	var recovered_landing: Variant = data.get("landing_checkpoint", {})
 	if recovered_landing is Dictionary:
 		landing_checkpoint = recovered_landing
+	moon_eva_complete = bool(data.get("moon_eva_complete", false))
+	moon_eva_sample_collected = bool(data.get("moon_eva_sample_collected", false))
+	var eva_pos: Variant = data.get("moon_eva_position", [])
+	if eva_pos is Array and eva_pos.size() == 3:
+		moon_eva_position = eva_pos
 	comet_best = maxi(0, int(data.get("comet_best", 0)))
 	comet_completed = bool(data.get("comet_completed", false))
 	comet_clear_count = maxi(0, int(data.get("comet_clear_count", 0)))
@@ -448,6 +498,9 @@ func erase_progress() -> void:
 	destination_planet = "moon"
 	landing_checkpoint = {}
 	checkpoint_revive = false
+	moon_eva_complete = false
+	moon_eva_sample_collected = false
+	moon_eva_position = [0.0, 1.5, 4.0]
 	science_points = 0
 	comet_best = 0
 	comet_completed = false
