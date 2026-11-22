@@ -16,6 +16,7 @@ export type Mission = {
   fuel: number;
   throttle: number;
   heading: number;
+  pitch: number;
   staged: boolean;
   transfer: number;
   landingAltitude: number;
@@ -54,7 +55,7 @@ export function newProgress(): PilotProgress {
 export function newMission(destination: Destination = "moon", mode: HandlingMode = "explorer"): Mission {
   return {
     destination, stage: "launch", mode, seconds: 0, altitudeKm: 0, speed: 0,
-    fuel: 100, throttle: 0.80, heading: 0, staged: false, transfer: 0,
+    fuel: 100, throttle: 0.80, heading: 0, pitch: 0, staged: false, transfer: 0,
     landingAltitude: destination === "moon" ? 500 : 620, descent: 8,
     offset: 5, gear: false, evaX: 0, evaZ: 0, evaY: 0, evaVelocity: 0, samples: 0, awarded: false,
     message: "Ignite the engines! Keep your rocket climbing.",
@@ -115,9 +116,12 @@ export function advance(mission: Mission, input: ControlInput, rawDelta: number)
   }
   f.throttle = Math.max(0, Math.min(1, f.throttle + input.throttleDelta * dt * 0.72));
   f.heading = Math.max(-45, Math.min(45, f.heading + input.x * dt * (f.mode === "pilot" ? 40 : 26)));
+  f.pitch = Math.max(-35, Math.min(35, (f.pitch ?? 0) - input.y * dt * (f.mode === "pilot" ? 38 : 26)));
+  if (f.mode === "explorer" && Math.abs(input.y) < 0.08) f.pitch *= Math.max(0, 1 - dt * 0.7);
   if (f.mode === "explorer" && Math.abs(input.x) < 0.08) f.heading *= Math.max(0, 1 - dt * 0.55);
   if (f.stage === "launch") {
-    const acceleration = (f.staged ? 24 : 19) * f.throttle - 5.5 + (input.boost ? 12 : 0);
+    const pitchEfficiency = Math.max(0.7, 1 - Math.abs(f.pitch) / 110);
+    const acceleration = (f.staged ? 24 : 19) * f.throttle * pitchEfficiency - 5.5 + (input.boost ? 12 : 0);
     f.speed = Math.max(0, Math.min(900, f.speed + acceleration * dt));
     f.altitudeKm += f.speed * dt * 0.07;
     f.fuel = Math.max(0, f.fuel - dt * (0.85 * f.throttle + (input.boost ? 1.8 : 0)));
@@ -129,7 +133,7 @@ export function advance(mission: Mission, input: ControlInput, rawDelta: number)
     return f;
   }
   if (f.stage === "transfer") {
-    const alignment = Math.max(0.35, 1 - Math.abs(f.heading) / 85);
+    const alignment = Math.max(0.35, 1 - (Math.abs(f.heading) + Math.abs(f.pitch)) / 125);
     f.transfer = Math.min(100, f.transfer + dt * (2.6 + f.throttle * 3.5) * alignment);
     f.fuel = Math.max(0, f.fuel - dt * (0.40 * f.throttle + (input.boost ? 1.1 : 0)));
     if (input.boost && f.fuel > 0) f.transfer = Math.min(100, f.transfer + dt * 4.5);
