@@ -36,7 +36,7 @@ func _ready() -> void:
 	_build_hud()
 	GameAudio.radio_message.connect(_radio_received)
 	_audio_connected = true
-	GameAudio.communicate("Odyssey to pilot. Welcome to the comet corridor. Use LEFT and RIGHT to dodge hazards. Tap SHIP RADIO to ask for help.")
+	GameAudio.communicate("GigaOrbit to pilot. Welcome to the comet corridor. Use LEFT and RIGHT to dodge hazards. Tap SHIP RADIO to ask for help.")
 
 func _exit_tree() -> void:
 	if _audio_connected and GameAudio.radio_message.is_connected(_radio_received):
@@ -257,7 +257,7 @@ func _scan() -> void:
 	GameAudio.communicate("Scanner: %s ahead in the %s lane. Recommended action: move %s." % [str(closest["label"]).to_lower(), _lane_name(lane).to_lower(), preferred])
 
 func _status_report() -> void:
-	GameAudio.communicate("Odyssey report. Shields %d. You have successfully dodged %d of %d hazards. Current lane is %s." % [_shields, _dodge_count, REQUIRED_DODGES, _lane_name(_ship_lane).to_lower()])
+	GameAudio.communicate("GigaOrbit report. Shields %d. You have successfully dodged %d of %d hazards. Current lane is %s." % [_shields, _dodge_count, REQUIRED_DODGES, _lane_name(_ship_lane).to_lower()])
 
 func _open_radio() -> void:
 	if _radio_overlay != null:
