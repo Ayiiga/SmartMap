@@ -17,7 +17,7 @@ function LiveLocationBootstrap() {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const gigaOrbitShowcase = pathname === "/gigaorbit";
+  const gigaOrbitShowcase = pathname === "/gigaorbit" || pathname === "/gigaorbit/play";
   const fullscreen = MAP_FULLSCREEN.has(pathname ?? "/") || gigaOrbitShowcase;
   const hideBottomNav = HIDE_BOTTOM_NAV.has(pathname ?? "/") || gigaOrbitShowcase;
   const authRoute = AUTH_ROUTES.has(pathname ?? "") || (pathname ?? "").startsWith("/auth/");
