@@ -4,7 +4,7 @@
 export type Destination = "moon" | "mars";
 export type HandlingMode = "explorer" | "pilot";
 export type Stage = "launch" | "orbit" | "transfer" | "landing" | "eva" | "complete" | "failed";
-export type ControlInput = { x: number; y: number; boost: boolean; brake: boolean; throttleDelta: number };
+export type ControlInput = { x: number; y: number; boost: boolean; brake: boolean; throttleDelta: number; jump?: boolean };
 export type Sample = { x: number; z: number };
 export type Mission = {
   destination: Destination;
@@ -24,6 +24,8 @@ export type Mission = {
   gear: boolean;
   evaX: number;
   evaZ: number;
+  evaY: number;
+  evaVelocity: number;
   samples: number;
   awarded: boolean;
   message: string;
@@ -54,7 +56,7 @@ export function newMission(destination: Destination = "moon", mode: HandlingMode
     destination, stage: "launch", mode, seconds: 0, altitudeKm: 0, speed: 0,
     fuel: 100, throttle: 0.80, heading: 0, staged: false, transfer: 0,
     landingAltitude: destination === "moon" ? 500 : 620, descent: 8,
-    offset: 5, gear: false, evaX: 0, evaZ: 0, samples: 0, awarded: false,
+    offset: 5, gear: false, evaX: 0, evaZ: 0, evaY: 0, evaVelocity: 0, samples: 0, awarded: false,
     message: "Ignite the engines! Keep your rocket climbing.",
   };
 }
@@ -92,7 +94,7 @@ export function action(mission: Mission, name: "stage" | "transfer" | "gear" | "
     return { ...mission, gear: true, message: "Landing gear deployed. Keep your touchdown gentle." };
   }
   if (name === "eva" && mission.stage === "landing" && mission.landingAltitude <= 0) {
-    return { ...mission, stage: "eva", evaX: 0, evaZ: 0, samples: 0, message: "Exit the lander and collect your first sample." };
+    return { ...mission, stage: "eva", evaX: 0, evaZ: 0, evaY: 0, evaVelocity: 0, samples: 0, message: "Exit the lander and collect your first sample." };
   }
   return mission;
 }
@@ -102,7 +104,11 @@ export function advance(mission: Mission, input: ControlInput, rawDelta: number)
   const f: Mission = { ...mission, seconds: mission.seconds + dt };
   if (f.stage === "eva") {
     const magnitude = Math.max(1, Math.hypot(input.x, input.y));
-    const movement = f.mode === "pilot" ? 5.8 : 7.8;
+    const movement = (f.mode === "pilot" ? 5.8 : 7.8) * (input.boost ? 1.42 : 1);
+    if (input.jump && f.evaY <= 0.001) f.evaVelocity = f.destination === "moon" ? 4.6 : 4.1;
+    f.evaVelocity -= (f.destination === "moon" ? 1.62 : 3.71) * dt * 2.1;
+    f.evaY = Math.max(0, f.evaY + f.evaVelocity * dt);
+    if (f.evaY === 0 && f.evaVelocity < 0) f.evaVelocity = 0;
     f.evaX = Math.max(-MAX_X, Math.min(MAX_X, f.evaX + input.x / magnitude * movement * dt));
     f.evaZ = Math.max(-MAX_Z, Math.min(MAX_Z, f.evaZ + input.y / magnitude * movement * dt));
     return f;
@@ -140,12 +146,12 @@ export function advance(mission: Mission, input: ControlInput, rawDelta: number)
     // Explorer stabilization makes a soft touchdown achievable without forcing autoplay.
     const stabilizer = f.mode === "explorer" && f.landingAltitude < 130 && f.descent > 4 ? 1.5 : 0;
     f.descent = Math.max(1.2, Math.min(23, f.descent + (gravity * 0.54 - f.throttle * maxBraking - (input.brake ? 3.6 : 0) - stabilizer) * dt));
-    f.landingAltitude = Math.max(0, f.landingAltitude - f.descent * dt * 3.0);
+    f.landingAltitude = Math.max(0, f.landingAltitude - f.descent * dt * 8.0);
     f.offset = Math.max(-28, Math.min(28, f.offset + input.x * 8.0 * dt));
     f.fuel = Math.max(0, f.fuel - dt * (f.throttle * 0.75 + (input.brake ? 0.7 : 0)));
     if (f.landingAltitude <= 0) {
       if (f.gear && f.descent <= 7 && Math.abs(f.offset) <= 13) {
-        return { ...f, landingAltitude: 0, descent: 0, stage: "eva", evaX: 0, evaZ: 0, samples: 0, message: "Touchdown confirmed! Explore the surface and collect samples." };
+        return { ...f, landingAltitude: 0, descent: 0, stage: "eva", evaX: 0, evaZ: 0, evaY: 0, evaVelocity: 0, samples: 0, message: "Touchdown confirmed! Explore the surface and collect samples." };
       }
       return { ...f, stage: "failed", message: !f.gear ? "Landing gear was not deployed. Try again!" : f.descent > 7 ? "Touchdown too fast. Use BRAKE and thrust earlier." : "Missed the landing zone. Steer closer to center." };
     }
