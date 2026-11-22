@@ -9,6 +9,7 @@ import {
   Layers,
   Navigation,
   Search,
+  Rocket,
 } from "lucide-react";
 import { SmartMapLogo } from "@/components/smart-map/logo";
 import { useMapStore } from "@/stores/map-store";
@@ -143,6 +144,16 @@ export function SmartMapTopBar({ onLayersClick, onSearchClick }: SmartMapTopBarP
             ),
           )}
         </div>
+
+        <Link
+          href="/gigaorbit"
+          aria-label="Discover GigaOrbit"
+          title="GigaOrbit: Beyond Earth"
+          className="flex shrink-0 items-center gap-1 rounded-xl border border-cyan-400/30 bg-cyan-300/10 px-2.5 py-2 text-xs font-bold text-cyan-100 transition hover:bg-cyan-300/20"
+        >
+          <Rocket className="h-4 w-4" />
+          <span className="hidden lg:inline">GigaOrbit</span>
+        </Link>
 
         {/* Country + notifications */}
         <div className="flex shrink-0 items-center gap-1.5">
