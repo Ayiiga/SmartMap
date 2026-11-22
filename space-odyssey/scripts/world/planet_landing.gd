@@ -7,7 +7,7 @@ const FLIGHT_STICK = preload("res://scripts/flight/flight_stick.gd")
 var _sim: OdysseyLander
 var _craft: Node3D
 var _flame: MeshInstance3D
-var _gear_nodes: Array[MeshInstance3D] = []
+var _gear_nodes: Array[Node3D] = []
 var _camera: Camera3D
 var _world: String = "moon"
 var _steering: float = 0.0
@@ -72,22 +72,16 @@ func _make_world() -> void:
 		var distance: float = 16.0 + float(i % 7) * 5.2
 		_rock(Vector3(cos(theta) * distance, 0.7, sin(theta) * distance), 0.65 + float(i % 4) * 0.43)
 	if _world == "moon":
-		_ball(Vector3(-40, 32, -95), 13.0, Color("347fad"), false)
-	else:
-		_ball(Vector3(-50, 18, -90), 4.0, Color("e4b47f"), true)
-	var parts: Dictionary = RocketArt.build(self, 0)
+		# Earth is a small celestial body from the Moon, not an enormous blue sphere.
+		_ball(Vector3(-76, 44, -180), 3.5, Color("468cbb"), false)
+	var parts: Dictionary = RocketArt.build_lander(self)
 	_craft = parts["root"] as Node3D
 	_flame = parts["flame"] as MeshInstance3D
-	(parts["lower_stage"] as Node3D).visible = false
-	_craft.scale = Vector3.ONE * 0.58
+	_craft.scale = Vector3.ONE * 0.92
 	_craft.position = Vector3(_sim.horizontal_m, 22.0, 0)
-	for side: float in [-1.0, 1.0]:
-		var leg: MeshInstance3D = _box(Vector3(side * 0.55, -2.0, 0), Vector3(0.2, 3.0, 0.3), Color("c9d3db"), false)
-		leg.rotation.z = side * 0.25
-		leg.reparent(_craft)
-		leg.position = Vector3(side * 2.5, 3.5, 0)
-		leg.visible = _sim.legs
-		_gear_nodes.append(leg)
+	for gear: Node3D in parts["gear_nodes"]:
+		gear.visible = _sim.legs
+		_gear_nodes.append(gear)
 	var rand: RandomNumberGenerator = RandomNumberGenerator.new()
 	rand.seed = 10021
 	if _world == "moon":
@@ -171,7 +165,7 @@ func _ball(location: Vector3, radius: float, color: Color, glow: bool) -> MeshIn
 	return item
 
 func _rock(location: Vector3, radius: float) -> void:
-	var color: Color = Color("77757b") if _world == "moon" else Color("703b30")
+	var color: Color = Color("8e8b86") if _world == "moon" else Color("9a553e")
 	var rock: MeshInstance3D = _ball(location, radius, color, false)
 	rock.scale = Vector3(1.5, 0.50, 1.1)
 
@@ -276,7 +270,7 @@ func _physics_process(delta: float) -> void:
 	if _flame != null:
 		_flame.visible = _sim.throttle > 0.07 and _sim.fuel > 0.0
 		_flame.scale.y = 0.4 + _sim.throttle * 1.1
-	var visual_y: float = minf(25.0, 0.65 + _sim.altitude_m * 0.10)
+	var visual_y: float = minf(25.0, 1.05 + _sim.altitude_m * 0.10)
 	_craft.position = _craft.position.lerp(Vector3(_sim.horizontal_m, visual_y, 0.0), minf(1.0, delta * 8.0))
 	_craft.rotation_degrees.z = lerpf(_craft.rotation_degrees.z, -_steering * 8.0, minf(1.0, delta * 7.0))
 	_camera.position = _camera.position.lerp(Vector3(7.0 + _sim.horizontal_m * 0.74, visual_y + 7.0, 25.0), minf(1.0, delta * 3.0))
@@ -341,7 +335,7 @@ func _refuel() -> void:
 
 func _deploy_legs() -> void:
 	if _sim.deploy_legs():
-		for gear: MeshInstance3D in _gear_nodes:
+		for gear: Node3D in _gear_nodes:
 			gear.visible = true
 		GameAudio.effect("stage")
 		GameAudio.communicate("Landing gear is deployed. Control your speed and center over the target.")
