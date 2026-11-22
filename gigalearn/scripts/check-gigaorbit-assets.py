@@ -50,9 +50,9 @@ ECONOMY = ROOT / "src" / "lib" / "gigaorbit" / "economy.ts"
 for extra in (PLAY, VERSION, ECONOMY):
     assert extra.is_file(), f"Missing playable route/economy/release diagnostic: {extra}"
 shop_source = ECONOMY.read_text(encoding="utf-8")
-for token in ("buyItem(", "useItem(", "claimAward(", "recordCrash(", "fuelCell", "repairKit", "tank", "armor", "suit"):
+for token in ("buyItem(", "applyConsumable(", "claimAward(", "recordCrash(", "fuelCell", "repairKit", "tank", "armor", "suit"):
     assert token in shop_source, f"Purchase/equipment system missing: {token}"
-for token in ("ROCKET WORKSHOP", "AWARDS & PRIZES", "REFUEL +35", "REPAIR +35", "useItem("):
+for token in ("ROCKET WORKSHOP", "AWARDS & PRIZES", "REFUEL +35", "REPAIR +35", "applyConsumable("):
     assert token in game, f"Actual in-game economy control missing: {token}"
 assert "GigaOrbitGame" in PLAY.read_text(encoding="utf-8")
 assert "play-economy-2026-11-22" in VERSION.read_text(encoding="utf-8")
