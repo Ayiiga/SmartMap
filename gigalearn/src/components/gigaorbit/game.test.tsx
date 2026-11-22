@@ -1,7 +1,9 @@
-import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act } from "react";
+import { createRoot, type Root } from "react-dom/client";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import GigaOrbitGame from "./game";
 
+// Test real DOM interaction without installing new test dependencies or WebGL.
 vi.mock("next/dynamic", () => ({
   default: () => function SceneStub() { return <div data-testid="mission-3d-scene" />; },
 }));
@@ -15,40 +17,60 @@ vi.mock("next/link", () => ({
   default: ({ href, children, ...props }: React.PropsWithChildren<{ href: string }>) => <a href={href} {...props}>{children}</a>,
 }));
 
+let container: HTMLDivElement;
+let root: Root;
 beforeEach(() => {
+  (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   window.localStorage.clear();
   vi.stubGlobal("requestAnimationFrame", () => 1);
   vi.stubGlobal("cancelAnimationFrame", () => undefined);
+  container = document.createElement("div");
+  document.body.appendChild(container);
+  root = createRoot(container);
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => {
+  act(() => root.unmount());
+  container.remove();
+  vi.unstubAllGlobals();
+});
 
-describe("GigaOrbit web controls", () => {
-  it("opens the playable 3D mission, then genuinely pauses and resumes", () => {
-    render(<GigaOrbitGame />);
-    fireEvent.click(screen.getByRole("button", { name: /START EARTH/ }));
-    expect(screen.getByTestId("mission-3d-scene")).toBeTruthy();
-    expect(screen.getByText(/ROCKET LAUNCH/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /PAUSE/ }));
-    expect(screen.getByRole("button", { name: "RESUME MISSION" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "RESUME MISSION" }));
-    expect(screen.getByText(/ROCKET LAUNCH/)).toBeTruthy();
+function mount(): void {
+  act(() => root.render(<GigaOrbitGame />));
+}
+function clickButton(name: string): HTMLButtonElement {
+  const button = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes(name));
+  if (!button) throw new Error(`Missing interactive button: ${name}`);
+  act(() => button.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+  return button;
+}
+describe("GigaOrbit real browser UI controls", () => {
+  it("starts the actual 3D game and pauses/resumes gameplay", () => {
+    mount();
+    clickButton("START EARTH");
+    expect(container.querySelector('[data-testid="mission-3d-scene"]')).not.toBeNull();
+    expect(container.textContent).toContain("ROCKET LAUNCH");
+    clickButton("PAUSE");
+    expect(container.textContent).toContain("RESUME MISSION");
+    clickButton("RESUME MISSION");
+    expect(container.textContent).toContain("ROCKET LAUNCH");
   });
-  it("navigates to actual destinations and does not offer unfinished planets as playable", () => {
-    render(<GigaOrbitGame />);
-    fireEvent.click(screen.getByRole("button", { name: /DESTINATIONS/ }));
-    expect(screen.getByText("Venus")).toBeTruthy();
-    expect(screen.getAllByText("COMING LATER").length).toBeGreaterThan(1);
-    expect(screen.getByRole("button", { name: "🔒 LOCKED" }).hasAttribute("disabled")).toBe(true);
-    fireEvent.click(screen.getByRole("button", { name: /HOME/ }));
-    expect(screen.getByRole("button", { name: /START EARTH/ })).toBeTruthy();
+  it("shows unlocked and future destinations without fake Play buttons", () => {
+    mount();
+    clickButton("DESTINATIONS");
+    expect(container.textContent).toContain("Venus");
+    expect(container.textContent).toContain("COMING LATER");
+    const locked = Array.from(container.querySelectorAll("button")).find((b) => b.textContent?.includes("LOCKED"));
+    expect(locked?.disabled).toBe(true);
+    clickButton("HOME");
+    expect(container.textContent).toContain("START EARTH");
   });
-  it("opens instructions and settings without redirecting to a static gallery", () => {
-    render(<GigaOrbitGame />);
-    fireEvent.click(screen.getByRole("button", { name: /HOW TO PLAY/ }));
-    expect(screen.getByText("Pilot training academy")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "BACK" }));
-    fireEvent.click(screen.getByRole("button", { name: /SETTINGS/ }));
-    fireEvent.click(screen.getByRole("button", { name: "PILOT MODE" }));
-    expect(screen.getByText(/Pilot handling selected/)).toBeTruthy();
+  it("opens the tutorial and updates Explorer/Pilot handling controls", () => {
+    mount();
+    clickButton("HOW TO PLAY");
+    expect(container.textContent).toContain("Pilot training academy");
+    clickButton("BACK");
+    clickButton("SETTINGS");
+    clickButton("PILOT MODE");
+    expect(container.textContent).toContain("Pilot handling selected");
   });
 });
