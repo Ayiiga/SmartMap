@@ -1,10 +1,11 @@
-name: GigaLearn CI
+name: GigaLearn Vercel CI
 
 on:
   push:
     branches: [master, main, cursor/**]
     paths:
       - "gigalearn/**"
+      - ".github/workflows/gigalearn-ci.yml"
       - ".github/workflows/gigalearn-ci.yml"
   pull_request:
     paths:
@@ -42,9 +43,11 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key
           NEXT_PUBLIC_APP_URL: http://localhost:3000
 
-      - name: OpenNext Cloudflare build
-        run: npx opennextjs-cloudflare build
-        env:
-          NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder-key
-          NEXT_PUBLIC_APP_URL: https://gigalearn.pages.dev
+      # The production deployment is Vercel. The optional Cloudflare
+      # adapter has an independent version compatibility issue and is
+      # exercised only in the dedicated manual Cloudflare workflow.
+      # Do not use '--dangerouslyUseUnsupportedNextVersion' to hide it.
+      - name: Check GigaOrbit real asset files and generated route
+        run: |
+          python3 scripts/check-gigaorbit-assets.py
+          test -f .next/server/app/gigaorbit.html
