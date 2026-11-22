@@ -64,6 +64,19 @@ describe("GigaOrbit real browser UI controls", () => {
     clickButton("HOME");
     expect(container.textContent).toContain("START EARTH");
   });
+  it("spends real local coins in the workshop and records purchased fuel packs", () => {
+    mount();
+    clickButton("ROCKET WORKSHOP");
+    expect(container.textContent).toContain("250 coins");
+    clickButton("BUY · 🪙 80");
+    expect(container.textContent).toContain("170 coins");
+    expect(container.textContent).toContain("Owned: 1");
+    expect(window.localStorage.getItem("gigaorbit_web_pilot_v1")).toContain('"fuelCell":1');
+    clickButton("BACK");
+    clickButton("AWARDS & PRIZES");
+    expect(container.textContent).toContain("Orbital Navigator");
+    expect(container.textContent).toContain("fictional game rewards");
+  });
   it("opens the tutorial and updates Explorer/Pilot handling controls", () => {
     mount();
     clickButton("HOW TO PLAY");
