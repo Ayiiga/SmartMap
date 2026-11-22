@@ -3,6 +3,7 @@ extends Node3D
 const UI = preload("res://scripts/ui/space_ui.gd")
 const RocketArt = preload("res://scripts/rocket/rocket_art.gd")
 const Lander = preload("res://scripts/flight/odyssey_lander.gd")
+const FLIGHT_STICK = preload("res://scripts/flight/flight_stick.gd")
 var _sim: OdysseyLander
 var _craft: Node3D
 var _flame: MeshInstance3D
@@ -18,6 +19,7 @@ var _mission: Label
 var _help: Label
 var _throttle: Label
 var _legs_button: Button
+var _fuel_button: Button
 var _assist_button: Button
 var _overlay: CanvasLayer
 var _last_warning: String = ""
@@ -92,11 +94,11 @@ func _make_world() -> void:
 		for i: int in range(85):
 			_ball(Vector3(rand.randf_range(-100, 100), rand.randf_range(10, 90), rand.randf_range(-180, -70)), 0.1, Color("cee1ff"), true)
 	_camera = Camera3D.new()
-	_camera.fov = 63.0
+	_camera.fov = 70.0
 	_camera.current = true
 	add_child(_camera)
-	_camera.position = Vector3(9, 11, 19)
-	_camera.look_at(Vector3(0, 8, 0), Vector3.UP)
+	_camera.position = Vector3(7, 13, 25)
+	_camera.look_at(Vector3(0, 9, 0), Vector3.UP)
 
 func _make_terrain() -> void:
 	var tool: SurfaceTool = SurfaceTool.new()
@@ -174,6 +176,7 @@ func _rock(location: Vector3, radius: float) -> void:
 	rock.scale = Vector3(1.5, 0.50, 1.1)
 
 func _build_hud() -> void:
+	# Only essential real-time controls stay on screen.
 	var layer: CanvasLayer = CanvasLayer.new()
 	add_child(layer)
 	var root: Control = Control.new()
@@ -181,90 +184,84 @@ func _build_hud() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	layer.add_child(root)
 	var telemetry: PanelContainer = UI.panel()
-	telemetry.position = Vector2(18, 15)
-	telemetry.custom_minimum_size = Vector2(300, 0)
+	telemetry.position = Vector2(16, 14)
+	telemetry.custom_minimum_size = Vector2(225, 0)
 	root.add_child(telemetry)
 	var readings: VBoxContainer = VBoxContainer.new()
 	telemetry.add_child(readings)
-	readings.add_child(UI.label("%s LANDING" % _world.to_upper(), 26, Color("f4cb70")))
-	_hud = UI.label("ALTITUDE  280m", 21)
+	readings.add_child(UI.label("%s DESCENT" % _world.to_upper(), 18, Color("f4cb70")))
+	_hud = UI.label("", 18)
 	readings.add_child(_hud)
-	readings.add_child(UI.label("TARGET: GOLD LANDING CIRCLE", 14, UI.ACCENT))
-	var briefing: PanelContainer = UI.panel()
-	briefing.anchor_left = 0.32
-	briefing.anchor_right = 0.80
-	briefing.offset_top = 15
-	root.add_child(briefing)
-	var instructions: VBoxContainer = VBoxContainer.new()
-	briefing.add_child(instructions)
-	instructions.add_child(UI.label("PILOT  %s  ·  CREW (3/3)" % GameState.pilot_name().to_upper(), 17, UI.ACCENT))
-	_mission = UI.label("Gently brake and steer into the gold landing zone.", 18)
-	instructions.add_child(_mission)
-	var pause: Button = UI.button("PAUSE / SAVE")
+	_throttle = UI.label("", 13, UI.ACCENT)
+	readings.add_child(_throttle)
+	_mission = UI.label("LAND IN THE GOLD CIRCLE  ·  GEAR + SLOW DESCENT", 17, Color("fbe194"))
+	_mission.anchor_left = 0.31
+	_mission.anchor_right = 0.80
+	_mission.offset_top = 18
+	_mission.offset_bottom = 50
+	_mission.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	root.add_child(_mission)
+	var pause: Button = UI.button("Ⅱ  PAUSE")
+	pause.custom_minimum_size = Vector2(133, 49)
 	pause.anchor_left = 1.0
 	pause.anchor_right = 1.0
-	pause.offset_left = -228
-	pause.offset_right = -18
-	pause.offset_top = 18
-	pause.offset_bottom = 72
+	pause.offset_left = -150
+	pause.offset_right = -17
+	pause.offset_top = 17
+	pause.offset_bottom = 66
 	root.add_child(pause)
 	pause.pressed.connect(_pause)
-	var radio: Button = UI.button("MISSION RADIO")
-	radio.anchor_left = 1.0
-	radio.anchor_right = 1.0
-	radio.offset_left = -228
-	radio.offset_right = -18
-	radio.offset_top = 83
-	radio.offset_bottom = 138
-	root.add_child(radio)
-	radio.pressed.connect(_radio)
-	var buttons: HBoxContainer = UI.row()
-	buttons.anchor_top = 1.0
-	buttons.anchor_bottom = 1.0
-	buttons.offset_left = 20
-	buttons.offset_right = 1150
-	buttons.offset_top = -116
-	buttons.offset_bottom = -22
-	buttons.add_theme_constant_override("separation", 14)
-	root.add_child(buttons)
-	var left: Button = UI.button("◀  STEER LEFT", true)
-	left.custom_minimum_size = Vector2(220, 76)
-	buttons.add_child(left)
-	left.button_down.connect(_hold_steering.bind(-1.0))
-	left.button_up.connect(_release_steering)
-	left.pressed.connect(_tap_steering.bind(-1.0))
-	var thrust: Button = UI.button("▲  BRAKE / THRUST +", true)
-	thrust.custom_minimum_size = Vector2(245, 76)
-	buttons.add_child(thrust)
-	thrust.pressed.connect(_raise_throttle)
-	var cut: Button = UI.button("▼  THRUST −")
-	cut.custom_minimum_size = Vector2(178, 76)
-	buttons.add_child(cut)
+	var stick: Control = FLIGHT_STICK.new()
+	stick.anchor_top = 1.0
+	stick.anchor_bottom = 1.0
+	stick.offset_left = 16
+	stick.offset_right = 177
+	stick.offset_top = -187
+	stick.offset_bottom = -26
+	root.add_child(stick)
+	stick.axis_changed.connect(func(direction: Vector2) -> void: _steering = direction.x)
+	var actions: VBoxContainer = VBoxContainer.new()
+	actions.anchor_left = 1.0
+	actions.anchor_right = 1.0
+	actions.anchor_top = 1.0
+	actions.anchor_bottom = 1.0
+	actions.offset_left = -345
+	actions.offset_right = -17
+	actions.offset_top = -164
+	actions.offset_bottom = -17
+	actions.add_theme_constant_override("separation", 8)
+	root.add_child(actions)
+	var top: HBoxContainer = UI.row()
+	top.add_theme_constant_override("separation", 8)
+	actions.add_child(top)
+	var brake: Button = UI.button("▲ BRAKE", true)
+	brake.custom_minimum_size = Vector2(158, 58)
+	top.add_child(brake)
+	brake.pressed.connect(_raise_throttle)
+	var cut: Button = UI.button("▼ LESS")
+	cut.custom_minimum_size = Vector2(158, 58)
+	top.add_child(cut)
 	cut.pressed.connect(_lower_throttle)
-	var right: Button = UI.button("STEER RIGHT  ▶", true)
-	right.custom_minimum_size = Vector2(217, 76)
-	buttons.add_child(right)
-	right.button_down.connect(_hold_steering.bind(1.0))
-	right.button_up.connect(_release_steering)
-	right.pressed.connect(_tap_steering.bind(1.0))
-	_legs_button = UI.button("DEPLOY LEGS")
-	_legs_button.custom_minimum_size = Vector2(187, 76)
-	buttons.add_child(_legs_button)
+	var bottom: HBoxContainer = UI.row()
+	bottom.add_theme_constant_override("separation", 8)
+	actions.add_child(bottom)
+	_legs_button = UI.button("GEAR", true)
+	_legs_button.custom_minimum_size = Vector2(158, 58)
+	bottom.add_child(_legs_button)
 	_legs_button.pressed.connect(_deploy_legs)
-	var lower: PanelContainer = UI.panel()
-	lower.anchor_left = 0.25
-	lower.anchor_right = 0.76
-	lower.anchor_top = 1.0
-	lower.anchor_bottom = 1.0
-	lower.offset_top = -190
-	lower.offset_bottom = -124
-	root.add_child(lower)
-	var footer: HBoxContainer = UI.row()
-	lower.add_child(footer)
+	_fuel_button = UI.button("FUEL +35")
+	_fuel_button.custom_minimum_size = Vector2(158, 58)
+	bottom.add_child(_fuel_button)
+	_fuel_button.pressed.connect(_refuel)
 	_help = UI.label("", 15, Color("fbe194"))
-	footer.add_child(_help)
-	_throttle = UI.label("", 15, UI.ACCENT)
-	footer.add_child(_throttle)
+	_help.anchor_left = 0.27
+	_help.anchor_right = 0.75
+	_help.anchor_top = 1.0
+	_help.anchor_bottom = 1.0
+	_help.offset_top = -63
+	_help.offset_bottom = -24
+	_help.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	root.add_child(_help)
 
 func _physics_process(delta: float) -> void:
 	if _completed:
@@ -282,8 +279,8 @@ func _physics_process(delta: float) -> void:
 	var visual_y: float = minf(25.0, 0.65 + _sim.altitude_m * 0.10)
 	_craft.position = _craft.position.lerp(Vector3(_sim.horizontal_m, visual_y, 0.0), minf(1.0, delta * 8.0))
 	_craft.rotation_degrees.z = lerpf(_craft.rotation_degrees.z, -_steering * 8.0, minf(1.0, delta * 7.0))
-	_camera.position = _camera.position.lerp(Vector3(9.0 + _sim.horizontal_m * 0.85, 7.5 + visual_y * 0.45, 18.0), minf(1.0, delta * 3.0))
-	_camera.look_at(Vector3(_sim.horizontal_m * 0.75, 1.5 + visual_y * 0.66, 0), Vector3.UP)
+	_camera.position = _camera.position.lerp(Vector3(7.0 + _sim.horizontal_m * 0.74, visual_y + 7.0, 25.0), minf(1.0, delta * 3.0))
+	_camera.look_at(Vector3(_sim.horizontal_m * 0.78, visual_y + 2.5, 0), Vector3.UP)
 	_checkpoint_timer += delta
 	if _checkpoint_timer > 6.0 and _sim.altitude_m > 65.0 and _sim.altitude_m < 260.0 and _sim.vertical_velocity_m_s > -10.0:
 		_checkpoint_timer = 0.0
@@ -295,8 +292,8 @@ func _physics_process(delta: float) -> void:
 		_finish(false)
 
 func _update_hud() -> void:
-	_hud.text = "HEIGHT  %d m\nDESCENT  %.1f m/s\nFUEL  %d%%  ·  X  %.0fm" % [roundi(_sim.altitude_m), absf(_sim.vertical_velocity_m_s), _sim.fuel_percent(), _sim.horizontal_m]
-	_throttle.text = "THRUST %d%%  ·  LEGS %s" % [roundi(_sim.throttle * 100.0), "READY" if _sim.legs else "STOWED"]
+	_hud.text = "ALT  %d m  ·  SPEED  %.1f m/s\nFUEL  %d%%  ·  OFFSET  %.0f m" % [roundi(_sim.altitude_m), absf(_sim.vertical_velocity_m_s), _sim.fuel_percent(), absf(_sim.horizontal_m)]
+	_throttle.text = "THRUST %d%%  ·  GEAR %s" % [roundi(_sim.throttle * 100.0), "ON" if _sim.legs else "OFF"]
 	if not _sim.legs and _sim.altitude_m < 95:
 		_help.text = "ACTION: DEPLOY LANDING LEGS!"
 	elif _sim.vertical_velocity_m_s < -5.0 and _sim.altitude_m < 95:
@@ -311,7 +308,9 @@ func _update_hud() -> void:
 	if _sim.altitude_m < 35.0 and not _sim.legs and _last_warning != "legs":
 		_last_warning = "legs"
 		GameAudio.communicate("Deploy landing legs now.", true)
-	_legs_button.text = "LEGS DEPLOYED  ✓" if _sim.legs else "DEPLOY LEGS"
+	_legs_button.text = "GEAR ✓" if _sim.legs else "GEAR"
+	_fuel_button.text = "FUEL +35 (%d)" % int(GameState.supplies.get("fuel_cell", 0))
+	_fuel_button.disabled = int(GameState.supplies.get("fuel_cell", 0)) <= 0 or _sim.fuel >= _sim.fuel_capacity - 0.05
 	_legs_button.disabled = _sim.legs
 
 func _tap_steering(side: float) -> void:
@@ -331,6 +330,14 @@ func _raise_throttle() -> void:
 func _lower_throttle() -> void:
 	_sim.set_throttle(_sim.throttle - 0.15)
 	_manual_override = 3.0
+
+func _refuel() -> void:
+	if int(GameState.supplies.get("fuel_cell", 0)) <= 0 or _sim.fuel >= _sim.fuel_capacity - 0.05:
+		return
+	if _sim.refuel(35.0) and GameState.use_supply("fuel_cell"):
+		_help.text = "FUEL CELL USED · CAPACITY RESTORED"
+		GameAudio.effect("stage")
+		_update_hud()
 
 func _deploy_legs() -> void:
 	if _sim.deploy_legs():
@@ -398,6 +405,8 @@ func _finish(success: bool) -> void:
 			"Descent %.1f m/s · Distance from target %.1f m\nRestart the mission for free or use 150 earned game coins to recover at a safe checkpoint.\nBalance: %d game coins" % [
 				absf(_sim.vertical_velocity_m_s), absf(_sim.horizontal_m), GameState.coins])
 		_button(actions, "RESTART FROM BEGINNING — FREE", _restart, true)
+		if GameState.can_repair_checkpoint(_world):
+			_button(actions, "REPAIR WITH 1 KIT · CHECKPOINT", _repair_recover)
 		if GameState.can_revive(_world):
 			_button(actions, "REVIVE FROM CHECKPOINT — 150 COINS", _revive)
 		else:
@@ -408,6 +417,10 @@ func _finish(success: bool) -> void:
 func _restart() -> void:
 	get_tree().paused = false
 	GameState.begin_landing(_world)
+
+func _repair_recover() -> void:
+	if GameState.repair_lander_checkpoint(_world):
+		get_tree().paused = false
 
 func _revive() -> void:
 	get_tree().paused = false
@@ -436,6 +449,7 @@ func _pause() -> void:
 	var actions: VBoxContainer = _overlay_panel("LANDING PAUSED", "Crew, planet and checkpoint are stored locally.")
 	_button(actions, "RESUME PILOTING", _resume, true)
 	_button(actions, "RESTART LANDING", _restart)
+	_button(actions, "MISSION RADIO", _radio)
 	_button(actions, "SAVE & MAIN MENU", _menu)
 	GameState.save_local()
 	get_tree().paused = true
