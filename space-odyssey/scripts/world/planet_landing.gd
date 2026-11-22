@@ -385,7 +385,8 @@ func _finish(success: bool) -> void:
 				earned_coins, _world,
 				"Lunar Explorer" if _world == "moon" else "Mars Pathfinder"])
 		if _world == "moon":
-			_button(actions, "UPGRADE ROCKET FOR MARS", _workshop, true)
+			_button(actions, "EXIT LANDER · EXPLORE THE MOON", _moon_eva, true)
+			_button(actions, "UPGRADE ROCKET FOR MARS", _workshop, false)
 			if GameState.planet_unlocked("mars"):
 				_button(actions, "CONTINUE TO MARS  ▶", func() -> void: _transfer("mars"), true)
 		else:
@@ -416,6 +417,10 @@ func _revive() -> void:
 func _transfer(planet: String) -> void:
 	get_tree().paused = false
 	GameState.begin_transfer(planet)
+
+func _moon_eva() -> void:
+	get_tree().paused = false
+	GameState.begin_moon_eva()
 
 func _workshop() -> void:
 	get_tree().paused = false
