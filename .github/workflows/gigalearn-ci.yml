@@ -6,7 +6,6 @@ on:
     paths:
       - "gigalearn/**"
       - ".github/workflows/gigalearn-ci.yml"
-      - ".github/workflows/gigalearn-ci.yml"
   pull_request:
     paths:
       - "gigalearn/**"
