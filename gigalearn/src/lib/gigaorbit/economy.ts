@@ -42,7 +42,7 @@ export function preparedMission(destination: Destination, progress: PilotProgres
     suitLevel: progress.upgrades.suit,
   };
 }
-export function useItem(progress: PilotProgress, mission: Mission | null, id: "fuelCell" | "repairKit"): {
+export function applyConsumable(progress: PilotProgress, mission: Mission | null, id: "fuelCell" | "repairKit"): {
   progress: PilotProgress; mission: Mission | null; ok: boolean; message: string
 } {
   if (progress.inventory[id] <= 0) return { progress, mission, ok: false, message: "Buy a kit at the workshop first." };
