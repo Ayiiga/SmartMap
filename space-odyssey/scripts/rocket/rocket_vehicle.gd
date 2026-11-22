@@ -26,6 +26,9 @@ var vertical_speed_m_s: float = 0.0
 var horizontal_speed_m_s: float = 0.0
 var throttle: float = 1.0
 var pitch_deg: float = 0.0
+var heading_deg: float = 0.0
+var east_m: float = 0.0
+var north_m: float = 0.0
 var flight_seconds: float = 0.0
 var fuel_one_kg: float = 0.0
 var fuel_two_kg: float = 4500.0
@@ -102,6 +105,10 @@ func adjust_pitch(change_deg: float) -> void:
 	if phase == Phase.STAGE_ONE or phase == Phase.STAGE_TWO:
 		pitch_deg = clampf(pitch_deg + change_deg, 0.0, 65.0)
 
+func steer_yaw(change_deg: float) -> void:
+	if phase == Phase.STAGE_ONE or phase == Phase.STAGE_TWO:
+		heading_deg = clampf(heading_deg + change_deg, -70.0, 70.0)
+
 func separate_stage() -> bool:
 	if not can_separate():
 		return false
@@ -158,6 +165,9 @@ func _physics_process(delta: float) -> void:
 	vertical_speed_m_s += (cos(deg_to_rad(pitch_deg)) * acceleration - EARTH_GRAVITY - vertical_drag) * dt
 	horizontal_speed_m_s += (sin(deg_to_rad(pitch_deg)) * acceleration - horizontal_drag) * dt
 	altitude_m += vertical_speed_m_s * dt
+	# Heading steers the simplified horizontal trajectory; values stay in metres.
+	east_m += sin(deg_to_rad(heading_deg)) * horizontal_speed_m_s * dt
+	north_m += cos(deg_to_rad(heading_deg)) * horizontal_speed_m_s * dt
 	if altitude_m <= 0.0 and flight_seconds > 0.5 and vertical_speed_m_s < -2.0:
 		altitude_m = 0.0
 		phase = Phase.FAILED
@@ -169,10 +179,13 @@ func _physics_process(delta: float) -> void:
 		failed.emit("Rocket missed the training orbital window. Try guided orbit sooner.")
 	# Keep world coordinates small: altitude is never used directly for the rendered position.
 	position.y = minf(altitude_m / 90.0, 155.0)
+	position.x = clampf(east_m / 150.0, -40.0, 40.0)
+	position.z = clampf(north_m / 150.0, -40.0, 40.0)
 	if _flame != null:
 		_flame.position.y = 7.0 if phase == Phase.STAGE_TWO else -1.55
 	if _rocket_visual != null:
 		_rocket_visual.rotation.z = deg_to_rad(-pitch_deg * 0.35)
+		_rocket_visual.rotation.y = deg_to_rad(heading_deg)
 	if _flame != null:
 		_flame.visible = thrust_n > 1000.0
 		_flame.scale.y = 0.7 + throttle * 0.8
@@ -184,6 +197,7 @@ func snapshot() -> Dictionary:
 		"horizontal_speed_m_s": horizontal_speed_m_s,
 		"fuel_one_kg": fuel_one_kg, "fuel_two_kg": fuel_two_kg,
 		"throttle": throttle, "pitch_deg": pitch_deg,
+		"heading_deg": heading_deg, "east_m": east_m, "north_m": north_m,
 		"flight_seconds": flight_seconds,
 		"design": _design().duplicate(true)
 	}
@@ -213,8 +227,15 @@ func restore(data: Dictionary) -> void:
 	fuel_two_kg = clampf(float(data.get("fuel_two_kg", fuel_two_capacity_kg)), 0.0, fuel_two_capacity_kg)
 	throttle = clampf(float(data.get("throttle", 1.0)), 0.0, 1.0)
 	pitch_deg = clampf(float(data.get("pitch_deg", 0.0)), 0.0, 65.0)
+	heading_deg = clampf(float(data.get("heading_deg", 0.0)), -70.0, 70.0)
+	east_m = float(data.get("east_m", 0.0))
+	north_m = float(data.get("north_m", 0.0))
 	flight_seconds = maxf(0.0, float(data.get("flight_seconds", 0.0)))
 	position.y = minf(altitude_m / 90.0, 155.0)
+	position.x = clampf(east_m / 150.0, -40.0, 40.0)
+	position.z = clampf(north_m / 150.0, -40.0, 40.0)
+	if _rocket_visual != null:
+		_rocket_visual.rotation.y = deg_to_rad(heading_deg)
 	if _lower_stage != null:
 		_lower_stage.visible = phase != Phase.STAGE_TWO and phase != Phase.ORBIT
 
