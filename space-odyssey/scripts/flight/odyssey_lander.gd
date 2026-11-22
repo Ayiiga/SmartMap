@@ -45,6 +45,12 @@ func acceleration() -> float:
 func fuel_percent() -> int:
 	return roundi(100.0 * fuel / maxf(1.0, fuel_capacity))
 
+func refuel(amount: float = 35.0) -> bool:
+	if landed or crashed or fuel >= fuel_capacity - 0.05:
+		return false
+	fuel = minf(fuel_capacity, fuel + maxf(0.0, amount))
+	return true
+
 func safe_vertical_speed() -> float:
 	return 5.2 + float(gear_level - 1) * 0.65
 
