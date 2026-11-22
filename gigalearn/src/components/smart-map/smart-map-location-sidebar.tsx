@@ -46,7 +46,7 @@ export function SmartMapLocationSidebar({ className }: SmartMapLocationSidebarPr
 
   const nearby = useMemo(
     () => nearbyPlaces(anchor, undefined, 5).filter((p) => p.id !== selectedPlace?.id),
-    [anchor.lat, anchor.lng, selectedPlace?.id],
+    [anchor, selectedPlace?.id],
   );
 
   const locationTitle = selectedPlace?.name ?? resolvedAddress?.city ?? "Bedomase";
