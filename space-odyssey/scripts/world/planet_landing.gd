@@ -219,7 +219,7 @@ func _build_hud() -> void:
 	stick.offset_top = -187
 	stick.offset_bottom = -26
 	root.add_child(stick)
-	stick.axis_changed.connect(func(direction: Vector2) -> void: _steering = direction.x)
+	stick.connect("axis_changed", func(direction: Vector2) -> void: _steering = direction.x)
 	var actions: VBoxContainer = VBoxContainer.new()
 	actions.anchor_left = 1.0
 	actions.anchor_right = 1.0
