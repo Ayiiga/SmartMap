@@ -159,7 +159,7 @@ func _test_sound() -> void:
 	_feedback.text = "Rocket test played." if _sound_on.button_pressed else "Turn on ROCKET / ALERT SOUND to hear the test."
 
 func _test_radio() -> void:
-	GameAudio.communicate("Mission Control to Odyssey. Radio check. Press left or right to dodge comets.")
+	GameAudio.communicate("GigaOrbit Mission Control. Radio check. Press left or right to dodge comets.")
 	if _voice_on.button_pressed and GameAudio.speech_supported():
 		_feedback.text = "Voice test sent to your phone's installed speech engine."
 	else:
