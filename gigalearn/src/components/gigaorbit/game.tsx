@@ -341,6 +341,9 @@ export default function GigaOrbitGame() {
               {view === "help" && (
                 <section className="mx-auto max-w-3xl rounded-2xl border border-cyan-300/30 bg-slate-950/85 p-5 sm:p-9">
                   <h1 className="text-3xl font-black">Pilot training academy</h1>
+                  <div className="relative mt-4 h-36 overflow-hidden rounded-xl border border-white/20 sm:h-52">
+                    <Image src="/gigaorbit/astronaut-eva.webp" alt="Astronaut space expedition concept used as flight training artwork" fill sizes="(max-width: 640px) 100vw, 760px" className="object-cover object-center" />
+                  </div>
                   <p className="mt-3 leading-7 text-slate-200">1. Tap START and steer with the left joystick. Hold THRUST + or THRUST − to change engine power. BOOST gives an extra push but uses fuel.</p>
                   <p className="mt-3 leading-7 text-slate-200">2. At 25 km, tap STAGE to separate the booster. Reach orbit and tap BEGIN TRANSFER.</p>
                   <p className="mt-3 leading-7 text-slate-200">3. During descent, deploy GEAR, use BRAKE to reduce speed, and steer toward the landing zone.</p>
