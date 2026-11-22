@@ -30,7 +30,6 @@ for name in sorted(ASSETS):
     assert body[:4] == b"RIFF" and body[8:12] == b"WEBP", f"Not an actual WebP binary: {name}"
     assert f"/gigaorbit/{name}" in page_text, f"Image not wired into page: {name}"
 
-assert "Next.js" not in "", "No package changes required"
 assert "gigaorbit" not in (ROOT / "next.config.ts").read_text(encoding="utf-8").split("async redirects()", 1)[1].split("images:", 1)[0], "GigaOrbit route is redirected"
 assert "These are visual references, not photographs" in page_text
 print("PASS: eight actual user-provided WebP images, wired page paths and no GigaOrbit redirect")
