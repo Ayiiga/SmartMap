@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   advance, action, award, canChoose, canInteract, destinations, interact,
-  newMission, newProgress, restoreMission, restoreProgress, SAMPLE_POINTS, sampleDistance,
+  newProgress, restoreMission, restoreProgress, SAMPLE_POINTS, sampleDistance,
   type ControlInput, type Destination, type HandlingMode, type Mission, type PilotProgress,
 } from "@/lib/gigaorbit/engine";
 import {
@@ -249,6 +249,7 @@ export default function GigaOrbitGame() {
     if (!canChoose(destination, progressRef.current)) { setMessage("Finish your Moon mission first to unlock Mars."); return; }
     setSelectedDestination(destination);
     syncMission(preparedMission(destination, progressRef.current));
+    setSavedMission(null);
     syncPaused(false); syncView("game"); setMessage(null); playCue(440);
   };
   const continueSaved = () => {
@@ -477,10 +478,24 @@ export default function GigaOrbitGame() {
             {mission.stage === "transfer" && <><p>TRANSFER <strong className="float-right text-cyan-200">{Math.round(mission.transfer)}%</strong></p><div className="mt-2 h-2 rounded-full bg-white/20"><div className="h-2 rounded-full bg-cyan-400" style={{ width: `${mission.transfer}%` }} /></div></>}
             {mission.stage === "landing" && <><p>ALTITUDE <strong className="float-right text-cyan-200">{Math.ceil(mission.landingAltitude)} m</strong></p><p className="mt-2">DESCENT <strong className="float-right text-cyan-200">{mission.descent.toFixed(1)} m/s</strong></p><p className="mt-2">TARGET <strong className="float-right text-cyan-200">{Math.abs(mission.offset).toFixed(0)} m</strong></p></>}
             {mission.stage === "eva" && <><p>SAMPLES <strong className="float-right text-cyan-200">{mission.samples}/{SAMPLE_POINTS[mission.destination].length}</strong></p><p className="mt-2">TO TARGET <strong className="float-right text-cyan-200">{Math.round(sampleDistance(mission))} m</strong></p></>}
-            <p className="mt-3 border-t border-white/15 pt-2">FUEL <strong className="float-right text-cyan-200">{Math.round(mission.fuel)}%</strong></p>
-            <div className="mt-1 h-1.5 rounded-full bg-white/15"><div className="h-1.5 rounded-full bg-cyan-400" style={{ width: `${mission.fuel}%` }}/></div>
+            <p className="mt-3 border-t border-white/15 pt-2">FUEL <strong className="float-right text-cyan-200">{Math.round(100 * mission.fuel / mission.maxFuel)}%</strong></p>
+            <div className="mt-1 h-1.5 rounded-full bg-white/15"><div className="h-1.5 rounded-full bg-cyan-400" style={{ width: `${100 * mission.fuel / mission.maxFuel}%` }}/></div>
+            <p className="mt-2">HULL <strong className="float-right text-cyan-200">{Math.round(mission.hull)}/{mission.maxHull}</strong></p>
+            <p className="mt-2 text-amber-200">🪙 {progress.credits} coins</p>
           </div>
 
+          {!["complete", "failed", "eva"].includes(mission.stage) && (
+            <div className="pointer-events-auto absolute right-3 top-[100px] z-[6] flex max-w-[42%] flex-col gap-2 sm:right-6 sm:top-[110px]">
+              <button type="button" disabled={paused || progress.inventory.fuelCell < 1 || mission.fuel >= mission.maxFuel - 0.01}
+                onClick={() => activateKit("fuelCell")} className="min-h-11 rounded-lg border border-cyan-300/40 bg-[#06243d]/85 px-2 text-[11px] font-bold text-cyan-100 backdrop-blur-sm disabled:opacity-45">
+                ⛽ REFUEL +35 ({progress.inventory.fuelCell})
+              </button>
+              <button type="button" disabled={paused || progress.inventory.repairKit < 1 || mission.hull >= mission.maxHull - 0.01}
+                onClick={() => activateKit("repairKit")} className="min-h-11 rounded-lg border border-orange-300/40 bg-[#2c2037]/85 px-2 text-[11px] font-bold text-orange-100 backdrop-blur-sm disabled:opacity-45">
+                🛠️ REPAIR +35 ({progress.inventory.repairKit})
+              </button>
+            </div>
+          )}
           {mission.stage === "orbit" && <div className="pointer-events-auto absolute bottom-[11%] left-1/2 z-[7] w-max max-w-[94%] -translate-x-1/2"><PrimaryButton onClick={() => performAction("transfer")}>🪐 BEGIN {mission.destination.toUpperCase()} TRANSFER</PrimaryButton></div>}
           {mission.stage === "complete" && <div className="absolute inset-0 z-[9] grid place-items-center bg-[#03091d]/88 p-4 backdrop-blur-md">
             <div className="w-full max-w-lg rounded-3xl border border-cyan-200/40 bg-gradient-to-br from-[#0b2746] to-[#1b1240] p-6 text-center shadow-2xl">
@@ -490,6 +505,7 @@ export default function GigaOrbitGame() {
               <p className="mt-2 text-xs text-slate-300">First-completion rewards are awarded once. Mars unlocks after the Moon.</p>
               <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
                 <PrimaryButton onClick={() => { setSavedMission(null); backToMenu(); }}>MISSION CONTROL</PrimaryButton>
+                <PrimaryButton outline onClick={() => { setSavedMission(null); syncView("awards"); }}>🏆 VIEW AWARDS</PrimaryButton>
                 <PrimaryButton outline onClick={() => start(mission.destination === "moon" ? "mars" : "moon")} disabled={mission.destination === "moon" && !canChoose("mars", progress)}>NEXT MISSION</PrimaryButton>
               </div>
             </div>
@@ -498,6 +514,7 @@ export default function GigaOrbitGame() {
             <div className="w-full max-w-md rounded-3xl border border-orange-400/50 bg-[#101932] p-6 text-center">
               <p className="text-4xl">⚠️</p><h2 className="mt-3 text-2xl font-black">MISSION INTERRUPTED</h2>
               <p className="mt-3 text-sm text-orange-100">{mission.message}</p>
+              <p className="mt-3 text-xs text-amber-100">Hard landings reduce hull integrity. Repair it in the workshop; retrying missions is free.</p>
               <div className="mt-6 flex flex-wrap justify-center gap-3"><PrimaryButton onClick={resetForNewMission}>RETRY FOR FREE</PrimaryButton><PrimaryButton outline onClick={backToMenu}>MAIN MENU</PrimaryButton></div>
             </div>
           </div>}
@@ -556,7 +573,7 @@ export default function GigaOrbitGame() {
           {paused && <div className="absolute inset-0 z-[9] grid place-items-center bg-[#010617]/90 p-4">
             <div className="w-full max-w-sm rounded-2xl border border-cyan-300/40 bg-[#101931] p-6 text-center">
               <h2 className="text-3xl font-black">PAUSED</h2><p className="my-3 text-sm text-slate-300">Your mission and progress are saved on this device.</p>
-              <div className="flex flex-col gap-3"><PrimaryButton onClick={() => syncPaused(false)}>RESUME MISSION</PrimaryButton><PrimaryButton outline onClick={resetForNewMission}>RESTART MISSION</PrimaryButton><PrimaryButton outline onClick={backToMenu}>SAVE & MAIN MENU</PrimaryButton></div>
+              <div className="flex flex-col gap-3"><PrimaryButton onClick={() => syncPaused(false)}>RESUME MISSION</PrimaryButton><PrimaryButton outline onClick={() => { syncView("workshop"); syncPaused(false); }}>VISIT WORKSHOP (FLIGHT SAVED)</PrimaryButton><PrimaryButton outline onClick={resetForNewMission}>RESTART MISSION</PrimaryButton><PrimaryButton outline onClick={backToMenu}>SAVE & MAIN MENU</PrimaryButton></div>
             </div>
           </div>}
           {message && !paused && !["complete", "failed"].includes(mission.stage) && <div role="status" className="pointer-events-none absolute left-1/2 top-[76px] z-[6] w-[min(92vw,470px)] -translate-x-1/2 rounded-lg bg-[#072542]/75 px-3 py-1.5 text-center text-[10px] font-semibold text-cyan-100 sm:text-xs">{message}</div>}
