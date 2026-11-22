@@ -52,11 +52,12 @@ func _build_world() -> void:
 	add_child(floor_body)
 	_box(Vector3(0, -0.55, 0), Vector3(160, 1.0, 160), Color("858c9b"))
 	_box(Vector3(0, 0.04, 12), Vector3(16, 0.08, 16), Color("495e70"))
-	var craft: Dictionary = RocketArt.build(self, 0)
+	var craft: Dictionary = RocketArt.build_lander(self)
 	var rocket: Node3D = craft["root"] as Node3D
-	(craft["lower_stage"] as Node3D).visible = false
-	rocket.position = LANDER_POINT + Vector3(0, 0.5, 0)
-	rocket.scale = Vector3.ONE * 0.56
+	rocket.position = LANDER_POINT + Vector3(0, 0.7, 0)
+	rocket.scale = Vector3.ONE * 0.86
+	for gear: Node3D in craft["gear_nodes"]:
+		gear.visible = true
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = 724901
 	for i: int in range(28):
@@ -70,7 +71,7 @@ func _build_world() -> void:
 		_sample.visible = false
 	_marker("SAMPLE SITE", SAMPLE_POINT + Vector3(0, 2.0, 0))
 	_marker("LANDER / RETURN", LANDER_POINT + Vector3(0, 8.8, 0))
-	_rock(Vector3(-40, 38, -95), 15.0, Color("397fa8"))
+	_rock(Vector3(-80, 38, -160), 3.5, Color("397fa8"))
 
 func _mat(color: Color) -> StandardMaterial3D:
 	var material: StandardMaterial3D = StandardMaterial3D.new()
