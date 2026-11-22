@@ -40,7 +40,7 @@ func _ready() -> void:
 	var actions: HBoxContainer = HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	hero.add_child(actions)
-	var launch: Button = UI.button("▶  START MISSION", true)
+	var launch: Button = UI.button("▶  LAUNCH ROCKET", true)
 	launch.custom_minimum_size = Vector2(255, 66)
 	actions.add_child(launch)
 	launch.pressed.connect(func() -> void: GameState.new_rocket_game())
