@@ -12,7 +12,7 @@ import type { Map as MapLibreMapType, Marker as MarkerType } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { PLACES } from "@/content/smart-map/places";
 import { getCategoryMeta } from "@/content/smart-map/categories";
-import { MAP_STYLE_URLS, DEFAULT_CENTER, DEFAULT_ZOOM, applyMapStyle, initialMapStyle, mapStyleKey } from "@/lib/map/styles";
+import { DEFAULT_CENTER, DEFAULT_ZOOM, applyMapStyle, initialMapStyle, mapStyleKey } from "@/lib/map/styles";
 import { useMapStore } from "@/stores/map-store";
 import { getCountry } from "@/content/smart-map/countries";
 import type { Place, Coordinates } from "@/types/smart-map";

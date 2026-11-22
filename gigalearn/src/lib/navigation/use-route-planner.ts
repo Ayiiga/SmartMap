@@ -76,17 +76,7 @@ export function useRoutePlanner(input: RoutePlannerInput | null) {
     return () => {
       cancelled = true;
     };
-  }, [
-    input?.from?.id,
-    input?.from?.coordinates.lat,
-    input?.from?.coordinates.lng,
-    input?.from?.label,
-    input?.to?.id,
-    input?.to?.coordinates.lat,
-    input?.to?.coordinates.lng,
-    input?.to?.label,
-    input?.mode,
-  ]);
+  }, [input]);
 
   return { routes, loading, source };
 }

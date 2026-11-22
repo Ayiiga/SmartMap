@@ -1,4 +1,4 @@
-import { act } from "react";
+import { act, createElement, type ImgHTMLAttributes } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import GigaOrbitGame from "./game";
@@ -9,8 +9,15 @@ vi.mock("next/dynamic", () => ({
 }));
 vi.mock("next/image", () => ({
   default: (props: Record<string, unknown>) => {
-    const { fill: _fill, priority: _priority, sizes: _sizes, ...attributes } = props;
-    return <img {...(attributes as React.ImgHTMLAttributes<HTMLImageElement>)} alt={String(props.alt ?? "")} />;
+    // Match next/image props without forwarding Next-only attributes to a DOM image.
+    const attributes = { ...props };
+    delete attributes.fill;
+    delete attributes.priority;
+    delete attributes.sizes;
+    return createElement("img", {
+      ...attributes,
+      alt: String(props.alt ?? ""),
+    } as ImgHTMLAttributes<HTMLImageElement>);
   },
 }));
 vi.mock("next/link", () => ({
