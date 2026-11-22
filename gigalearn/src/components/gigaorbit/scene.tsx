@@ -214,7 +214,7 @@ function SceneElements({ mission }: { mission: Mission }) {
   useFrame(({ camera, clock }, dt) => {
     const smooth = Math.min(1, dt * 4);
     if (isEva) {
-      const location = new THREE.Vector3(mission.evaX, -1.05 + Math.sin(clock.elapsedTime * 3.3) * 0.025, mission.evaZ);
+      const location = new THREE.Vector3(mission.evaX, -1.05 + (mission.evaY ?? 0) + Math.sin(clock.elapsedTime * 3.3) * 0.02, mission.evaZ);
       if (pilot.current) pilot.current.position.lerp(location, smooth * 1.6);
       camera.position.lerp(new THREE.Vector3(location.x + 3.1, 4.0, location.z + 10.0), smooth);
       camera.lookAt(location.x, 0.2, location.z - 5.2);
