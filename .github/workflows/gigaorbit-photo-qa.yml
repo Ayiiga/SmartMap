@@ -20,6 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 tests/phase7_photo_contract.py
+          python3 tests/phase8_planetary_photo_contract.py
           python3 tests/phase6_android_polish_contract.py
   photo-runtime:
     needs: photo-contract
