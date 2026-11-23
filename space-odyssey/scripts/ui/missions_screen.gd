@@ -53,7 +53,20 @@ func _ready() -> void:
 	col.add_child(lunar)
 	lunar.pressed.connect(_start_photo_eva)
 	col.add_child(UI.label("Unlock by landing safely on the Moon. Repair missions use virtual repair kits.", 16, UI.MUTED))
-	col.add_child(UI.label("COMING LATER: Europa, Saturn, Jupiter's moons, asteroids and outer planets", 16, UI.MUTED))
+	col.add_child(UI.separator())
+	col.add_child(UI.label("PHOTOGRAPHIC PLANETARY EXPEDITIONS", 24, UI.ACCENT))
+	col.add_child(UI.label("Real NASA mission images · Interactive 2.5D navigation, scientific scans, repairs and rewards.", 16, UI.MUTED))
+	for body in ["mars", "europa", "jupiter", "saturn", "titan", "neptune"]:
+		var label: String = body.to_upper()
+		var unlocked: bool = GameState.planet_unlocked(body)
+		var completed: bool = bool(GameState.completed_planets.get(body, false))
+		var activity: String = "LAND + SAMPLE" if body == "mars" else "ORBITAL PROBE + SCAN"
+		var btn: Button = UI.button("%s: %s%s" % [label, activity, " ✓" if completed else ""])
+		btn.disabled = not unlocked
+		col.add_child(btn)
+		btn.pressed.connect(_start_expedition.bind(body))
+		if not unlocked:
+			col.add_child(UI.label("LOCKED: Complete Moon and Mars milestones to reach outer worlds.", 14, UI.MUTED))
 	var back: Button = UI.button("BACK")
 	col.add_child(back)
 	back.pressed.connect(func() -> void: get_tree().change_scene_to_file(GameState.MENU))
@@ -79,10 +92,14 @@ func _scroll_page() -> VBoxContainer:
 	return col
 
 func _start_auto_photo() -> void:
-	if bool(GameState.completed_planets.get("moon", false)):
-		_start_photo_eva()
+	var next: String = GameState.next_photo_destination()
+	if next == "moon":
+		if bool(GameState.completed_planets.get("moon", false)):
+			_start_photo_eva()
+		else:
+			_start_photo()
 	else:
-		_start_photo()
+		_start_expedition(next)
 
 func _start_photo() -> void:
 	GameState.current_mission = "photo_earth_moon"
@@ -95,6 +112,9 @@ func _start_photo_eva() -> void:
 	GameState.current_mission = "eva_moon"
 	GameState.save_local()
 	get_tree().change_scene_to_file(GameState.PHOTO_MISSION)
+
+func _start_expedition(body: String) -> void:
+	GameState.begin_photo_expedition(body)
 
 func _start_training() -> void:
 	if GameState.can_continue() and not GameState.training_complete:
