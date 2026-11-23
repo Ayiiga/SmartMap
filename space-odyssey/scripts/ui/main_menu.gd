@@ -75,11 +75,12 @@ func _ready() -> void:
 	nav.add_child(UI.label("🌕 Moon after Earth orbit\n🔴 Mars after Moon + upgrades\n🪐 More worlds planned", 14, UI.MUTED))
 
 func _auto_photo_mission() -> void:
-	# Automatically offer the next safe, unlocked photographic task.
-	if bool(GameState.completed_planets.get("moon", false)):
-		GameState.current_mission = "eva_moon"
-	else:
-		GameState.current_mission = "photo_earth_moon"
+	# Prefer the next unlocked interactive NASA-imagery expedition.
+	var next: String = GameState.next_photo_destination()
+	if next != "moon":
+		GameState.begin_photo_expedition(next)
+		return
+	GameState.current_mission = "eva_moon" if bool(GameState.completed_planets.get("moon", false)) else "photo_earth_moon"
 	GameState.save_local()
 	get_tree().change_scene_to_file(GameState.PHOTO_MISSION)
 
