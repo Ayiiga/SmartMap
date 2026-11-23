@@ -133,6 +133,16 @@ jobs:
           test -s build/GigaOrbit_SideBySide.apk
           unzip -tq build/GigaOrbit_SideBySide.apk
           sha256sum build/GigaOrbit_SideBySide.apk > build/GigaOrbit_SideBySide.apk.sha256
+      - name: Assign unique package ID to this QA build
+        # Use POSIX utilities already present in the Godot container.
+        # Production updates require a persistent signing key, not this QA ID.
+        run: |
+          set -eu
+          PACKAGE="com.giga3enterprise.gigaorbit.qa${GITHUB_RUN_ID}"
+          grep -q 'package/unique_name="com.giga3enterprise.gigaorbit.freshqa1123"' export_presets.cfg
+          sed -i "s|com.giga3enterprise.gigaorbit.freshqa1123|${PACKAGE}|" export_presets.cfg
+          grep -q "package/unique_name=\"${PACKAGE}\"" export_presets.cfg
+          echo "Unique QA install package: ${PACKAGE}"
       - name: Export independent clean-install APK
         run: |
           set -eu
