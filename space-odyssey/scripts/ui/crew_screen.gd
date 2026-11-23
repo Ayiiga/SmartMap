@@ -2,6 +2,7 @@ extends Control
 ## Three crew members are required: cadet, pilot and scientist. Each role has four options.
 const UI = preload("res://scripts/ui/space_ui.gd")
 const Crew = preload("res://scripts/player/crew_catalog.gd")
+const CREW_ATLAS = preload("res://assets/textures/crew-portraits.webp")
 var _cards: Dictionary = {}
 var _summary: Label
 var _confirm: Button
@@ -17,12 +18,12 @@ func _ready() -> void:
 	layout.add_theme_constant_override("separation", 9)
 	margins.add_child(layout)
 	layout.add_child(UI.label("ASSEMBLE YOUR SPACE CREW  ·  3 OF 3", 34, Color("efcf77")))
-	layout.add_child(UI.label("Choose one cadet, one rocket pilot and one science explorer. All astronauts are free to select.", 17, UI.MUTED))
+	layout.add_child(UI.label("Choose one cadet, one rocket pilot and one science explorer. All astronauts are fictional game characters; portraits are original AI-generated art.", 17, UI.MUTED))
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	layout.add_child(scroll)
-	var columns: HBoxContainer = HBoxContainer.new()
+	var columns: VBoxContainer = VBoxContainer.new()
 	columns.add_theme_constant_override("separation", 16)
 	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(columns)
@@ -40,13 +41,11 @@ func _ready() -> void:
 			var row: HBoxContainer = HBoxContainer.new()
 			row.add_theme_constant_override("separation", 8)
 			stack.add_child(row)
-			var swatch: ColorRect = ColorRect.new()
-			swatch.color = Color(str(profile["suit"]))
-			swatch.custom_minimum_size = Vector2(20, 42)
-			row.add_child(swatch)
+			var portrait: TextureRect = _portrait_for(crew_id)
+			row.add_child(portrait)
 			var button: Button = UI.button(str(profile["name"]))
 			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			button.custom_minimum_size = Vector2(205, 53)
+			button.custom_minimum_size = Vector2(175, 53)
 			row.add_child(button)
 			button.pressed.connect(_select.bind(role, crew_id))
 			_cards[role + ":" + crew_id] = button
@@ -62,6 +61,21 @@ func _ready() -> void:
 	actions.add_child(menu)
 	menu.pressed.connect(func() -> void: get_tree().change_scene_to_file(GameState.MENU))
 	_refresh()
+
+func _portrait_for(crew_id: String) -> TextureRect:
+	# Original synthetic crew art; individuals are fictional characters.
+	# 4 columns x 3 rows of equal 100x100 cells: Crew.IDS order is row-major.
+	var index: int = maxi(0, Crew.IDS.find(crew_id))
+	var crop: AtlasTexture = AtlasTexture.new()
+	crop.atlas = CREW_ATLAS
+	crop.region = Rect2((index % 4) * 100, floori(float(index) / 4.0) * 100, 100, 100)
+	var portrait: TextureRect = TextureRect.new()
+	portrait.texture = crop
+	portrait.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	portrait.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	portrait.custom_minimum_size = Vector2(80, 74)
+	portrait.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return portrait
 
 func _role_guide(role: String) -> String:
 	match role:
