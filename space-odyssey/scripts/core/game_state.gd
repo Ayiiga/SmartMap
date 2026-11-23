@@ -13,6 +13,7 @@ const LANDING: String = "res://scenes/world/planet_landing.tscn"
 const MOON_EVA: String = "res://scenes/world/moon_eva.tscn"
 const COMETS: String = "res://scenes/world/comet_field.tscn"
 const PHOTO_MISSION: String = "res://scenes/world/photo_mission.tscn"
+const PHOTO_EXPEDITION: String = "res://scenes/world/photo_expedition.tscn"
 const DEFAULT_SETTINGS: Dictionary = {
 	"graphics": 0,
 	"target_fps": 30,
@@ -76,6 +77,10 @@ func planet_unlocked(planet: String) -> bool:
 		return flight_complete or flight_rewards_claimed
 	if planet == "mars":
 		return bool(completed_planets.get("moon", false)) and int(upgrades.get("engine", 1)) >= 2 and int(upgrades.get("landing_gear", 1)) >= 2
+	if planet in ["europa", "jupiter", "saturn", "titan"]:
+		return bool(completed_planets.get("mars", false))
+	if planet == "neptune":
+		return bool(completed_planets.get("saturn", false))
 	return false
 
 func can_upgrade(part: String) -> bool:
@@ -152,6 +157,29 @@ func ready_crew() -> bool:
 
 func pilot_name() -> String:
 	return str(Crew.profile_for(str(crew_slots.get("Rocket Pilots", "ayiiga")))["name"])
+
+func begin_photo_expedition(target: String) -> bool:
+	# Offline, no external assets loaded at runtime. Gas/ice giants use flybys.
+	if target not in ["mars", "europa", "jupiter", "saturn", "titan", "neptune"]:
+		return false
+	if not planet_unlocked(target):
+		return false
+	destination_planet = target
+	current_mission = "photo_expedition_" + target
+	active_session = true
+	has_started = true
+	save_local()
+	get_tree().change_scene_to_file(PHOTO_EXPEDITION)
+	return true
+
+func next_photo_destination() -> String:
+	# Preserve earned progress; do not skip required Moon/Mars milestones.
+	if not bool(completed_planets.get("moon", false)):
+		return "moon"
+	for target in ["mars", "europa", "jupiter", "saturn", "titan", "neptune"]:
+		if planet_unlocked(target) and not bool(completed_planets.get(target, false)):
+			return target
+	return "moon"
 
 func begin_transfer(planet: String) -> bool:
 	if not ready_crew() or not planet_unlocked(planet):
@@ -302,7 +330,9 @@ func continue_game() -> bool:
 	load_local()
 	active_session = true
 	var destination: String = TRAINING
-	if current_mission in ["photo_earth_moon", "photo_transfer_moon"]:
+	if current_mission.begins_with("photo_expedition_") and planet_unlocked(destination_planet):
+		destination = PHOTO_EXPEDITION
+	elif current_mission in ["photo_earth_moon", "photo_transfer_moon"]:
 		destination = PHOTO_MISSION
 	elif current_mission == "launch_001":
 		destination = FLIGHT
