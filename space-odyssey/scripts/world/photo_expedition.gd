@@ -4,13 +4,13 @@ extends Control
 ## Jupiter / Saturn / Neptune are orbital flybys, NOT landable surfaces.
 const UI = preload("res://scripts/ui/space_ui.gd")
 const STICK = preload("res://scripts/flight/flight_stick.gd")
-const PHOTOS: Dictionary = {
-	"mars": preload("res://assets/textures/nasa-mars-jezero.jpg"),
-	"europa": preload("res://assets/textures/nasa-europa-galileo.jpg"),
-	"jupiter": preload("res://assets/textures/nasa-jupiter-juno.jpg"),
-	"saturn": preload("res://assets/textures/nasa-saturn-cassini.jpg"),
-	"titan": preload("res://assets/textures/nasa-titan-cassini.png"),
-	"neptune": preload("res://assets/textures/nasa-neptune-voyager.jpg"),
+const PHOTO_PATHS: Dictionary = {
+	"mars": "res://assets/textures/nasa-mars-jezero.jpg",
+	"europa": "res://assets/textures/nasa-europa-galileo.jpg",
+	"jupiter": "res://assets/textures/nasa-jupiter-juno.jpg",
+	"saturn": "res://assets/textures/nasa-saturn-cassini.jpg",
+	"titan": "res://assets/textures/nasa-titan-cassini.png",
+	"neptune": "res://assets/textures/nasa-neptune-voyager.jpg",
 }
 const SCAN_MARKERS: Array[float] = [20.0, 51.0, 82.0]
 const DESTINATIONS: Array[String] = ["mars", "europa", "jupiter", "saturn", "titan", "neptune"]
@@ -34,6 +34,7 @@ var _checks: Array[bool] = [false, false, false]
 var _flag_planted: bool = false
 var _repaired: bool = false
 var _focus: String = "scan"
+var _scene_texture: Texture2D
 var _photo: TextureRect
 var _near: TextureRect
 var _telemetry: Label
@@ -75,14 +76,18 @@ func _checkpoint_path() -> String:
 	return "user://gigaorbit_photo_%s_v1.json" % _target
 
 func _make_photo() -> void:
+	# Stream only the selected body's photo, rather than preloading all six.
+	_scene_texture = load(str(PHOTO_PATHS[_target])) as Texture2D
+	if _scene_texture == null:
+		_scene_texture = preload("res://assets/textures/earth-orbit.webp")
 	_photo = TextureRect.new()
-	_photo.texture = PHOTOS[_target] as Texture2D
+	_photo.texture = _scene_texture
 	_photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_photo)
 	_near = TextureRect.new()
-	_near.texture = PHOTOS[_target] as Texture2D
+	_near.texture = _scene_texture
 	_near.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_near.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_near.modulate = Color(1, 1, 1, 0.11)
