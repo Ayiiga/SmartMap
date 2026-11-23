@@ -1,0 +1,45 @@
+name: Stage NASA photographic assets for GigaOrbit
+on:
+  push:
+    branches:
+      - 'feature/gigaorbit-photo-mars-outer-system'
+    paths:
+      - '.github/workflows/gigaorbit-stage-nasa.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  stage-nasa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Download and validate mission-specific NASA photographs
+        run: |
+          set -euo pipefail
+          cd space-odyssey
+          mkdir -p assets/textures
+          curl -fsSL --retry 3 --max-time 90 'https://assets.science.nasa.gov/dynamicimage/assets/science/psd/mars/resources/detail_files/2/6/26064_PIA24744-web.jpg?crop=faces%2Cfocalpoint&fit=clip&h=636&w=1600' -o assets/textures/nasa-mars-jezero.jpg
+          curl -fsSL --retry 3 --max-time 90 'https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia00/pia00295/PIA00295.jpg' -o assets/textures/nasa-europa-galileo.jpg
+          curl -fsSL --retry 3 --max-time 90 'https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia09/pia09906/PIA09906.jpg' -o assets/textures/nasa-saturn-cassini.jpg
+          curl -fsSL --retry 3 --max-time 90 'https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia20/pia20701/PIA20701.jpg' -o assets/textures/nasa-jupiter-juno.jpg
+          curl -fsSL --retry 3 --max-time 90 'https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia00/pia00046/PIA00046.jpg' -o assets/textures/nasa-neptune-voyager.jpg
+          curl -fsSL --retry 3 --max-time 90 'https://science.nasa.gov/wp-content/uploads/2023/06/Full_disk_view_of_Saturns_hazy_moon_Titan-jpeg.webp?format=png&w=1024' -o assets/textures/nasa-titan-cassini.png
+          for photo in assets/textures/nasa-*; do
+            test "$(wc -c < "$photo")" -gt 9000
+            file "$photo"
+            file --mime-type "$photo" | grep -Eq 'image/(jpeg|png)'
+            test "$(wc -c < "$photo")" -lt 5000000
+          done
+          sha256sum assets/textures/nasa-*
+      - name: Commit image assets on the photo-upgrade branch
+        run: |
+          set -euo pipefail
+          git config user.name "gigaorbit-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add space-odyssey/assets/textures/nasa-*
+          if ! git diff --cached --quiet; then
+            git commit -m "assets(gigaorbit): bundle original NASA mission photographs for offline scenes"
+            git push origin HEAD:feature/gigaorbit-photo-mars-outer-system
+          fi
