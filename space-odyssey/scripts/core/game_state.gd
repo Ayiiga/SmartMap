@@ -23,6 +23,9 @@ const DEFAULT_SETTINGS: Dictionary = {
 	"sound_volume": 0.65,
 	"voice_enabled": true,
 	"camera_inverted": false,
+	"camera_mode": "chase",
+	"camera_zoom": 1.0,
+	"voice_volume": 0.8,
 	"assisted_controls": true,
 	"debug_overlay": false
 }
