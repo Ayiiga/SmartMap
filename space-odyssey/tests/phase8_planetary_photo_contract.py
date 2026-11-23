@@ -13,7 +13,7 @@ names = {
     "europa": "nasa-europa-galileo.jpg",
     "jupiter": "nasa-jupiter-juno.jpg",
     "saturn": "nasa-saturn-cassini.jpg",
-    "titan": "nasa-titan-cassini.png",
+    "titan": "nasa-titan-cassini.jpg",
     "neptune": "nasa-neptune-voyager.jpg",
 }
 for body, filename in names.items():
