@@ -26,10 +26,11 @@ func _run() -> void:
 	GameState.destination_planet = "mars"
 	await _probe("res://scenes/world/planet_transfer.tscn", "planet_transfer")
 	await _probe("res://scenes/world/planet_landing.tscn", "planet_landing")
+	await _probe("res://scenes/world/photo_mission.tscn", "photo_mission")
 	for failure: String in failures:
 		push_error(failure)
 	if failures.is_empty():
-		print("PASS: Main menu, crew, flight joystick, Moon EVA sample/return, Moon/Mars transfer and landers start")
+		print("PASS: Main menu, crew, flight joystick, Moon/Mars landers and playable photo-based Earth-to-Moon flight/EVA")
 		get_tree().quit(0)
 	else:
 		get_tree().quit(1)
@@ -80,6 +81,37 @@ func _probe(path: String, screen: String) -> void:
 				node.call("_interact")
 				if not GameState.moon_eva_complete:
 					failures.append("Moon EVA sample return did not award completion")
+		"photo_mission":
+			_expect_button(node, "IGNITE", screen)
+			_expect_button(node, "PAUSE", screen)
+			if node.find_child("FlightStick", true, false) == null:
+				failures.append("Photo mission missing working touch joystick")
+			var ignite: Button = _find_button(node, "IGNITE")
+			if ignite != null:
+				ignite.pressed.emit()
+				if not bool(node.get("_running")):
+					failures.append("Photorealistic launch action did not start flight")
+			node.call("_complete_orbit")
+			if str(node.get("_phase")) != "transfer":
+				failures.append("Photo mission never entered orbital transfer")
+			node.call("_enter_landing")
+			var deploy: Button = _find_button(node, "DEPLOY GEAR")
+			if deploy != null:
+				deploy.pressed.emit()
+				if not bool(node.get("_gear")):
+					failures.append("Photo mission landing gear button does not work")
+			node.set("_descent", 3.5)
+			node.set("_offset", 1.0)
+			node.call("_finish_landing")
+			if str(node.get("_phase")) != "explore":
+				failures.append("Photo mission never reached playable lunar EVA")
+			for distance: float in [22.0, 48.0, 76.0]:
+				node.set("_eva_x", distance)
+				node.call("_collect_or_return")
+			node.set("_eva_x", 0.0)
+			node.call("_collect_or_return")
+			if str(node.get("_phase")) != "complete":
+				failures.append("Photo sample collection and safe return failed")
 		"planet_landing":
 			_expect_button(node, "BRAKE", screen)
 			_expect_button(node, "FUEL +35", screen)

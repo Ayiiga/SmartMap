@@ -12,6 +12,7 @@ const TRANSFER: String = "res://scenes/world/planet_transfer.tscn"
 const LANDING: String = "res://scenes/world/planet_landing.tscn"
 const MOON_EVA: String = "res://scenes/world/moon_eva.tscn"
 const COMETS: String = "res://scenes/world/comet_field.tscn"
+const PHOTO_MISSION: String = "res://scenes/world/photo_mission.tscn"
 const DEFAULT_SETTINGS: Dictionary = {
 	"graphics": 0,
 	"target_fps": 30,
@@ -296,7 +297,9 @@ func continue_game() -> bool:
 	load_local()
 	active_session = true
 	var destination: String = TRAINING
-	if current_mission == "launch_001":
+	if current_mission == "photo_earth_moon":
+		destination = PHOTO_MISSION
+	elif current_mission == "launch_001":
 		destination = FLIGHT
 	elif current_mission == "comet_001" and flight_complete:
 		destination = COMETS
