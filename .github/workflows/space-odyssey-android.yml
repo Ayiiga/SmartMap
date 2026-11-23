@@ -133,6 +133,24 @@ jobs:
           test -s build/GigaOrbit_SideBySide.apk
           unzip -tq build/GigaOrbit_SideBySide.apk
           sha256sum build/GigaOrbit_SideBySide.apk > build/GigaOrbit_SideBySide.apk.sha256
+      - name: Assign unique package ID to this QA build
+        # The CI debug keystore is disposable. An older build with the same
+        # application ID is signed differently and Android refuses the update.
+        # A per-run QA package avoids that conflict without removing older saves.
+        # Production updates MUST instead use a protected persistent signing key.
+        run: |
+          set -eu
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          p = Path("export_presets.cfg")
+          content = p.read_text(encoding="utf-8")
+          original = 'package/unique_name="com.giga3enterprise.gigaorbit.freshqa1123"'
+          package = "com.giga3enterprise.gigaorbit.qa" + os.environ["GITHUB_RUN_ID"]
+          assert original in content, "Expected separate-install QA package not found"
+          p.write_text(content.replace(original, f'package/unique_name="{package}"'), encoding="utf-8")
+          print(f"Unique QA install package: {package}")
+          PY
       - name: Export independent clean-install APK
         run: |
           set -eu
