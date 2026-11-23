@@ -133,6 +133,14 @@ jobs:
           test -s build/GigaOrbit_SideBySide.apk
           unzip -tq build/GigaOrbit_SideBySide.apk
           sha256sum build/GigaOrbit_SideBySide.apk > build/GigaOrbit_SideBySide.apk.sha256
+      - name: Export independent clean-install APK
+        run: |
+          set -eu
+          godot --headless --path . --export-debug "Android Fresh QA" build/GigaOrbit_FreshQA.apk > /tmp/godot-fresh-export.log 2>&1 || { cat /tmp/godot-fresh-export.log; exit 1; }
+          cat /tmp/godot-fresh-export.log
+          test -s build/GigaOrbit_FreshQA.apk
+          unzip -tq build/GigaOrbit_FreshQA.apk
+          sha256sum build/GigaOrbit_FreshQA.apk > build/GigaOrbit_FreshQA.apk.sha256
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
@@ -142,5 +150,7 @@ jobs:
             space-odyssey/build/SPACE_ODYSSEY_Debug.apk.sha256
             space-odyssey/build/GigaOrbit_SideBySide.apk
             space-odyssey/build/GigaOrbit_SideBySide.apk.sha256
+            space-odyssey/build/GigaOrbit_FreshQA.apk
+            space-odyssey/build/GigaOrbit_FreshQA.apk.sha256
           if-no-files-found: error
           retention-days: 30
