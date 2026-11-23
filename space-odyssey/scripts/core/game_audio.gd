@@ -61,7 +61,7 @@ func communicate(message: String, urgent: bool = false) -> void:
 		return
 	var voices: PackedStringArray = DisplayServer.tts_get_voices_for_language("en")
 	if not voices.is_empty():
-		DisplayServer.tts_speak(message, voices[0], 72, 1.0, 1.05, 0, true)
+		DisplayServer.tts_speak(message, voices[0], clampi(roundi(float(GameState.settings.get("voice_volume", 0.8)) * 100.0), 0, 100), 1.0, 1.05, 0, true)
 	# No installed offline voice? Subtitles and synthetic radio chimes still work.
 
 func repeat_radio() -> void:
