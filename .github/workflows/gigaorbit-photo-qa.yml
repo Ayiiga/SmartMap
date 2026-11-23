@@ -30,6 +30,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Parse photographic mission in Godot
         working-directory: space-odyssey
+        shell: bash
         run: |
           set -euo pipefail
           godot --headless --editor --path . --quit > /tmp/gigaorbit-photo-import.log 2>&1 || { cat /tmp/gigaorbit-photo-import.log; exit 1; }
