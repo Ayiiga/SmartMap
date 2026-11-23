@@ -313,7 +313,7 @@ func continue_game() -> bool:
 	elif current_mission.begins_with("transfer_") and planet_unlocked(destination_planet):
 		destination = TRANSFER
 	elif current_mission == "eva_moon" and bool(completed_planets.get("moon", false)):
-		destination = MOON_EVA
+		destination = PHOTO_MISSION
 	get_tree().change_scene_to_file(destination)
 	return true
 
