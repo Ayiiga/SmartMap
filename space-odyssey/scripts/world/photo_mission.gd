@@ -32,7 +32,7 @@ var _samples: Array[bool] = [false, false, false]
 var _eva_mission: String = "samples"
 var _flag_planted: bool = false
 var _comm_repaired: bool = false
-var _mission_picker: bool = false
+var _pause_page: String = "main"
 var _timer: float = 0.0
 var _last_saved: float = 0.0
 var _notice_timer: float = 0.0
@@ -59,6 +59,12 @@ func _ready() -> void:
 	_build_photo()
 	_build_interface()
 	_restore_checkpoint()
+	# Returning to lunar EVA from Mission Control skips the completed flight,
+	# but only after a genuinely successful Moon landing.
+	if GameState.current_mission == "eva_moon" and bool(GameState.completed_planets.get("moon", false)):
+		_phase = "explore"
+		_running = false
+		_eva_x = 0.0
 	_refresh_photo()
 	_refresh_interface()
 	GameState.current_mission = "photo_earth_moon"
@@ -407,7 +413,7 @@ func _main_action() -> void:
 			_running = not _running
 			_notice_message("Flight active." if _running else "Flight controls paused.")
 		"explore":
-			_collect_or_return()
+			_perform_eva_action()
 		"complete":
 			_to_menu()
 
@@ -426,6 +432,71 @@ func _secondary_action() -> void:
 		"complete":
 			_to_menu()
 	_refresh_interface()
+
+func _perform_eva_action() -> void:
+	# Players can select a specific task or let Mission Control suggest one.
+	# Every action has a location and must be completed before returning.
+	if _eva_mission == "repair":
+		if not _comm_repaired and absf(_eva_x - 52.0) <= 11.0:
+			if GameState.use_supply("repair_kit"):
+				_comm_repaired = true
+				GameAudio.effect("scan")
+				_notice_message("Communications antenna repaired! Return to the lander.")
+			else:
+				_notice_message("Repair kit needed. Pause > Supplies to buy with game coins.")
+		elif _comm_repaired and _eva_x <= 9.0:
+			_reward_field_task("Lunar Repair Specialist", 150, 90)
+		else:
+			_notice_message("Drive or walk to the antenna at 52 m, then return to 0 m.")
+	elif _eva_mission == "flag":
+		if not _flag_planted and absf(_eva_x - 84.0) <= 11.0:
+			_flag_planted = true
+			GameAudio.effect("success")
+			_notice_message("Ghana flag raised! Return safely to the lander.")
+		elif _flag_planted and _eva_x <= 9.0:
+			_reward_field_task("Lunar Flag Explorer", 125, 75)
+		else:
+			_notice_message("Travel to the flag marker at 84 m, then return to 0 m.")
+	else:
+		_collect_or_return()
+	_refresh_interface()
+	_save_checkpoint()
+
+func _reward_field_task(badge: String, coin_reward: int, science_reward: int) -> void:
+	if badge not in GameState.badges:
+		GameState.badges.append(badge)
+		GameState.coins += coin_reward
+		GameState.science_points += science_reward
+		GameState.save_local()
+		GameState.progress_changed.emit()
+	_phase = "complete"
+	_running = false
+	GameAudio.effect("success")
+	_notice_message("Mission successful: badge, coins and science recorded.")
+	_clear_checkpoint()
+
+func _open_pause_page(page: String) -> void:
+	_pause_page = page
+	_update_pause_menu()
+
+func _auto_eva_mission() -> void:
+	if _count_samples() < 3:
+		_select_eva_mission("samples")
+	elif not _flag_planted:
+		_select_eva_mission("flag")
+	else:
+		_select_eva_mission("repair")
+
+func _select_eva_mission(kind: String) -> void:
+	if kind not in ["samples", "repair", "flag"]:
+		return
+	_eva_mission = kind
+	_pause_page = "main"
+	if _paused:
+		_toggle_pause()
+	_notice_message("Selected %s mission. Use the joystick and action button." % kind)
+	_refresh_interface()
+	_save_checkpoint()
 
 func _collect_or_return() -> void:
 	var nearest: int = -1
@@ -475,9 +546,16 @@ func _refresh_interface() -> void:
 			_action.text = "PAUSE DESCENT" if _running else "START DESCENT ▶"
 			_secondary.text = "GEAR ✓" if _gear else "DEPLOY GEAR"
 		"explore":
-			_hud.text = "LUNAR FIELD MISSION\nSAMPLES %d/3 · RANGE %d m\nCOINS %d" % [_count_samples(), int(_eva_x), GameState.coins]
-			_objective.text = "Move to samples · collect all 3 · return to zero"
-			_action.text = "COLLECT / RETURN"
+			_hud.text = "MOON EVA: %s\nRANGE %d m · FUEL %d%%\nSAMPLES %d/3 · COINS %d" % [_eva_mission.to_upper(), int(_eva_x), int(_fuel), _count_samples(), GameState.coins]
+			if _eva_mission == "repair":
+				_objective.text = "REPAIR ANTENNA AT 52 m > RETURN TO 0 m"
+				_action.text = "REPAIR / RETURN"
+			elif _eva_mission == "flag":
+				_objective.text = "RAISE GHANA FLAG AT 84 m > RETURN TO 0 m"
+				_action.text = "PLANT FLAG / RETURN"
+			else:
+				_objective.text = "COLLECT SAMPLES AT 22, 48, 76 m > RETURN"
+				_action.text = "COLLECT / RETURN"
 			_secondary.text = "EXIT ROVER" if _rover else "ENTER ROVER"
 		"complete":
 			_hud.text = "MISSION COMPLETE ✓\nCOINS %d · SCIENCE %d" % [GameState.coins, GameState.science_points]
@@ -498,20 +576,35 @@ func _toggle_pause() -> void:
 	_paused = not _paused
 	_pause_dialog.visible = _paused
 	if _paused:
+		_pause_page = "main"
+	if _paused:
 		_save_checkpoint()
 		_update_pause_menu()
 
 func _update_pause_menu() -> void:
 	for node in _pause_actions.get_children():
+		_pause_actions.remove_child(node)
 		node.queue_free()
-	_panel_text.text = "GIGAORBIT  ·  MISSION PAUSED\nCoins: %d    Fuel: %d%%   Hull: %d%%\nFuel Cells: %d    Repair Kits: %d" % [
+	_panel_text.text = "GIGAORBIT · PAUSED\nCoins %d  Fuel %d%%  Hull %d%%\nFuel cells %d  Repair kits %d" % [
 		GameState.coins, int(_fuel), int(_hull), int(GameState.supplies.get("fuel_cell", 0)), int(GameState.supplies.get("repair_kit", 0))]
-	_pause_button("RESUME FLIGHT", _toggle_pause)
-	_pause_button("USE FUEL CELL · +35", _use_fuel)
-	_pause_button("USE REPAIR KIT · +35", _use_repair)
-	_pause_button("BUY FUEL CELL · 80 COINS", func() -> void: _buy("fuel_cell"))
-	_pause_button("BUY REPAIR KIT · 100 COINS", func() -> void: _buy("repair_kit"))
-	_pause_button("SAVE & MAIN MENU", _to_menu)
+	if _pause_page == "shop":
+		_pause_button("USE FUEL CELL (+35)", _use_fuel)
+		_pause_button("USE REPAIR KIT (+35)", _use_repair)
+		_pause_button("BUY FUEL CELL (80 COINS)", func() -> void: _buy("fuel_cell"))
+		_pause_button("BUY REPAIR KIT (100 COINS)", func() -> void: _buy("repair_kit"))
+		_pause_button("BACK", func() -> void: _open_pause_page("main"))
+	elif _pause_page == "missions" and _phase == "explore":
+		_pause_button("AUTO CHOOSE NEXT TASK", _auto_eva_mission)
+		_pause_button("COLLECT 3 LUNAR SAMPLES", func() -> void: _select_eva_mission("samples"))
+		_pause_button("REPAIR COMMUNICATIONS", func() -> void: _select_eva_mission("repair"))
+		_pause_button("RAISE GHANA FLAG", func() -> void: _select_eva_mission("flag"))
+		_pause_button("BACK", func() -> void: _open_pause_page("main"))
+	else:
+		_pause_button("RESUME", _toggle_pause)
+		if _phase == "explore":
+			_pause_button("CHOOSE / AUTO EVA TASK", func() -> void: _open_pause_page("missions"))
+		_pause_button("FUEL / REPAIR SUPPLIES", func() -> void: _open_pause_page("shop"))
+		_pause_button("SAVE & MAIN MENU", _to_menu)
 
 func _pause_button(label: String, callable: Callable) -> void:
 	var b: Button = UI.button(label)
@@ -555,6 +648,7 @@ func _save_checkpoint() -> void:
 		"speed": _speed, "distance": _distance, "descent": _descent,
 		"offset": _offset, "eva_x": _eva_x, "samples": _samples.duplicate(),
 		"gear": _gear, "rover": _rover,
+		"eva_mission": _eva_mission, "flag_planted": _flag_planted, "comm_repaired": _comm_repaired,
 	}
 	var file: FileAccess = FileAccess.open(CHECKPOINT_PATH, FileAccess.WRITE)
 	if file != null:
@@ -589,6 +683,11 @@ func _restore_checkpoint() -> void:
 	_eva_x = clampf(float(restored.get("eva_x", 0.0)), 0.0, 100.0)
 	_gear = bool(restored.get("gear", false))
 	_rover = bool(restored.get("rover", false))
+	_eva_mission = str(restored.get("eva_mission", "samples"))
+	if _eva_mission not in ["samples", "repair", "flag"]:
+		_eva_mission = "samples"
+	_flag_planted = bool(restored.get("flag_planted", false))
+	_comm_repaired = bool(restored.get("comm_repaired", false))
 	var read_samples: Array = restored.get("samples", [])
 	if read_samples.size() == 3:
 		for i in range(3):
