@@ -8,7 +8,7 @@ The listed JPEG/PNG files are imagery sourced from NASA mission pages and bundle
 | nasa-europa-galileo.jpg | NASA/JPL/USGS, Galileo | https://science.nasa.gov/photojournal/pj-dark-bands-on-europa/ | actual spacecraft mosaic |
 | nasa-jupiter-juno.jpg | NASA/JPL-Caltech/SwRI/MSSS, Juno | https://science.nasa.gov/photojournal/juno-on-jupiters-doorstep/ | actual spacecraft color image |
 | nasa-saturn-cassini.jpg | NASA/JPL-Caltech/Space Science Institute, Cassini | https://science.nasa.gov/photojournal/revealing-saturns-colors/ | actual spacecraft image |
-| nasa-titan-cassini.png | NASA/JPL-Caltech/Space Science Institute, Cassini | https://science.nasa.gov/missions/cassini/10-things-why-cassini-mattered/ | actual spacecraft image |
+| nasa-titan-cassini.jpg | NASA/JPL-Caltech/Space Science Institute, Cassini | https://science.nasa.gov/photojournal/titan-up-front/ | actual spacecraft image |
 | nasa-neptune-voyager.jpg | NASA/JPL-Caltech, Voyager 2 | https://science.nasa.gov/photojournal/neptune-full-disk/ | actual spacecraft image |
 
 NASA media policy: https://www.nasa.gov/nasa-brand-center/images-and-media/
