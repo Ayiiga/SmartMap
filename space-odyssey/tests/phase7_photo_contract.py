@@ -34,7 +34,13 @@ assert 'camera_mode' in state and 'camera_zoom' in state
 settings = read("scripts/ui/settings_screen.gd")
 assert 'func _setting_row(' in settings and 'CAMERA VIEW' in settings and 'RADIO VOICE VOLUME' in settings
 assert 'var grid: GridContainer' not in settings, "Old Android settings label overflow regression"
-assert 'current_mission == "photo_earth_moon"' in state
+assert '"photo_earth_moon"' in state and '"photo_transfer_moon"' in state
+assert 'PHOTO_MISSION if planet == "moon" else TRANSFER' in state, "Moon transfer still uses primitive 3D scene"
+assert 'current_mission = "photo_transfer_moon"' in state, "Legacy saved Moon transfer not migrated"
+assert 'far_pan' in mission and '_eva_x / 100.0' in mission, "Moon EVA photo must move with player"
+assert 'ANDROID UI v3' in settings
+assert 'CenterContainer.new()' not in settings, "Settings still uses compressed layout"
+assert 'var row: VBoxContainer = _setting_row(' in settings
 assert "[node name=\"PhotoMission\" type=\"Control\"]" in scene
 assert "shader_type canvas_item" in shader
 assert "permissions/internet=false" in read("export_presets.cfg")

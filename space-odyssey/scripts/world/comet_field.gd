@@ -73,10 +73,12 @@ func _make_space() -> void:
 	lower.visible = false
 	_ship.rotation_degrees = Vector3(-90, 0, 0)
 	_ship.position = Vector3(0.0, -0.5, 11.0)
+	# Readable chase-sized spacecraft rather than a tiny dot in empty space.
+	_ship.scale = Vector3.ONE * 1.45
 	_camera = Camera3D.new()
 	_camera.current = true
-	_camera.fov = 67.0
-	_camera.position = Vector3(0, 6.0, 33.0)
+	_camera.fov = 60.0
+	_camera.position = Vector3(0, 5.0, 27.0)
 	add_child(_camera)
 	_camera.look_at(Vector3(0, 2, -20), Vector3.UP)
 
@@ -133,14 +135,15 @@ func _build_hud() -> void:
 	right.add_child(pause)
 	pause.pressed.connect(_open_pause)
 	var instruction: VBoxContainer = VBoxContainer.new()
-	instruction.anchor_left = 0.27
-	instruction.anchor_right = 0.75
-	instruction.anchor_top = 1.0
-	instruction.anchor_bottom = 1.0
-	instruction.offset_top = -154
-	instruction.offset_bottom = -10
+	# Warnings belong above gameplay, not underneath the dodge buttons.
+	instruction.anchor_left = 0.34
+	instruction.anchor_right = 0.77
+	instruction.anchor_top = 0.0
+	instruction.anchor_bottom = 0.0
+	instruction.offset_top = 18
+	instruction.offset_bottom = 122
 	root.add_child(instruction)
-	_radio_label = UI.label("MISSION CONTROL: Scan the lane ahead.", 18, Color("a5edee"))
+	_radio_label = UI.label("MISSION CONTROL: Scan the lane ahead.", 15, Color("a5edee"))
 	instruction.add_child(_radio_label)
 	_next_hint = UI.label("Avoid rocks in your lane. Tap LEFT or RIGHT.", 17, UI.ACCENT)
 	instruction.add_child(_next_hint)
@@ -240,7 +243,9 @@ func _steer(direction: int) -> void:
 
 func _radio_received(message: String) -> void:
 	if _radio_label != null:
-		_radio_label.text = "MISSION CONTROL: %s" % message
+		# Full radio text remains available inside the radio panel and speech;
+		# a short HUD caption prevents instructions covering the play controls.
+		_radio_label.text = "RADIO: %s" % (message.substr(0, 94) + ("…" if message.length() > 94 else ""))
 	if _radio_overlay != null and is_instance_valid(_radio_overlay):
 		var message_ui: Label = _radio_overlay.get_node_or_null("Backdrop/Panel/Column/Message") as Label
 		if message_ui != null:

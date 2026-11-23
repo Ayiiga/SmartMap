@@ -157,12 +157,14 @@ func begin_transfer(planet: String) -> bool:
 	if not ready_crew() or not planet_unlocked(planet):
 		return false
 	destination_planet = planet
-	current_mission = "transfer_" + planet
+	# Moon uses the photographic 2.5D playable transfer/landing instead of the
+	# legacy scene with untextured blue and white sphere planets.
+	current_mission = "photo_transfer_moon" if planet == "moon" else "transfer_" + planet
 	checkpoint_revive = false
 	active_session = true
 	has_started = true
 	save_local()
-	get_tree().change_scene_to_file(TRANSFER)
+	get_tree().change_scene_to_file(PHOTO_MISSION if planet == "moon" else TRANSFER)
 	return true
 
 func begin_landing(planet: String, using_checkpoint: bool = false) -> bool:
@@ -300,7 +302,7 @@ func continue_game() -> bool:
 	load_local()
 	active_session = true
 	var destination: String = TRAINING
-	if current_mission == "photo_earth_moon":
+	if current_mission in ["photo_earth_moon", "photo_transfer_moon"]:
 		destination = PHOTO_MISSION
 	elif current_mission == "launch_001":
 		destination = FLIGHT
@@ -311,7 +313,12 @@ func continue_game() -> bool:
 			checkpoint_revive = true
 		destination = LANDING
 	elif current_mission.begins_with("transfer_") and planet_unlocked(destination_planet):
-		destination = TRANSFER
+		if destination_planet == "moon":
+			# Continue an older saved Moon transfer in the photo-led scene.
+			current_mission = "photo_transfer_moon"
+			destination = PHOTO_MISSION
+		else:
+			destination = TRANSFER
 	elif current_mission == "eva_moon" and bool(completed_planets.get("moon", false)):
 		destination = PHOTO_MISSION
 	get_tree().change_scene_to_file(destination)

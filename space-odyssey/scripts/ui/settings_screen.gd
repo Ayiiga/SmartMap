@@ -31,16 +31,16 @@ func _ready() -> void:
 	for side: String in ["left", "right", "top", "bottom"]:
 		margins.add_theme_constant_override("margin_%s" % side, 22)
 	scroll.add_child(margins)
-	var center: CenterContainer = CenterContainer.new()
-	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	margins.add_child(center)
+	# Fill the landscape viewport; CenterContainer previously allowed the
+	# contents to be compressed into a narrow panel on Android.
 	var panel: PanelContainer = UI.panel()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	center.add_child(panel)
+	margins.add_child(panel)
 	var col: VBoxContainer = VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
 	panel.add_child(col)
-	col.add_child(UI.label("SETTINGS · SOUND AND CONTROLS", 30))
+	col.add_child(UI.label("GIGAORBIT · SETTINGS", 29))
+	col.add_child(UI.label("ANDROID UI v3 · readable single-column controls", 14, UI.ACCENT))
 	col.add_child(UI.label("Tap any option — changes apply immediately and save offline.", 15, UI.MUTED))
 	var grid: VBoxContainer = VBoxContainer.new()
 	grid.add_theme_constant_override("separation", 7)
@@ -64,7 +64,7 @@ func _ready() -> void:
 	_debug = _checkbox(grid, "PERFORMANCE STATS", "debug_overlay", false)
 	_feedback = UI.label("Settings are stored locally on this device.", 15, Color("8bd9bb"))
 	col.add_child(_feedback)
-	var buttons: HBoxContainer = UI.row()
+	var buttons: VBoxContainer = VBoxContainer.new()
 	col.add_child(buttons)
 	var test_sound: Button = UI.button("TEST ROCKET SOUND")
 	buttons.add_child(test_sound)
@@ -72,7 +72,7 @@ func _ready() -> void:
 	var test_radio: Button = UI.button("TEST SHIP SPEAKER")
 	buttons.add_child(test_radio)
 	test_radio.pressed.connect(_test_radio)
-	var bottom: HBoxContainer = UI.row()
+	var bottom: VBoxContainer = VBoxContainer.new()
 	col.add_child(bottom)
 	var save: Button = UI.button("SAVE SETTINGS", true)
 	bottom.add_child(save)
@@ -89,33 +89,34 @@ func _ready() -> void:
 	_loading = false
 	_connect_inputs()
 
-func _setting_row(stack: VBoxContainer, title: String) -> HBoxContainer:
-	# One real row per control: the former two-column GridContainer squeezed
-	# long labels into vertical characters on landscape Android screens.
-	var row: HBoxContainer = HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+func _setting_row(stack: VBoxContainer, title: String) -> VBoxContainer:
+	# Stack every caption ABOVE its input. This cannot collapse captions into
+	# one-character-wide vertical text at narrow Android display sizes.
+	var row: VBoxContainer = VBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	stack.add_child(row)
 	var caption: Label = UI.label(title, 16)
-	caption.custom_minimum_size.x = 245
-	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	caption.autowrap_mode = TextServer.AUTOWRAP_OFF
+	caption.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(caption)
 	return row
 
 func _choice(grid: VBoxContainer, title: String, options: Array[String], selected_index: int) -> OptionButton:
-	var row: HBoxContainer = _setting_row(grid, title)
+	var row: VBoxContainer = _setting_row(grid, title)
 	var choice: OptionButton = OptionButton.new()
 	for label: String in options:
 		choice.add_item(label)
 	choice.select(selected_index)
-	choice.custom_minimum_size = Vector2(280, 48)
+	choice.custom_minimum_size = Vector2(0, 48)
 	choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(choice)
 	return choice
 
 func _slider(grid: VBoxContainer, title: String, key: String, default_value: float) -> HSlider:
-	var row: HBoxContainer = _setting_row(grid, title)
+	var row: VBoxContainer = _setting_row(grid, title)
 	var slider: HSlider = HSlider.new()
-	slider.custom_minimum_size = Vector2(280, 44)
+	slider.custom_minimum_size = Vector2(0, 44)
 	slider.min_value = 0.0
 	slider.max_value = 1.0
 	slider.step = 0.05
@@ -125,10 +126,10 @@ func _slider(grid: VBoxContainer, title: String, key: String, default_value: flo
 	return slider
 
 func _checkbox(grid: VBoxContainer, title: String, key: String, default_value: bool) -> CheckBox:
-	var row: HBoxContainer = _setting_row(grid, title)
+	var row: VBoxContainer = _setting_row(grid, title)
 	var toggle: CheckBox = CheckBox.new()
 	toggle.button_pressed = bool(GameState.settings.get(key, default_value))
-	toggle.custom_minimum_size = Vector2(80, 44)
+	toggle.custom_minimum_size = Vector2(0, 44)
 	toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(toggle)
 	return toggle

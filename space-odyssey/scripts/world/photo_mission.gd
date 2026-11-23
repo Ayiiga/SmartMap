@@ -59,6 +59,15 @@ func _ready() -> void:
 	_build_photo()
 	_build_interface()
 	_restore_checkpoint()
+	# Explicitly selected Moon transfer uses 2.5D photography, never the
+	# legacy transfer scene's blue/white mesh spheres.
+	if GameState.current_mission == "photo_transfer_moon":
+		_phase = "transfer"
+		_running = false
+		_distance = 0.0
+		_fuel = 100.0
+		_throttle = 0.80
+		_altitude = 0.0
 	# Returning to lunar EVA from Mission Control skips the completed flight,
 	# but only after a genuinely successful Moon landing.
 	if GameState.current_mission == "eva_moon" and bool(GameState.completed_planets.get("moon", false)):
@@ -145,8 +154,13 @@ func _move_photo() -> void:
 	var v: Vector2 = get_viewport_rect().size
 	var drift: Vector2 = Vector2(-_steer.x * 14.0, -_steer.y * 7.0)
 	var forward: float = sin(_timer * 0.23) * 5.0
-	_parallax.position = -( _parallax.size - v ) * 0.5 + drift + Vector2(forward, 0)
-	_near_layer.position = -(_near_layer.size - v) * 0.5 + drift * 2.2 + Vector2(-forward * 1.2, 0)
+	# The user moves through the lunar scene, not merely a counter increasing
+	# against a completely frozen photograph. Restrict pans to the source image.
+	var travel_ratio: float = clampf(_eva_x / 100.0, 0.0, 1.0)
+	var far_pan: float = (_parallax.size.x - v.x) * 0.43 * (1.0 - 2.0 * travel_ratio) if _phase == "explore" else 0.0
+	var near_pan: float = (_near_layer.size.x - v.x) * 0.43 * (1.0 - 2.0 * travel_ratio) if _phase == "explore" else 0.0
+	_parallax.position = -( _parallax.size - v ) * 0.5 + drift + Vector2(forward + far_pan, 0)
+	_near_layer.position = -(_near_layer.size - v) * 0.5 + drift * 2.2 + Vector2(-forward * 1.2 + near_pan * 0.65, 0)
 	var mode: String = str(GameState.settings.get("camera_mode", "chase"))
 	var ship_x: float = 0.49 if mode != "external" else 0.68
 	_photo_ship.position = Vector2(v.x * ship_x, v.y * 0.40) - _photo_ship.size * 0.5 + Vector2(_steer.x * 28, 0)
@@ -546,7 +560,8 @@ func _refresh_interface() -> void:
 			_action.text = "PAUSE DESCENT" if _running else "START DESCENT ▶"
 			_secondary.text = "GEAR ✓" if _gear else "DEPLOY GEAR"
 		"explore":
-			_hud.text = "MOON EVA: %s\nRANGE %d m · FUEL %d%%\nSAMPLES %d/3 · COINS %d" % [_eva_mission.to_upper(), int(_eva_x), int(_fuel), _count_samples(), GameState.coins]
+			# Short lines fit the small status panel; none can wrap into vertical text.
+			_hud.text = "MOON EVA: %s\nRANGE: %d m\nSAMPLES: %d/3\nFUEL: %d%%\nCOINS: %d" % [_eva_mission.to_upper(), int(_eva_x), _count_samples(), int(_fuel), GameState.coins]
 			if _eva_mission == "repair":
 				_objective.text = "REPAIR ANTENNA AT 52 m > RETURN TO 0 m"
 				_action.text = "REPAIR / RETURN"
