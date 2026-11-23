@@ -4,7 +4,7 @@ shader_type canvas_item;
 void fragment() {
     vec4 pixel = texture(TEXTURE, UV);
     float body_width = mix(0.09, 0.40, smoothstep(0.02, 0.92, UV.y));
-    float edge = smoothstep(body_width, body_width - 0.11, abs(UV.x - 0.50));
+    float edge = 1.0 - smoothstep(body_width - 0.10, body_width, abs(UV.x - 0.50));
     float end_feather = smoothstep(0.0, 0.08, UV.y) * (1.0 - smoothstep(0.93, 1.0, UV.y));
     COLOR = vec4(pixel.rgb, pixel.a * edge * end_feather);
 }
