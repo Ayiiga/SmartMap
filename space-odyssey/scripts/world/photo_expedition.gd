@@ -331,6 +331,8 @@ func _refresh() -> void:
 	var title: String = _target.to_upper()
 	var flight: String = "MARS SURFACE" if _is_surface() else "ORBITAL FLYBY"
 	_telemetry.text = "%s · %s\nFUEL %d%%  HULL %d%%\nCOINS %d" % [title, flight, int(_fuel), int(_hull), GameState.coins]
+	if bool(GameState.settings.get("debug_overlay", false)):
+		_telemetry.text += "\nFPS %d / target %d" % [Engine.get_frames_per_second(), Engine.max_fps]
 	_camera.text = "CAM: %s" % str(GameState.settings.get("camera_mode", "chase")).to_upper()
 	_brake.visible = _phase == "landing"
 	_secondary.visible = _phase in ["landing", "explore"]
