@@ -184,6 +184,10 @@ func next_photo_destination() -> String:
 func begin_transfer(planet: String) -> bool:
 	if not ready_crew() or not planet_unlocked(planet):
 		return false
+	if planet == "mars":
+		# The Mars selection now enters the actual photo-landing mission,
+		# not the legacy transfer scene made from untextured 3D spheres.
+		return begin_photo_expedition("mars")
 	destination_planet = planet
 	# Moon uses the photographic 2.5D playable transfer/landing instead of the
 	# legacy scene with untextured blue and white sphere planets.
