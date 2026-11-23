@@ -11,6 +11,7 @@ const EVA_PHOTO = preload("res://assets/textures/astronaut-eva.webp")
 const CHECKPOINT_PATH: String = "user://gigaorbit_photo_checkpoint_v1.json"
 const STAGES: Array[String] = ["launch", "transfer", "landing", "explore", "complete"]
 const SAMPLES: Array[float] = [22.0, 48.0, 76.0]
+const CAMERA_MODES: Array[String] = ["chase", "cockpit", "external", "wide"]
 var _phase: String = "launch"
 var _running: bool = false
 var _paused: bool = false
@@ -28,6 +29,10 @@ var _descent: float = 5.8
 var _offset: float = 12.0
 var _eva_x: float = 0.0
 var _samples: Array[bool] = [false, false, false]
+var _eva_mission: String = "samples"
+var _flag_planted: bool = false
+var _comm_repaired: bool = false
+var _mission_picker: bool = false
 var _timer: float = 0.0
 var _last_saved: float = 0.0
 var _notice_timer: float = 0.0
@@ -41,6 +46,9 @@ var _notice: Label
 var _action: Button
 var _secondary: Button
 var _brake_button: Button
+var _camera_button: Button
+var _zoom_in_button: Button
+var _zoom_out_button: Button
 var _pause_dialog: PanelContainer
 var _panel_text: Label
 var _pause_actions: VBoxContainer
@@ -113,9 +121,16 @@ func _fit_photo() -> void:
 	if _parallax == null:
 		return
 	var view_size: Vector2 = get_viewport_rect().size
-	_parallax.size = view_size * 1.18
-	_near_layer.size = view_size * 1.24
-	_photo_ship.size = Vector2(view_size.y * 0.34, view_size.y * 0.56)
+	var zoom: float = clampf(float(GameState.settings.get("camera_zoom", 1.0)), 0.85, 1.7)
+	var mode: String = str(GameState.settings.get("camera_mode", "chase"))
+	if mode == "wide":
+		zoom *= 0.90
+	elif mode == "cockpit":
+		zoom *= 1.12
+	_parallax.size = view_size * maxf(1.08, 1.30 * zoom)
+	_near_layer.size = view_size * maxf(1.10, 1.38 * zoom)
+	_photo_ship.size = Vector2(view_size.y * 0.34 * zoom, view_size.y * 0.56 * zoom)
+	_photo_ship.visible = _phase in ["transfer", "landing"] and mode != "cockpit"
 	_move_photo()
 
 func _move_photo() -> void:
@@ -126,7 +141,9 @@ func _move_photo() -> void:
 	var forward: float = sin(_timer * 0.23) * 5.0
 	_parallax.position = -( _parallax.size - v ) * 0.5 + drift + Vector2(forward, 0)
 	_near_layer.position = -(_near_layer.size - v) * 0.5 + drift * 2.2 + Vector2(-forward * 1.2, 0)
-	_photo_ship.position = Vector2(v.x * 0.49, v.y * 0.40) - _photo_ship.size * 0.5 + Vector2(_steer.x * 28, 0)
+	var mode: String = str(GameState.settings.get("camera_mode", "chase"))
+	var ship_x: float = 0.49 if mode != "external" else 0.68
+	_photo_ship.position = Vector2(v.x * ship_x, v.y * 0.40) - _photo_ship.size * 0.5 + Vector2(_steer.x * 28, 0)
 	_marker.position = Vector2(v.x * 0.38, v.y * 0.66)
 	_marker.size = Vector2(v.x * 0.24, 40)
 
@@ -140,12 +157,12 @@ func _refresh_photo() -> void:
 		"transfer":
 			_parallax.texture = ORBIT_PHOTO
 			_near_layer.texture = EVA_PHOTO
-			_photo_ship.visible = true
+			_photo_ship.visible = str(GameState.settings.get("camera_mode", "chase")) != "cockpit"
 			_marker.visible = false
 		"landing":
 			_parallax.texture = LUNAR_PHOTO
 			_near_layer.texture = LUNAR_PHOTO
-			_photo_ship.visible = true
+			_photo_ship.visible = str(GameState.settings.get("camera_mode", "chase")) != "cockpit"
 			_marker.visible = true
 		"explore", "complete":
 			_parallax.texture = LUNAR_PHOTO
@@ -190,6 +207,39 @@ func _build_interface() -> void:
 	pause.offset_bottom = 65
 	_control_root.add_child(pause)
 	pause.pressed.connect(_toggle_pause)
+	# Compact camera/zoom controls are anchored to the right edge and never
+	# overlap the bottom joystick or the principal flight action buttons.
+	_camera_button = UI.button("CAM: CHASE")
+	_camera_button.anchor_left = 1.0
+	_camera_button.anchor_right = 1.0
+	_camera_button.offset_left = -152
+	_camera_button.offset_right = -16
+	_camera_button.offset_top = 77
+	_camera_button.offset_bottom = 121
+	_camera_button.custom_minimum_size = Vector2.ZERO
+	_camera_button.add_theme_font_size_override("font_size", 14)
+	_control_root.add_child(_camera_button)
+	_camera_button.pressed.connect(_cycle_camera)
+	_zoom_in_button = UI.button("ZOOM +")
+	_zoom_in_button.anchor_left = 1.0
+	_zoom_in_button.anchor_right = 1.0
+	_zoom_in_button.offset_left = -152
+	_zoom_in_button.offset_right = -16
+	_zoom_in_button.offset_top = 128
+	_zoom_in_button.offset_bottom = 172
+	_zoom_in_button.custom_minimum_size = Vector2.ZERO
+	_control_root.add_child(_zoom_in_button)
+	_zoom_in_button.pressed.connect(func() -> void: _change_zoom(0.15))
+	_zoom_out_button = UI.button("ZOOM -")
+	_zoom_out_button.anchor_left = 1.0
+	_zoom_out_button.anchor_right = 1.0
+	_zoom_out_button.offset_left = -152
+	_zoom_out_button.offset_right = -16
+	_zoom_out_button.offset_top = 179
+	_zoom_out_button.offset_bottom = 223
+	_zoom_out_button.custom_minimum_size = Vector2.ZERO
+	_control_root.add_child(_zoom_out_button)
+	_zoom_out_button.pressed.connect(func() -> void: _change_zoom(-0.15))
 	var stick: Control = FLIGHT_STICK.new()
 	stick.anchor_top = 1.0
 	stick.anchor_bottom = 1.0
@@ -240,6 +290,26 @@ func _build_interface() -> void:
 	_pause_actions.add_theme_constant_override("separation", 6)
 	pause_stack.add_child(_pause_actions)
 
+func _cycle_camera() -> void:
+	if _paused:
+		return
+	var current: String = str(GameState.settings.get("camera_mode", "chase"))
+	var index: int = CAMERA_MODES.find(current)
+	var next: String = CAMERA_MODES[(index + 1) % CAMERA_MODES.size()]
+	GameState.settings["camera_mode"] = next
+	GameState.save_settings()
+	_refresh_photo()
+	_refresh_interface()
+	_notice_message("Camera: %s view (photographic 2.5D)" % next.capitalize())
+
+func _change_zoom(amount: float) -> void:
+	if _paused:
+		return
+	GameState.settings["camera_zoom"] = clampf(float(GameState.settings.get("camera_zoom", 1.0)) + amount, 0.85, 1.7)
+	GameState.save_settings()
+	_fit_photo()
+	_notice_message("Zoom: %d%%" % roundi(float(GameState.settings["camera_zoom"]) * 100.0))
+
 func _physics_process(delta: float) -> void:
 	if _paused or _phase == "complete":
 		return
@@ -249,7 +319,9 @@ func _physics_process(delta: float) -> void:
 		_notice_timer -= delta
 		if _notice_timer <= 0.0:
 			_notice.text = ""
-	if not _running:
+	# EVA walking and rover controls remain active after touchdown, even while
+	# rocket engines are off. The old guard unintentionally froze exploration.
+	if not _running and _phase != "explore":
 		return
 	match _phase:
 		"launch":
@@ -412,6 +484,9 @@ func _refresh_interface() -> void:
 			_objective.text = "Earth → Moon → Samples · achievement recorded"
 			_action.text = "MISSION CONTROL ▶"
 			_secondary.text = "MAIN MENU"
+	_camera_button.text = "CAM: %s" % str(GameState.settings.get("camera_mode", "chase")).to_upper()
+	_zoom_in_button.disabled = float(GameState.settings.get("camera_zoom", 1.0)) >= 1.69
+	_zoom_out_button.disabled = float(GameState.settings.get("camera_zoom", 1.0)) <= 0.86
 	_brake_button.visible = _phase == "landing"
 	_secondary.disabled = _phase == "landing" and _gear
 
