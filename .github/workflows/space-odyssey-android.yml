@@ -37,6 +37,7 @@ jobs:
           python3 tests/phase5_gigaorbit_contract.py
           python3 tests/phase6_android_polish_contract.py
           python3 tests/phase7_photo_contract.py
+          python3 tests/phase8_planetary_photo_contract.py
   test-build:
     needs: static-source
     runs-on: ubuntu-latest
