@@ -25,7 +25,15 @@ for safe_api in ("GameState.record_flight_step", "GameState.award_landing",
                  "GameState.collect_moon_sample", "GameState.complete_moon_eva",
                  "GameState.buy_supply", "GameState.use_supply"):
     assert safe_api in mission, f"Game progression not attached to persistent wallet: {safe_api}"
-assert "photo_mission.tscn" in menu
+assert "GameState.PHOTO_MISSION" in menu and "func _auto_photo_mission(" in menu
+for new_control in ("_cycle_camera", "_change_zoom", "_perform_eva_action", "_select_eva_mission", "_auto_eva_mission"):
+    assert f"func {new_control}(" in mission, f"Missing interactive feature: {new_control}"
+for task in ("Lunar Repair Specialist", "Lunar Flag Explorer", "Ghana flag raised"):
+    assert task in mission, f"Missing playable EVA event: {task}"
+assert 'camera_mode' in state and 'camera_zoom' in state
+settings = read("scripts/ui/settings_screen.gd")
+assert 'func _setting_row(' in settings and 'CAMERA VIEW' in settings and 'RADIO VOICE VOLUME' in settings
+assert 'var grid: GridContainer' not in settings, "Old Android settings label overflow regression"
 assert 'current_mission == "photo_earth_moon"' in state
 assert "[node name=\"PhotoMission\" type=\"Control\"]" in scene
 assert "shader_type canvas_item" in shader
