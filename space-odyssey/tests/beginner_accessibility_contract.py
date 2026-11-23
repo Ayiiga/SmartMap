@@ -11,7 +11,7 @@ art = (ROOT / "scripts/rocket/rocket_art.gd").read_text()
 assert "func new_rocket_game()" in core
 assert "func start_launch_mission(" in core
 assert "if not training_complete:" not in core.split("func start_launch_mission(", 1)[1].split("func record_flight_step(", 1)[0]
-assert "LAUNCH ROCKET" in menu and "ASSEMBLE 3 ASTRONAUTS" in menu
+assert "PLAY PHOTO MISSION" in menu and "CLASSIC ROCKET PILOT" in menu and "ASSEMBLE 3 ASTRONAUTS" in menu
 assert "EARTH TRAINING (OPTIONAL)" in menu
 assert "START ROCKET MISSION" in training
 assert 'RocketArt.build(self, 2)' in training
