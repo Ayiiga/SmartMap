@@ -9,7 +9,7 @@ const PHOTO_PATHS: Dictionary = {
 	"europa": "res://assets/textures/nasa-europa-galileo.jpg",
 	"jupiter": "res://assets/textures/nasa-jupiter-juno.jpg",
 	"saturn": "res://assets/textures/nasa-saturn-cassini.jpg",
-	"titan": "res://assets/textures/nasa-titan-cassini.png",
+	"titan": "res://assets/textures/nasa-titan-cassini.jpg",
 	"neptune": "res://assets/textures/nasa-neptune-voyager.jpg",
 }
 const SCAN_MARKERS: Array[float] = [20.0, 51.0, 82.0]
