@@ -11,6 +11,7 @@ const EVA_PHOTO = preload("res://assets/textures/astronaut-eva.webp")
 const CHECKPOINT_PATH: String = "user://gigaorbit_photo_checkpoint_v1.json"
 const STAGES: Array[String] = ["launch", "transfer", "landing", "explore", "complete"]
 const SAMPLES: Array[float] = [22.0, 48.0, 76.0]
+const CAMERA_MODES: Array[String] = ["chase", "cockpit", "external", "wide"]
 var _phase: String = "launch"
 var _running: bool = false
 var _paused: bool = false
@@ -28,6 +29,10 @@ var _descent: float = 5.8
 var _offset: float = 12.0
 var _eva_x: float = 0.0
 var _samples: Array[bool] = [false, false, false]
+var _eva_mission: String = "samples"
+var _flag_planted: bool = false
+var _comm_repaired: bool = false
+var _pause_page: String = "main"
 var _timer: float = 0.0
 var _last_saved: float = 0.0
 var _notice_timer: float = 0.0
@@ -41,6 +46,9 @@ var _notice: Label
 var _action: Button
 var _secondary: Button
 var _brake_button: Button
+var _camera_button: Button
+var _zoom_in_button: Button
+var _zoom_out_button: Button
 var _pause_dialog: PanelContainer
 var _panel_text: Label
 var _pause_actions: VBoxContainer
@@ -51,6 +59,12 @@ func _ready() -> void:
 	_build_photo()
 	_build_interface()
 	_restore_checkpoint()
+	# Returning to lunar EVA from Mission Control skips the completed flight,
+	# but only after a genuinely successful Moon landing.
+	if GameState.current_mission == "eva_moon" and bool(GameState.completed_planets.get("moon", false)):
+		_phase = "explore"
+		_running = false
+		_eva_x = 0.0
 	_refresh_photo()
 	_refresh_interface()
 	GameState.current_mission = "photo_earth_moon"
@@ -113,9 +127,16 @@ func _fit_photo() -> void:
 	if _parallax == null:
 		return
 	var view_size: Vector2 = get_viewport_rect().size
-	_parallax.size = view_size * 1.18
-	_near_layer.size = view_size * 1.24
-	_photo_ship.size = Vector2(view_size.y * 0.34, view_size.y * 0.56)
+	var zoom: float = clampf(float(GameState.settings.get("camera_zoom", 1.0)), 0.85, 1.7)
+	var mode: String = str(GameState.settings.get("camera_mode", "chase"))
+	if mode == "wide":
+		zoom *= 0.90
+	elif mode == "cockpit":
+		zoom *= 1.12
+	_parallax.size = view_size * maxf(1.08, 1.30 * zoom)
+	_near_layer.size = view_size * maxf(1.10, 1.38 * zoom)
+	_photo_ship.size = Vector2(view_size.y * 0.34 * zoom, view_size.y * 0.56 * zoom)
+	_photo_ship.visible = _phase in ["transfer", "landing"] and mode != "cockpit"
 	_move_photo()
 
 func _move_photo() -> void:
@@ -126,7 +147,9 @@ func _move_photo() -> void:
 	var forward: float = sin(_timer * 0.23) * 5.0
 	_parallax.position = -( _parallax.size - v ) * 0.5 + drift + Vector2(forward, 0)
 	_near_layer.position = -(_near_layer.size - v) * 0.5 + drift * 2.2 + Vector2(-forward * 1.2, 0)
-	_photo_ship.position = Vector2(v.x * 0.49, v.y * 0.40) - _photo_ship.size * 0.5 + Vector2(_steer.x * 28, 0)
+	var mode: String = str(GameState.settings.get("camera_mode", "chase"))
+	var ship_x: float = 0.49 if mode != "external" else 0.68
+	_photo_ship.position = Vector2(v.x * ship_x, v.y * 0.40) - _photo_ship.size * 0.5 + Vector2(_steer.x * 28, 0)
 	_marker.position = Vector2(v.x * 0.38, v.y * 0.66)
 	_marker.size = Vector2(v.x * 0.24, 40)
 
@@ -140,12 +163,12 @@ func _refresh_photo() -> void:
 		"transfer":
 			_parallax.texture = ORBIT_PHOTO
 			_near_layer.texture = EVA_PHOTO
-			_photo_ship.visible = true
+			_photo_ship.visible = str(GameState.settings.get("camera_mode", "chase")) != "cockpit"
 			_marker.visible = false
 		"landing":
 			_parallax.texture = LUNAR_PHOTO
 			_near_layer.texture = LUNAR_PHOTO
-			_photo_ship.visible = true
+			_photo_ship.visible = str(GameState.settings.get("camera_mode", "chase")) != "cockpit"
 			_marker.visible = true
 		"explore", "complete":
 			_parallax.texture = LUNAR_PHOTO
@@ -190,6 +213,39 @@ func _build_interface() -> void:
 	pause.offset_bottom = 65
 	_control_root.add_child(pause)
 	pause.pressed.connect(_toggle_pause)
+	# Compact camera/zoom controls are anchored to the right edge and never
+	# overlap the bottom joystick or the principal flight action buttons.
+	_camera_button = UI.button("CAM: CHASE")
+	_camera_button.anchor_left = 1.0
+	_camera_button.anchor_right = 1.0
+	_camera_button.offset_left = -152
+	_camera_button.offset_right = -16
+	_camera_button.offset_top = 77
+	_camera_button.offset_bottom = 121
+	_camera_button.custom_minimum_size = Vector2.ZERO
+	_camera_button.add_theme_font_size_override("font_size", 14)
+	_control_root.add_child(_camera_button)
+	_camera_button.pressed.connect(_cycle_camera)
+	_zoom_in_button = UI.button("ZOOM +")
+	_zoom_in_button.anchor_left = 1.0
+	_zoom_in_button.anchor_right = 1.0
+	_zoom_in_button.offset_left = -152
+	_zoom_in_button.offset_right = -16
+	_zoom_in_button.offset_top = 128
+	_zoom_in_button.offset_bottom = 172
+	_zoom_in_button.custom_minimum_size = Vector2.ZERO
+	_control_root.add_child(_zoom_in_button)
+	_zoom_in_button.pressed.connect(func() -> void: _change_zoom(0.15))
+	_zoom_out_button = UI.button("ZOOM -")
+	_zoom_out_button.anchor_left = 1.0
+	_zoom_out_button.anchor_right = 1.0
+	_zoom_out_button.offset_left = -152
+	_zoom_out_button.offset_right = -16
+	_zoom_out_button.offset_top = 179
+	_zoom_out_button.offset_bottom = 223
+	_zoom_out_button.custom_minimum_size = Vector2.ZERO
+	_control_root.add_child(_zoom_out_button)
+	_zoom_out_button.pressed.connect(func() -> void: _change_zoom(-0.15))
 	var stick: Control = FLIGHT_STICK.new()
 	stick.anchor_top = 1.0
 	stick.anchor_bottom = 1.0
@@ -240,6 +296,26 @@ func _build_interface() -> void:
 	_pause_actions.add_theme_constant_override("separation", 6)
 	pause_stack.add_child(_pause_actions)
 
+func _cycle_camera() -> void:
+	if _paused:
+		return
+	var current: String = str(GameState.settings.get("camera_mode", "chase"))
+	var index: int = CAMERA_MODES.find(current)
+	var next: String = CAMERA_MODES[(index + 1) % CAMERA_MODES.size()]
+	GameState.settings["camera_mode"] = next
+	GameState.save_settings()
+	_refresh_photo()
+	_refresh_interface()
+	_notice_message("Camera: %s view (photographic 2.5D)" % next.capitalize())
+
+func _change_zoom(amount: float) -> void:
+	if _paused:
+		return
+	GameState.settings["camera_zoom"] = clampf(float(GameState.settings.get("camera_zoom", 1.0)) + amount, 0.85, 1.7)
+	GameState.save_settings()
+	_fit_photo()
+	_notice_message("Zoom: %d%%" % roundi(float(GameState.settings["camera_zoom"]) * 100.0))
+
 func _physics_process(delta: float) -> void:
 	if _paused or _phase == "complete":
 		return
@@ -249,7 +325,9 @@ func _physics_process(delta: float) -> void:
 		_notice_timer -= delta
 		if _notice_timer <= 0.0:
 			_notice.text = ""
-	if not _running:
+	# EVA walking and rover controls remain active after touchdown, even while
+	# rocket engines are off. The old guard unintentionally froze exploration.
+	if not _running and _phase != "explore":
 		return
 	match _phase:
 		"launch":
@@ -335,7 +413,7 @@ func _main_action() -> void:
 			_running = not _running
 			_notice_message("Flight active." if _running else "Flight controls paused.")
 		"explore":
-			_collect_or_return()
+			_perform_eva_action()
 		"complete":
 			_to_menu()
 
@@ -354,6 +432,71 @@ func _secondary_action() -> void:
 		"complete":
 			_to_menu()
 	_refresh_interface()
+
+func _perform_eva_action() -> void:
+	# Players can select a specific task or let Mission Control suggest one.
+	# Every action has a location and must be completed before returning.
+	if _eva_mission == "repair":
+		if not _comm_repaired and absf(_eva_x - 52.0) <= 11.0:
+			if GameState.use_supply("repair_kit"):
+				_comm_repaired = true
+				GameAudio.effect("scan")
+				_notice_message("Communications antenna repaired! Return to the lander.")
+			else:
+				_notice_message("Repair kit needed. Pause > Supplies to buy with game coins.")
+		elif _comm_repaired and _eva_x <= 9.0:
+			_reward_field_task("Lunar Repair Specialist", 150, 90)
+		else:
+			_notice_message("Drive or walk to the antenna at 52 m, then return to 0 m.")
+	elif _eva_mission == "flag":
+		if not _flag_planted and absf(_eva_x - 84.0) <= 11.0:
+			_flag_planted = true
+			GameAudio.effect("success")
+			_notice_message("Ghana flag raised! Return safely to the lander.")
+		elif _flag_planted and _eva_x <= 9.0:
+			_reward_field_task("Lunar Flag Explorer", 125, 75)
+		else:
+			_notice_message("Travel to the flag marker at 84 m, then return to 0 m.")
+	else:
+		_collect_or_return()
+	_refresh_interface()
+	_save_checkpoint()
+
+func _reward_field_task(badge: String, coin_reward: int, science_reward: int) -> void:
+	if badge not in GameState.badges:
+		GameState.badges.append(badge)
+		GameState.coins += coin_reward
+		GameState.science_points += science_reward
+		GameState.save_local()
+		GameState.progress_changed.emit()
+	_phase = "complete"
+	_running = false
+	GameAudio.effect("success")
+	_notice_message("Mission successful: badge, coins and science recorded.")
+	_clear_checkpoint()
+
+func _open_pause_page(page: String) -> void:
+	_pause_page = page
+	_update_pause_menu()
+
+func _auto_eva_mission() -> void:
+	if _count_samples() < 3:
+		_select_eva_mission("samples")
+	elif not _flag_planted:
+		_select_eva_mission("flag")
+	else:
+		_select_eva_mission("repair")
+
+func _select_eva_mission(kind: String) -> void:
+	if kind not in ["samples", "repair", "flag"]:
+		return
+	_eva_mission = kind
+	_pause_page = "main"
+	if _paused:
+		_toggle_pause()
+	_notice_message("Selected %s mission. Use the joystick and action button." % kind)
+	_refresh_interface()
+	_save_checkpoint()
 
 func _collect_or_return() -> void:
 	var nearest: int = -1
@@ -403,15 +546,25 @@ func _refresh_interface() -> void:
 			_action.text = "PAUSE DESCENT" if _running else "START DESCENT ▶"
 			_secondary.text = "GEAR ✓" if _gear else "DEPLOY GEAR"
 		"explore":
-			_hud.text = "LUNAR FIELD MISSION\nSAMPLES %d/3 · RANGE %d m\nCOINS %d" % [_count_samples(), int(_eva_x), GameState.coins]
-			_objective.text = "Move to samples · collect all 3 · return to zero"
-			_action.text = "COLLECT / RETURN"
+			_hud.text = "MOON EVA: %s\nRANGE %d m · FUEL %d%%\nSAMPLES %d/3 · COINS %d" % [_eva_mission.to_upper(), int(_eva_x), int(_fuel), _count_samples(), GameState.coins]
+			if _eva_mission == "repair":
+				_objective.text = "REPAIR ANTENNA AT 52 m > RETURN TO 0 m"
+				_action.text = "REPAIR / RETURN"
+			elif _eva_mission == "flag":
+				_objective.text = "RAISE GHANA FLAG AT 84 m > RETURN TO 0 m"
+				_action.text = "PLANT FLAG / RETURN"
+			else:
+				_objective.text = "COLLECT SAMPLES AT 22, 48, 76 m > RETURN"
+				_action.text = "COLLECT / RETURN"
 			_secondary.text = "EXIT ROVER" if _rover else "ENTER ROVER"
 		"complete":
 			_hud.text = "MISSION COMPLETE ✓\nCOINS %d · SCIENCE %d" % [GameState.coins, GameState.science_points]
 			_objective.text = "Earth → Moon → Samples · achievement recorded"
 			_action.text = "MISSION CONTROL ▶"
 			_secondary.text = "MAIN MENU"
+	_camera_button.text = "CAM: %s" % str(GameState.settings.get("camera_mode", "chase")).to_upper()
+	_zoom_in_button.disabled = float(GameState.settings.get("camera_zoom", 1.0)) >= 1.69
+	_zoom_out_button.disabled = float(GameState.settings.get("camera_zoom", 1.0)) <= 0.86
 	_brake_button.visible = _phase == "landing"
 	_secondary.disabled = _phase == "landing" and _gear
 
@@ -423,20 +576,35 @@ func _toggle_pause() -> void:
 	_paused = not _paused
 	_pause_dialog.visible = _paused
 	if _paused:
+		_pause_page = "main"
+	if _paused:
 		_save_checkpoint()
 		_update_pause_menu()
 
 func _update_pause_menu() -> void:
 	for node in _pause_actions.get_children():
+		_pause_actions.remove_child(node)
 		node.queue_free()
-	_panel_text.text = "GIGAORBIT  ·  MISSION PAUSED\nCoins: %d    Fuel: %d%%   Hull: %d%%\nFuel Cells: %d    Repair Kits: %d" % [
+	_panel_text.text = "GIGAORBIT · PAUSED\nCoins %d  Fuel %d%%  Hull %d%%\nFuel cells %d  Repair kits %d" % [
 		GameState.coins, int(_fuel), int(_hull), int(GameState.supplies.get("fuel_cell", 0)), int(GameState.supplies.get("repair_kit", 0))]
-	_pause_button("RESUME FLIGHT", _toggle_pause)
-	_pause_button("USE FUEL CELL · +35", _use_fuel)
-	_pause_button("USE REPAIR KIT · +35", _use_repair)
-	_pause_button("BUY FUEL CELL · 80 COINS", func() -> void: _buy("fuel_cell"))
-	_pause_button("BUY REPAIR KIT · 100 COINS", func() -> void: _buy("repair_kit"))
-	_pause_button("SAVE & MAIN MENU", _to_menu)
+	if _pause_page == "shop":
+		_pause_button("USE FUEL CELL (+35)", _use_fuel)
+		_pause_button("USE REPAIR KIT (+35)", _use_repair)
+		_pause_button("BUY FUEL CELL (80 COINS)", func() -> void: _buy("fuel_cell"))
+		_pause_button("BUY REPAIR KIT (100 COINS)", func() -> void: _buy("repair_kit"))
+		_pause_button("BACK", func() -> void: _open_pause_page("main"))
+	elif _pause_page == "missions" and _phase == "explore":
+		_pause_button("AUTO CHOOSE NEXT TASK", _auto_eva_mission)
+		_pause_button("COLLECT 3 LUNAR SAMPLES", func() -> void: _select_eva_mission("samples"))
+		_pause_button("REPAIR COMMUNICATIONS", func() -> void: _select_eva_mission("repair"))
+		_pause_button("RAISE GHANA FLAG", func() -> void: _select_eva_mission("flag"))
+		_pause_button("BACK", func() -> void: _open_pause_page("main"))
+	else:
+		_pause_button("RESUME", _toggle_pause)
+		if _phase == "explore":
+			_pause_button("CHOOSE / AUTO EVA TASK", func() -> void: _open_pause_page("missions"))
+		_pause_button("FUEL / REPAIR SUPPLIES", func() -> void: _open_pause_page("shop"))
+		_pause_button("SAVE & MAIN MENU", _to_menu)
 
 func _pause_button(label: String, callable: Callable) -> void:
 	var b: Button = UI.button(label)
@@ -480,6 +648,7 @@ func _save_checkpoint() -> void:
 		"speed": _speed, "distance": _distance, "descent": _descent,
 		"offset": _offset, "eva_x": _eva_x, "samples": _samples.duplicate(),
 		"gear": _gear, "rover": _rover,
+		"eva_mission": _eva_mission, "flag_planted": _flag_planted, "comm_repaired": _comm_repaired,
 	}
 	var file: FileAccess = FileAccess.open(CHECKPOINT_PATH, FileAccess.WRITE)
 	if file != null:
@@ -514,6 +683,11 @@ func _restore_checkpoint() -> void:
 	_eva_x = clampf(float(restored.get("eva_x", 0.0)), 0.0, 100.0)
 	_gear = bool(restored.get("gear", false))
 	_rover = bool(restored.get("rover", false))
+	_eva_mission = str(restored.get("eva_mission", "samples"))
+	if _eva_mission not in ["samples", "repair", "flag"]:
+		_eva_mission = "samples"
+	_flag_planted = bool(restored.get("flag_planted", false))
+	_comm_repaired = bool(restored.get("comm_repaired", false))
 	var read_samples: Array = restored.get("samples", [])
 	if read_samples.size() == 3:
 		for i in range(3):

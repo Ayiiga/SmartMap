@@ -23,6 +23,9 @@ const DEFAULT_SETTINGS: Dictionary = {
 	"sound_volume": 0.65,
 	"voice_enabled": true,
 	"camera_inverted": false,
+	"camera_mode": "chase",
+	"camera_zoom": 1.0,
+	"voice_volume": 0.8,
 	"assisted_controls": true,
 	"debug_overlay": false
 }
@@ -310,7 +313,7 @@ func continue_game() -> bool:
 	elif current_mission.begins_with("transfer_") and planet_unlocked(destination_planet):
 		destination = TRANSFER
 	elif current_mission == "eva_moon" and bool(completed_planets.get("moon", false)):
-		destination = MOON_EVA
+		destination = PHOTO_MISSION
 	get_tree().change_scene_to_file(destination)
 	return true
 

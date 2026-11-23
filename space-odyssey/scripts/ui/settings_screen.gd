@@ -5,6 +5,9 @@ var _quality: OptionButton
 var _fps: OptionButton
 var _master: HSlider
 var _music_volume: HSlider
+var _voice_volume: HSlider
+var _camera_mode: OptionButton
+var _camera_zoom: HSlider
 var _sound_volume: HSlider
 var _music_on: CheckBox
 var _sound_on: CheckBox
@@ -32,17 +35,15 @@ func _ready() -> void:
 	center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	margins.add_child(center)
 	var panel: PanelContainer = UI.panel()
-	panel.custom_minimum_size = Vector2(795, 0)
+	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	center.add_child(panel)
 	var col: VBoxContainer = VBoxContainer.new()
 	col.add_theme_constant_override("separation", 10)
 	panel.add_child(col)
 	col.add_child(UI.label("SETTINGS · SOUND AND CONTROLS", 30))
 	col.add_child(UI.label("Tap any option — changes apply immediately and save offline.", 15, UI.MUTED))
-	var grid: GridContainer = GridContainer.new()
-	grid.columns = 2
-	grid.add_theme_constant_override("h_separation", 22)
-	grid.add_theme_constant_override("v_separation", 9)
+	var grid: VBoxContainer = VBoxContainer.new()
+	grid.add_theme_constant_override("separation", 7)
 	col.add_child(grid)
 	_quality = _choice(grid, "GRAPHICS QUALITY", ["Low — smoothest", "Medium", "High"], clampi(int(GameState.settings.get("graphics", 0)), 0, 2))
 	_fps = _choice(grid, "FRAME RATE", ["30 FPS · battery saver", "60 FPS · faster"], 1 if int(GameState.settings.get("target_fps", 30)) == 60 else 0)
@@ -52,6 +53,12 @@ func _ready() -> void:
 	_sound_on = _checkbox(grid, "ROCKET / ALERT SOUND", "sound_enabled", true)
 	_sound_volume = _slider(grid, "SOUND EFFECTS VOLUME", "sound_volume", 0.65)
 	_voice_on = _checkbox(grid, "SHIP SPEAKER / RADIO", "voice_enabled", true)
+	_voice_volume = _slider(grid, "RADIO VOICE VOLUME", "voice_volume", 0.8)
+	_camera_mode = _choice(grid, "CAMERA VIEW", ["Chase", "Cockpit", "External", "Wide"], maxi(0, ["chase", "cockpit", "external", "wide"].find(str(GameState.settings.get("camera_mode", "chase")))))
+	_camera_zoom = _slider(grid, "CAMERA ZOOM", "camera_zoom", 1.0)
+	_camera_zoom.min_value = 0.7
+	_camera_zoom.max_value = 1.7
+	_camera_zoom.step = 0.1
 	_assist = _checkbox(grid, "BEGINNER GUIDED FLIGHT", "assisted_controls", true)
 	_invert = _checkbox(grid, "INVERT CAMERA", "camera_inverted", false)
 	_debug = _checkbox(grid, "PERFORMANCE STATS", "debug_overlay", false)
@@ -82,39 +89,54 @@ func _ready() -> void:
 	_loading = false
 	_connect_inputs()
 
-func _choice(grid: GridContainer, title: String, options: Array[String], selected_index: int) -> OptionButton:
-	grid.add_child(UI.label(title, 17))
+func _setting_row(stack: VBoxContainer, title: String) -> HBoxContainer:
+	# One real row per control: the former two-column GridContainer squeezed
+	# long labels into vertical characters on landscape Android screens.
+	var row: HBoxContainer = HBoxContainer.new()
+	row.add_theme_constant_override("separation", 10)
+	stack.add_child(row)
+	var caption: Label = UI.label(title, 16)
+	caption.custom_minimum_size.x = 245
+	caption.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	row.add_child(caption)
+	return row
+
+func _choice(grid: VBoxContainer, title: String, options: Array[String], selected_index: int) -> OptionButton:
+	var row: HBoxContainer = _setting_row(grid, title)
 	var choice: OptionButton = OptionButton.new()
 	for label: String in options:
 		choice.add_item(label)
 	choice.select(selected_index)
 	choice.custom_minimum_size = Vector2(280, 48)
-	grid.add_child(choice)
+	choice.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(choice)
 	return choice
 
-func _slider(grid: GridContainer, title: String, key: String, default_value: float) -> HSlider:
-	grid.add_child(UI.label(title, 17))
+func _slider(grid: VBoxContainer, title: String, key: String, default_value: float) -> HSlider:
+	var row: HBoxContainer = _setting_row(grid, title)
 	var slider: HSlider = HSlider.new()
 	slider.custom_minimum_size = Vector2(280, 44)
 	slider.min_value = 0.0
 	slider.max_value = 1.0
 	slider.step = 0.05
 	slider.value = float(GameState.settings.get(key, default_value))
-	grid.add_child(slider)
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(slider)
 	return slider
 
-func _checkbox(grid: GridContainer, title: String, key: String, default_value: bool) -> CheckBox:
-	grid.add_child(UI.label(title, 17))
+func _checkbox(grid: VBoxContainer, title: String, key: String, default_value: bool) -> CheckBox:
+	var row: HBoxContainer = _setting_row(grid, title)
 	var toggle: CheckBox = CheckBox.new()
 	toggle.button_pressed = bool(GameState.settings.get(key, default_value))
-	toggle.custom_minimum_size = Vector2(280, 44)
-	grid.add_child(toggle)
+	toggle.custom_minimum_size = Vector2(80, 44)
+	toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(toggle)
 	return toggle
 
 func _connect_inputs() -> void:
-	for selection: OptionButton in [_quality, _fps]:
+	for selection: OptionButton in [_quality, _fps, _camera_mode]:
 		selection.item_selected.connect(func(_index: int) -> void: _save())
-	for slider: HSlider in [_master, _music_volume, _sound_volume]:
+	for slider: HSlider in [_master, _music_volume, _sound_volume, _voice_volume, _camera_zoom]:
 		slider.value_changed.connect(func(_value: float) -> void: _save())
 	for toggle: CheckBox in [_music_on, _sound_on, _voice_on, _assist, _invert, _debug]:
 		toggle.toggled.connect(func(_value: bool) -> void: _save())
@@ -130,6 +152,9 @@ func _save() -> void:
 	GameState.settings["sound_enabled"] = _sound_on.button_pressed
 	GameState.settings["sound_volume"] = _sound_volume.value
 	GameState.settings["voice_enabled"] = _voice_on.button_pressed
+	GameState.settings["voice_volume"] = _voice_volume.value
+	GameState.settings["camera_mode"] = ["chase", "cockpit", "external", "wide"][_camera_mode.selected]
+	GameState.settings["camera_zoom"] = _camera_zoom.value
 	GameState.settings["assisted_controls"] = _assist.button_pressed
 	GameState.settings["camera_inverted"] = _invert.button_pressed
 	GameState.settings["debug_overlay"] = _debug.button_pressed
@@ -147,6 +172,9 @@ func _restore_defaults() -> void:
 	_sound_on.button_pressed = bool(defaults["sound_enabled"])
 	_sound_volume.value = float(defaults["sound_volume"])
 	_voice_on.button_pressed = bool(defaults["voice_enabled"])
+	_voice_volume.value = float(defaults["voice_volume"])
+	_camera_mode.select(0)
+	_camera_zoom.value = float(defaults["camera_zoom"])
 	_assist.button_pressed = bool(defaults["assisted_controls"])
 	_invert.button_pressed = bool(defaults["camera_inverted"])
 	_debug.button_pressed = bool(defaults["debug_overlay"])
