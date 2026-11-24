@@ -29,8 +29,8 @@ assert 'Crew.normalize_id' in core
 assert all(f'"{legacy}": "{new}"' in crew_code for legacy,new in [('nova','nambe'),('kofi','ayiiga'),('zuri','zuuri')])
 assert 'flight_rewards_claimed' in core
 menu = (R/'scripts/ui/main_menu.gd').read_text()
-assert 'ASSEMBLE 3 ASTRONAUTS' in menu and 'AUTO PHOTO MISSION' in menu and 'CLASSIC ROCKET PILOT' in menu
-assert 'func _auto_photo_mission(' in menu and 'GameState.PHOTO_MISSION' in menu
+assert 'ASSEMBLE 3 ASTRONAUTS' in menu and 'LAUNCH FROM EARTH' in menu and 'CLASSIC ROCKET PILOT' in menu
+assert 'GameState.start_earth_launch' in menu
 launch_world = (R/'scripts/world/launch_world.gd').read_text()
 for function in ('_launch','_stage','_orbit','_retry','_toggle_pause'):
     assert f'func {function}(' in launch_world

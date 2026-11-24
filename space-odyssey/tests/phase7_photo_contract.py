@@ -5,7 +5,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 read = lambda p: (root / p).read_text(encoding="utf-8")
-mission = read("scripts/world/photo_mission.gd")
+mission = read("scripts/world/photo_mission.gd") + read("scripts/flight/photo_flight.gd")
 menu = read("scripts/ui/main_menu.gd")
 state = read("scripts/core/game_state.gd")
 scene = read("scenes/world/photo_mission.tscn")
@@ -25,7 +25,7 @@ for safe_api in ("GameState.record_flight_step", "GameState.award_landing",
                  "GameState.collect_moon_sample", "GameState.complete_moon_eva",
                  "GameState.buy_supply", "GameState.use_supply"):
     assert safe_api in mission, f"Game progression not attached to persistent wallet: {safe_api}"
-assert "GameState.PHOTO_MISSION" in menu and "func _auto_photo_mission(" in menu
+assert "GameState.start_earth_launch" in menu and "photo_fresh_launch" in state
 for new_control in ("_cycle_camera", "_change_zoom", "_perform_eva_action", "_select_eva_mission", "_auto_eva_mission"):
     assert f"func {new_control}(" in mission, f"Missing interactive feature: {new_control}"
 for task in ("Lunar Repair Specialist", "Lunar Flag Explorer", "Ghana flag raised"):

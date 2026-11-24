@@ -2,12 +2,15 @@ extends Control
 ## Offline 2.5D photographic expeditions: real movement, fuel, landing,
 ## scan alignment, repairs, saves, virtual rewards, and real NASA image layers.
 ## Jupiter / Saturn / Neptune are orbital flybys, NOT landable surfaces.
+const Flight = preload("res://scripts/flight/photo_flight.gd")
 const SaveStore = preload("res://scripts/core/save_store.gd")
 const UI = preload("res://scripts/ui/space_ui.gd")
 const STICK = preload("res://scripts/flight/flight_stick.gd")
 const EVA_AVATAR = preload("res://assets/textures/eva-suit.webp")
 const EVA_ROVER = preload("res://assets/textures/eva-rover.webp")
 const LANDER_PHOTO = preload("res://assets/textures/lunar-lander.webp")
+const ROCKET = preload("res://assets/textures/flight-rocket.webp")
+const PLUME = preload("res://assets/textures/rocket-plume.webp")
 const ORBITER = preload("res://assets/textures/orbital-craft.webp")
 const PHOTO_PATHS: Dictionary = {
 	"mars": "res://assets/textures/nasa-mars-jezero.jpg",
@@ -17,15 +20,21 @@ const PHOTO_PATHS: Dictionary = {
 	"titan": "res://assets/textures/nasa-titan-cassini.jpg",
 	"neptune": "res://assets/textures/nasa-neptune-voyager.jpg",
 }
+const SURFACE_PATHS: Dictionary = {
+	"mars": "res://assets/textures/nasa-mars-jezero.jpg",
+	"europa": "res://assets/textures/europa-ice.webp",
+	"titan": "res://assets/textures/titan-surface.webp",
+}
 const SCAN_MARKERS: Array[float] = [20.0, 51.0, 82.0]
 const DESTINATIONS: Array[String] = ["mars", "europa", "jupiter", "saturn", "titan", "neptune"]
 var _target: String = "mars"
-var _phase: String = "approach"
+var _phase: String = "launch"
 var _running: bool = false
 var _paused: bool = false
 var _braking: bool = false
 var _touch_buttons: Array[Button] = []
 var _native_brake_finger: int = -1
+var _pause_toggle: Button
 var _flight_stick: Control
 var _camera_save_timer: Timer
 var _gear: bool = false
@@ -34,6 +43,10 @@ var _axis: Vector2 = Vector2.ZERO
 var _fuel: float = 100.0
 var _hull: float = 100.0
 var _progress: float = 0.0
+var _launch_altitude: float = 0.0
+var _launch_speed: float = 0.0
+var _ascent_stage: int = -1
+var _touchdown_display: float = 0.0
 var _altitude: float = 145.0
 var _descent: float = 5.5
 var _offset: float = 8.0
@@ -47,6 +60,9 @@ var _scene_texture: Texture2D
 var _photo: TextureRect
 var _near: TextureRect
 var _vehicle: TextureRect
+var _parked_lander: TextureRect
+var _plume: TextureRect
+var _marker: Label
 var _telemetry: Label
 var _objective: Label
 var _notice: Label
@@ -80,12 +96,13 @@ func _ready() -> void:
 	_make_photo()
 	_make_hud()
 	_restore()
+	_update_backdrop()
 	_apply_camera()
 	_refresh()
 	GameState.save_local()
 
 func _is_surface() -> bool:
-	return _target == "mars"
+	return SURFACE_PATHS.has(_target)
 
 func _checkpoint_path() -> String:
 	return "user://gigaorbit_photo_%s_v1.json" % _target
@@ -96,7 +113,7 @@ func _make_photo() -> void:
 	if _scene_texture == null:
 		_scene_texture = preload("res://assets/textures/earth-orbit.webp")
 	_photo = TextureRect.new()
-	_photo.texture = _scene_texture
+	_photo.texture = Flight.LAUNCHPAD
 	_photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -108,11 +125,29 @@ func _make_photo() -> void:
 	_near.modulate = Color(1, 1, 1, 0.11)
 	_near.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_near)
+	_plume = TextureRect.new()
+	_plume.texture = PLUME
+	_plume.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_plume.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_plume.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_plume)
+	_parked_lander = TextureRect.new()
+	_parked_lander.texture = LANDER_PHOTO
+	_parked_lander.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_parked_lander.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_parked_lander.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_parked_lander)
 	_vehicle = TextureRect.new()
 	_vehicle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_vehicle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_vehicle.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_vehicle)
+	_marker = UI.label("", 21, Color("ffe49e"))
+	_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_marker.add_theme_color_override("font_shadow_color", Color.BLACK)
+	_marker.add_theme_constant_override("shadow_offset_y", 2)
+	add_child(_marker)
 	resized.connect(_apply_camera)
 
 func _apply_camera() -> void:
@@ -124,7 +159,9 @@ func _apply_camera() -> void:
 	var factor: float = 0.90 if mode == "wide" else (1.14 if mode == "cockpit" else 1.0)
 	_photo.size = v * maxf(1.08, 1.26 * zoom * factor)
 	_near.size = v * maxf(1.10, 1.34 * zoom * factor)
-	_vehicle.size = Vector2(v.y * 0.44, v.y * 0.34) * zoom
+	_vehicle.size = Vector2(v.y * 0.44, v.y * (0.51 if _phase == "launch" else 0.34)) * zoom
+	_plume.size = Vector2(v.y * 0.15, v.y * 0.34) * zoom
+	_parked_lander.size = Vector2(v.y * 0.36, v.y * 0.32) * zoom
 	_move_background()
 
 func _move_background() -> void:
@@ -137,13 +174,54 @@ func _move_background() -> void:
 	_photo.position = (v - _photo.size) * 0.5 + drift
 	var near_shift := Vector2(drift.x * 1.1, drift.y * 2.3)
 	_near.position = (v - _near.size) * 0.5 + near_shift
-	if _phase == "explore" and _is_surface():
-		var motion: float = sin(_timer * 13.0) * absf(_axis.x - _axis.y) * (1.0 if _rover else 3.0)
+	if _phase == "explore" and _is_surface() and _touchdown_display <= 0.0:
+		var motion: float = sin(_timer * 13.0) * absf(Flight.movement(_axis)) * (1.0 if _rover else 3.0)
 		_vehicle.position = Vector2(v.x * 0.52, v.y * 0.79 + motion) - Vector2(_vehicle.size.x * 0.5, _vehicle.size.y)
 	else:
-		var descent: float = 1.0 - clampf(_altitude / 145.0, 0.0, 1.0) if _phase == "landing" else 0.0
-		_vehicle.position = Vector2(v.x * 0.49 + _offset * 2.0, v.y * lerpf(0.37, 0.60, descent)) - _vehicle.size * 0.5
+		var progress: float = 1.0 - clampf(_altitude / 145.0, 0.0, 1.0)
+		var height: float = lerpf(0.30, 0.64, progress) if _phase == "landing" or _touchdown_display > 0.0 else lerpf(0.54, 0.29, _progress / 100.0)
+		if _phase == "launch":
+			height = lerpf(0.65, 0.26, pow(clampf(_launch_altitude / 120000.0, 0.0, 1.0), 0.4))
+		var horizontal: float = _offset * 2.0 if _phase == "landing" or _touchdown_display > 0.0 else _axis.x * 28.0
+		_vehicle.position = Vector2(v.x * 0.49 + horizontal, v.y * height) - _vehicle.size * 0.5
+	_parked_lander.position = Vector2(v.x * (0.33 - _position * 0.012), v.y * 0.63) - _parked_lander.size * 0.5
+	_plume.position = _vehicle.position + Vector2((_vehicle.size.x - _plume.size.x) * 0.5, _vehicle.size.y - 4.0)
+	_plume.scale.y = 0.9 + sin(_timer * 36.0) * 0.08
+	var aim: float = clampf((_goal() - _position) * v.x * 0.012, -v.x * 0.27, v.x * 0.27) if _phase == "explore" else 0.0
+	_marker.position = Vector2(v.x * 0.5 + aim - 150.0, v.y * (0.67 if _phase == "landing" else 0.42))
+	_marker.size = Vector2(300.0, 42)
 
+func _update_backdrop() -> void:
+	if _phase == "launch":
+		_update_ascent()
+		return
+	var background: Texture2D = Flight.ORBIT if _phase == "approach" and _progress < 30.0 else _scene_texture
+	if _is_surface() and _phase in ["landing", "explore", "complete"]:
+		background = load(str(SURFACE_PATHS[_target])) as Texture2D
+	if _photo.texture != background:
+		_near.texture = _photo.texture
+		_near.modulate.a = 0.65
+		_photo.texture = background
+	_photo.modulate = Color.WHITE
+
+func _update_ascent() -> void:
+	var stage: int = Flight.ascent_stage(_launch_altitude)
+	if _ascent_stage == stage:
+		return
+	_near.texture = _photo.texture
+	_near.modulate.a = 0.0 if _ascent_stage < 0 else 0.78
+	_ascent_stage = stage
+	_photo.texture = Flight.ascent_texture(stage)
+	_photo.modulate = Flight.DARK_SKY if stage == 2 else Color.WHITE
+	if stage > 0:
+		_notify(Flight.STAGES[stage])
+		GameAudio.effect("stage")
+
+func _goal() -> float:
+	var next: int = Flight.waypoint(SCAN_MARKERS, _checks, _position)
+	if next >= 0:
+		return SCAN_MARKERS[next]
+	return 90.0 if _target == "mars" and not _flag_planted else 0.0
 
 func _make_hud() -> void:
 	var hud: Control = Control.new()
@@ -172,6 +250,7 @@ func _make_hud() -> void:
 	hud.add_child(_notice)
 	var pause: Button = _top_button(hud, "II PAUSE", 16)
 	_touch_button(pause)
+	_pause_toggle = pause
 	pause.pressed.connect(_toggle_pause)
 	_camera = _top_button(hud, "CAMERA", 73)
 	_touch_button(_camera)
@@ -245,8 +324,14 @@ func _touch_button(button: Button) -> void:
 	_touch_buttons.append(button)
 
 func _input(event: InputEvent) -> void:
-	# The first finger uses normal GUI mouse emulation. Additional fingers
-	# can operate gameplay buttons while the first finger steers the craft.
+	if not is_instance_valid(_overlay):
+		return
+	if event is InputEventMouseButton and event.device == InputEvent.DEVICE_ID_EMULATION:
+		# Native touch owns flight buttons. Keep emulation for the scrollable pause UI.
+		var emulated_target: Button = Flight.touch_target(_touch_buttons, event.position)
+		if emulated_target != null and (not _paused or emulated_target == _pause_toggle):
+			get_viewport().set_input_as_handled()
+		return
 	if not event is InputEventScreenTouch:
 		return
 	var touch: InputEventScreenTouch = event
@@ -255,21 +340,18 @@ func _input(event: InputEvent) -> void:
 		_braking = false
 		get_viewport().set_input_as_handled()
 		return
-	if touch.index == 0 or not touch.pressed or touch.canceled or _paused:
+	if not touch.pressed or touch.canceled:
 		return
-	for button in _touch_buttons:
-		if not is_instance_valid(button) or not button.is_visible_in_tree() or button.disabled:
-			continue
-		if not button.get_global_rect().has_point(touch.position):
-			continue
-		if button == _brake:
-			if not _braking:
-				_native_brake_finger = touch.index
-				_braking = true
-		elif not button.button_pressed:
-			button.pressed.emit()
-		get_viewport().set_input_as_handled()
+	var button: Button = Flight.touch_target(_touch_buttons, touch.position)
+	if button == null or (_paused and button != _pause_toggle):
 		return
+	if button == _brake:
+		if not _braking:
+			_native_brake_finger = touch.index
+			_braking = true
+	else:
+		button.pressed.emit()
+	get_viewport().set_input_as_handled()
 
 func _reset_flight_input() -> void:
 	_native_brake_finger = -1
@@ -301,42 +383,70 @@ func _process(delta: float) -> void:
 		return
 	_timer += delta
 	_move_background()
+	_near.modulate.a = move_toward(_near.modulate.a, 0.0, delta * 1.8)
+	if _touchdown_display > 0.0:
+		_touchdown_display = maxf(0.0, _touchdown_display - delta)
+		_refresh()
+		return
 	if _hold_notice > 0.0:
 		_hold_notice -= delta
 		if _hold_notice <= 0.0:
 			_notice.text = ""
-	if _phase in ["approach", "landing"] and not _running:
+	if _phase in ["launch", "approach", "landing"] and not _running:
 		return
-	if _phase == "approach":
-		_progress = minf(100.0, _progress + delta * (4.5 + absf(_axis.y) * 1.5))
+	if _phase == "launch":
+		_launch_speed = minf(1850.0, _launch_speed + delta * (81.0 - absf(_axis.x) * 12.0))
+		_launch_altitude += _launch_speed * delta * 6.0
+		_fuel = maxf(0.0, _fuel - delta * 0.28)
+		_update_ascent()
+		if _launch_altitude >= 120000.0:
+			_phase = "approach"
+			_notify("Earth orbit reached. Departing for %s." % _target.capitalize())
+			_update_backdrop()
+			_apply_camera()
+			_save()
+	elif _phase == "approach":
+		_progress = minf(100.0, _progress + delta * (6.0 + absf(_axis.y) * 1.5))
 		_fuel = maxf(0.0, _fuel - delta * 0.14)
 		if _progress >= 100.0:
-			_running = false
+			_running = _is_surface()
+			_gear = _running and bool(GameState.settings.get("assisted_controls", true))
 			_phase = "landing" if _is_surface() else "explore"
-			_notify("Approach complete. Begin guided landing." if _is_surface() else "Orbital science instruments ready. Align to 3 scan targets.")
+			_notify("Approach complete. Descending." if _is_surface() else "Orbit established. Locate three scan targets.")
+			_update_backdrop()
+			_apply_camera()
+			_save()
+		elif _progress >= 30.0 and _photo.texture == Flight.ORBIT:
+			_update_backdrop()
 	elif _phase == "landing":
-		_descent = clampf(_descent + (1.0 - (7.0 if _braking else 0.0)) * delta, 0.4, 14.0)
-		_offset = clampf(_offset + _axis.x * 6.0 * delta, -40.0, 40.0)
+		var assisted: bool = bool(GameState.settings.get("assisted_controls", true))
+		var result := Flight.landing_step(_altitude, _descent, _offset, _axis.x, _braking, assisted, delta)
+		_descent = result.x
+		_offset = result.y
 		_altitude = maxf(0.0, _altitude - _descent * delta)
 		_fuel = maxf(0.0, _fuel - delta * (0.21 if _braking else 0.10))
 		if _altitude <= 0.0:
 			_running = false
-			if _gear and _descent <= 7.0 and absf(_offset) <= 10.0:
+			if _gear and _descent <= 7.0 and absf(_offset) <= (18.0 if assisted else 10.0):
 				_phase = "explore"
+				_touchdown_display = 1.5
 				GameAudio.effect("success")
-				GameState.award_landing("mars", "A" if _descent < 4.0 else "B", true)
-				_notify("Safe Mars landing! Now explore, collect samples and return.")
+				if _target == "mars":
+					GameState.award_landing("mars", "A" if _descent < 4.0 else "B", true)
+				_notify("Touchdown on %s. Collect samples and return." % _target.capitalize())
+				_save()
 			else:
 				GameAudio.effect("impact")
 				_hull = maxf(30.0, _hull - 18.0)
 				_altitude = 145.0
 				_descent = 5.5
 				_offset = 8.0
-				_gear = false
+				_gear = assisted
+				_save()
 				_notify("Unsafe landing. Free retry; use a repair kit to restore hull.")
 	elif _phase == "explore":
-		var speed: float = 11.0 if _rover and _is_surface() else 5.4
-		_position = clampf(_position + (_axis.x - _axis.y) * speed * delta, 0.0, 100.0)
+		var speed: float = 21.0 if _rover and _is_surface() else 11.0
+		_position = clampf(_position + Flight.movement(_axis) * speed * delta, 0.0, 100.0)
 	if _running and _fuel <= 0.0:
 		_running = false
 		GameAudio.effect("warning")
@@ -349,9 +459,9 @@ func _process(delta: float) -> void:
 		_save()
 
 func _main_action() -> void:
-	if _paused:
+	if _paused or _touchdown_display > 0.0:
 		return
-	if _phase in ["approach", "landing"]:
+	if _phase in ["launch", "approach", "landing"]:
 		if _fuel < 0.1:
 			_notify("Out of propellant. Open Pause > Fuel and Repairs.")
 			return
@@ -365,7 +475,7 @@ func _main_action() -> void:
 	_refresh()
 
 func _secondary_action() -> void:
-	if _paused:
+	if _paused or _touchdown_display > 0.0:
 		return
 	if _phase == "landing":
 		_gear = true
@@ -389,13 +499,13 @@ func _interact() -> void:
 		_checks[i] = true
 		GameAudio.effect("scan")
 		_notify("Scientific scan %d/3 captured and logged offline." % _count_checks())
-	elif _is_surface() and not _flag_planted and absf(_position - 90.0) <= 8.0:
+	elif _target == "mars" and not _flag_planted and absf(_position - 90.0) <= 8.0:
 		_flag_planted = true
 		_notify("Ghana mission flag planted at the designated Mars marker.")
-	elif _count_checks() == 3 and _position <= 9.0 and (not _is_surface() or _flag_planted):
+	elif _count_checks() == 3 and _position <= 9.0 and (_target != "mars" or _flag_planted):
 		_complete()
 	else:
-		_notify("Steer to markers at 20, 51, 82 m; return to 0 m after tasks.")
+		_notify("Follow the arrow to the active waypoint.")
 	_save()
 
 func _count_checks() -> int:
@@ -425,15 +535,22 @@ func _complete() -> void:
 func _refresh() -> void:
 	if _telemetry == null:
 		return
-	var walking: bool = _phase == "explore" and _is_surface()
+	var walking: bool = _phase == "explore" and _is_surface() and _touchdown_display <= 0.0
 	var cockpit: bool = str(GameState.settings.get("camera_mode", "chase")) == "cockpit"
-	_vehicle.visible = walking or (_phase != "complete" and not cockpit)
+	_vehicle.visible = _phase in ["launch", "landing"] or _touchdown_display > 0.0 or walking or (_phase != "complete" and not cockpit)
 	if walking:
 		_vehicle.texture = EVA_ROVER if _rover else EVA_AVATAR
 	else:
-		_vehicle.texture = LANDER_PHOTO if _phase == "landing" else ORBITER
+		if _phase == "launch":
+			_vehicle.texture = ROCKET
+		else:
+			_vehicle.texture = LANDER_PHOTO if _phase == "landing" or _touchdown_display > 0.0 else ORBITER
+	_plume.visible = _phase == "launch" and _running and not _paused
+	_parked_lander.visible = walking
+	_marker.visible = _phase == "landing" or (_phase == "explore" and _touchdown_display <= 0.0)
+	_action.disabled = _touchdown_display > 0.0
 	var title: String = _target.to_upper()
-	var flight: String = "MARS SURFACE" if _is_surface() else "ORBITAL FLYBY"
+	var flight: String = "EXPEDITION" if _is_surface() else "ORBITAL FLYBY"
 	_telemetry.text = "%s · %s\nFUEL %d%%  HULL %d%%\nCOINS %d" % [title, flight, int(_fuel), int(_hull), GameState.coins]
 	if bool(GameState.settings.get("debug_overlay", false)):
 		_telemetry.text += "\nFPS %d / target %d" % [Engine.get_frames_per_second(), Engine.max_fps]
@@ -441,17 +558,28 @@ func _refresh() -> void:
 	_brake.visible = _phase == "landing"
 	_secondary.visible = _phase == "landing" or walking
 	_secondary.disabled = _phase == "landing" and _gear
-	if _phase == "approach":
-		_objective.text = "APPROACH %d%% · Steer and maintain fuel" % int(_progress)
-		_action.text = "PAUSE" if _running else "START TRANSFER"
+	if _phase == "launch":
+		_objective.text = "%s · ALT %d m" % [Flight.STAGES[clampi(_ascent_stage, 0, 3)], int(_launch_altitude)]
+		_action.text = "PAUSE FLIGHT" if _running else ("IGNITE ▶" if _launch_altitude < 1.0 else "RESUME FLIGHT ▶")
+	elif _phase == "approach":
+		_objective.text = "IN TRANSIT TO %s · %d%%" % [title, int(_progress)]
+		_action.text = "PAUSE FLIGHT" if _running else "RESUME TRANSFER"
 	elif _phase == "landing":
 		_objective.text = "LAND %d m · %.1f m/s · X %d m" % [int(_altitude), _descent, int(_offset)]
 		_secondary.text = "GEAR ✓" if _gear else "GEAR"
-		_action.text = "PAUSE" if _running else "DESCEND"
+		_action.text = "PAUSE DESCENT" if _running else "RESUME DESCENT"
+		_marker.text = "◎  LANDING ZONE"
 	elif _phase == "explore":
-		_objective.text = "%s  •  %d m  •  SCIENCE %d/3" % [title, int(_position), _count_checks()]
+		var goal: float = _goal()
+		var caption: String = "SAMPLE" if _is_surface() else "SCAN TARGET"
+		if goal == 0.0:
+			caption = "LANDER" if _is_surface() else "RETURN POINT"
+		elif goal == 90.0:
+			caption = "FLAG SITE"
+		_marker.text = Flight.marker_text(caption, goal, _position, 8.0 if goal == 90.0 else 9.0)
+		_objective.text = "TOUCHDOWN CONFIRMED" if _touchdown_display > 0.0 else "%s · SCIENCE %d/3" % [_marker.text, _count_checks()]
 		_secondary.text = "WALK" if _rover else "ROVER"
-		_action.text = "SCAN / COLLECT"
+		_action.text = "COMPLETE MISSION" if goal == 0.0 else ("PLANT FLAG" if goal == 90.0 else ("COLLECT SAMPLE" if _is_surface() else "SCAN TARGET"))
 	elif _phase == "complete":
 		_objective.text = "%s EXPEDITION COMPLETE · BADGE EARNED" % title
 		_action.text = "MISSION MENU"
@@ -482,6 +610,7 @@ func _toggle_pause() -> void:
 	_reset_flight_input()
 	_flush_camera_settings()
 	_overlay.visible = _paused
+	_refresh()
 	if _paused:
 		_save()
 		_update_menu()
@@ -535,6 +664,7 @@ func _save() -> void:
 		return
 	var data: Dictionary = {
 		"version": 1, "phase": _phase, "running": _running, "fuel": _fuel,
+		"launch_altitude": _launch_altitude, "launch_speed": _launch_speed,
 		"hull": _hull, "progress": _progress, "altitude": _altitude,
 		"descent": _descent, "offset": _offset, "position": _position,
 		"checks": _checks.duplicate(), "gear": _gear, "rover": _rover,
@@ -554,8 +684,10 @@ func _restore() -> void:
 	if not data is Dictionary or int(data.get("version", 0)) != 1:
 		return
 	_phase = str(data.get("phase", "approach"))
-	if _phase not in ["approach", "landing", "explore"]:
-		_phase = "approach"
+	if _phase not in ["launch", "approach", "landing", "explore"]:
+		_phase = "launch"
+	_launch_altitude = clampf(float(data.get("launch_altitude", 0.0)), 0.0, 120000.0)
+	_launch_speed = clampf(float(data.get("launch_speed", 0.0)), 0.0, 1850.0)
 	_running = false
 	_fuel = clampf(float(data.get("fuel", 100.0)), 0.0, 100.0)
 	_hull = clampf(float(data.get("hull", 100.0)), 30.0, 100.0)
@@ -564,7 +696,7 @@ func _restore() -> void:
 	_descent = clampf(float(data.get("descent", 5.5)), 0.4, 14.0)
 	_offset = clampf(float(data.get("offset", 8.0)), -40.0, 40.0)
 	_position = clampf(float(data.get("position", 0.0)), 0.0, 100.0)
-	_gear = bool(data.get("gear", false))
+	_gear = bool(data.get("gear", false)) or (_phase == "landing" and bool(GameState.settings.get("assisted_controls", true)))
 	_rover = bool(data.get("rover", false))
 	_flag_planted = bool(data.get("flag", false))
 	_repaired = bool(data.get("repaired", false))
