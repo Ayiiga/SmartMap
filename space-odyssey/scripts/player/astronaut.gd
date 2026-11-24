@@ -14,6 +14,7 @@ const Crew = preload("res://scripts/player/crew_catalog.gd")
 var move_stick: Vector2 = Vector2.ZERO
 var sprinting: bool = false
 var jetpacking: bool = false
+var driving_rover: bool = false
 var power: float = 100.0
 var planet_gravity: float = 9.81
 var _wants_jump: bool = false
@@ -63,19 +64,22 @@ func _physics_process(delta: float) -> void:
 	var direction: Vector3 = (right * axes.x - forward * axes.y).normalized()
 	var is_sprint: bool = sprinting or Input.is_action_pressed("sprint")
 	var target_speed: float = RUN_SPEED if is_sprint else WALK_SPEED
+	if driving_rover:
+		target_speed = 12.0 * minf(axes.length(), 1.0)
 	var target_horizontal: Vector3 = direction * target_speed
-	velocity.x = move_toward(velocity.x, target_horizontal.x, 18.0 * delta)
-	velocity.z = move_toward(velocity.z, target_horizontal.z, 18.0 * delta)
+	var acceleration: float = 14.0 if driving_rover and direction != Vector3.ZERO else 24.0 if driving_rover else 18.0
+	velocity.x = move_toward(velocity.x, target_horizontal.x, acceleration * delta)
+	velocity.z = move_toward(velocity.z, target_horizontal.z, acceleration * delta)
 	if direction.length_squared() > 0.01:
 		_visual.rotation.y = lerp_angle(_visual.rotation.y, atan2(-direction.x, -direction.z), minf(1.0, 9.0 * delta))
 	if not is_on_floor():
 		velocity.y -= planet_gravity * delta
 	elif velocity.y < 0.0:
 		velocity.y = -0.15
-	if _wants_jump and is_on_floor():
+	if _wants_jump and is_on_floor() and not driving_rover:
 		velocity.y = JUMP_SPEED * sqrt(planet_gravity / 9.81)
 	_wants_jump = false
-	if jetpacking and power > 0.5:
+	if jetpacking and power > 0.5 and not driving_rover:
 		velocity.y = minf(velocity.y + 15.0 * delta, 6.5)
 		power = maxf(0.0, power - 15.0 * delta)
 		power_changed.emit(power)

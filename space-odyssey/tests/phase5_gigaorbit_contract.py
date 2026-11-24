@@ -26,7 +26,7 @@ for method in ('steer_yaw', 'snapshot', 'restore'):
     assert f'func {method}(' in rocket
 assert all(name in rocket for name in ('heading_deg', 'east_m', 'north_m'))
 assert 'FLIGHT_STICK.new()' in flight and 'steer_yaw(' in flight
-assert 'Vector3(0, 6.2, 19.5)' in flight
+assert '_rocket.global_position + Vector3(8.0 if' in flight and '19.5)' in flight
 assert (R / "scenes/world/moon_eva.tscn").is_file()
 assert 'ASTRONAUT_SCENE.instantiate()' in eva
 assert 'planet_gravity = 1.62' in eva

@@ -9,7 +9,7 @@ const STICK = preload("res://scripts/flight/flight_stick.gd")
 const EVA_AVATAR = preload("res://assets/textures/eva-suit.webp")
 const EVA_ROVER = preload("res://assets/textures/eva-rover.webp")
 const LANDER_PHOTO = preload("res://assets/textures/lunar-lander.webp")
-const ROCKET = preload("res://assets/textures/flight-rocket.webp")
+const ROCKET = Flight.HEAVY_LIFT
 const PLUME = preload("res://assets/textures/rocket-plume.webp")
 const ORBITER = preload("res://assets/textures/orbital-craft.webp")
 const PHOTO_PATHS: Dictionary = {
@@ -212,7 +212,7 @@ func _update_ascent() -> void:
 	_near.modulate.a = 0.0 if _ascent_stage < 0 else 0.78
 	_ascent_stage = stage
 	_photo.texture = Flight.ascent_texture(stage)
-	_photo.modulate = Flight.DARK_SKY if stage == 2 else Color.WHITE
+	_photo.modulate = Color.WHITE
 	if stage > 0:
 		_notify(Flight.STAGES[stage])
 		GameAudio.effect("stage")

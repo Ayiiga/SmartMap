@@ -78,12 +78,28 @@ func _probe(path: String, screen: String) -> void:
 		"launch_world":
 			if node.find_child("FlightStick", true, false) == null:
 				failures.append("GigaOrbit rocket steering joystick missing")
+			var rocket := node.get("_rocket") as RocketVehicle
+			rocket.phase = RocketVehicle.Phase.SEPARATION
+			if not rocket.separate_stage() or not is_instance_valid(node.get("_debris")):
+				failures.append("Classic staging did not leave behind the modelled first stage")
 		"moon_eva":
 			_expect_button(node, "PAUSE / SAVE", screen)
 			var astronaut: Node3D = node.get("_player") as Node3D
 			if astronaut == null:
 				failures.append("Moon EVA astronaut missing")
 			else:
+				var drive := _find_button(node, "DRIVE ROVER")
+				if drive == null:
+					failures.append("Classic lunar EVA is missing a rover button")
+				else:
+					drive.pressed.emit()
+					if not bool(astronaut.get("driving_rover")) or not (node.get("_rover") as Node3D).visible:
+						failures.append("Classic rover did not enter driving mode")
+					astronaut.move_stick = Vector2(1.0, 0.0)
+					astronaut.call("_physics_process", 0.1)
+					if Vector2(astronaut.velocity.x, astronaut.velocity.z).length() <= 0.0:
+						failures.append("Classic rover did not respond to steering")
+					astronaut.move_stick = Vector2.ZERO
 				astronaut.position = Vector3(12.0, 1.0, -11.0)
 				node.call("_interact")
 				if not GameState.moon_eva_sample_collected:
@@ -151,10 +167,14 @@ func _flight_and_surface(scene: Node, screen: String) -> void:
 	if stages.size() != 4 or not bool(scene.get("_running")):
 		failures.append("%s skipped ascent scenes or stopped at orbit" % screen)
 		return
+	if moon:
+		_check_manual_transfer(scene, tick)
 	for frame in range(2600):
 		if scene.get("_phase") not in ["transfer", "approach"]:
 			break
 		scene.call(tick, 1.0 / 60.0)
+	if moon and int(scene.get("_course_burns")) != 3:
+		failures.append("Moon transfer did not complete all course corrections")
 	if surface:
 		await get_tree().process_frame
 		var stick := scene.get("_flight_stick") as Control
@@ -179,10 +199,24 @@ func _flight_and_surface(scene: Node, screen: String) -> void:
 	if surface:
 		rover.pressed.emit()
 		var vehicle := scene.get("_avatar" if moon else "_vehicle") as TextureRect
-		if not vehicle.visible or not vehicle.texture.resource_path.ends_with("eva-rover.webp"):
+		if not vehicle.visible or not vehicle.texture.resource_path.ends_with("moon-rover.webp" if moon else "eva-rover.webp"):
 			failures.append("%s rover mode did not show its vehicle" % screen)
 	elif rover.visible:
 		failures.append("%s flyby displayed a rover control" % screen)
+	if moon:
+		await get_tree().process_frame
+		scene.set("_steer", Vector2.RIGHT)
+		for frame in range(24):
+			scene.call(tick, 1.0 / 60.0)
+		var speed_before: float = float(scene.get("_rover_velocity"))
+		var rover_brake := scene.get("_brake_button") as Button
+		_touch(0, rover_brake.get_global_rect().get_center(), true)
+		for frame in range(24):
+			scene.call(tick, 1.0 / 60.0)
+		_touch(0, rover_brake.get_global_rect().get_center(), false)
+		scene.set("_steer", Vector2.ZERO)
+		if speed_before < 5.0 or absf(float(scene.get("_rover_velocity"))) > 0.1:
+			failures.append("Moon rover did not stop when braking with the joystick held")
 	var goals: Array[float] = [20.0, 51.0, 82.0]
 	if moon:
 		goals = [22.0, 48.0, 76.0]
@@ -202,8 +236,36 @@ func _flight_and_surface(scene: Node, screen: String) -> void:
 			failures.append("%s waypoint %d was unreachable" % [screen, goal])
 			return
 		action.pressed.emit()
+		if moon and goal > 0.0:
+			for frame in range(44):
+				scene.call(tick, 1.0 / 60.0)
+			var rock := scene.get("_rocks")[[22.0, 48.0, 76.0].find(goal)] as TextureRect
+			if rock.visible:
+				failures.append("Collected Moon sample remained visible")
 	if scene.get("_phase") != "complete":
 		failures.append("%s could not complete its mission and return" % screen)
+
+func _check_manual_transfer(scene: Node, tick: String) -> void:
+	GameState.settings["assisted_controls"] = false
+	var burn := scene.get("_secondary") as Button
+	for frame in range(360):
+		scene.call(tick, 1.0 / 60.0)
+	if int(scene.get("_course_burns")) != 0 or not is_equal_approx(float(scene.get("_distance")), 26.0):
+		failures.append("Manual transfer did not wait at its burn window")
+	burn.pressed.emit()
+	if int(scene.get("_course_burns")) != 0:
+		failures.append("Manual transfer accepted a misaligned correction")
+	for frame in range(80):
+		var error: Vector2 = scene.get("_course_error")
+		if error.length() <= 0.12:
+			break
+		scene.set("_steer", -error.normalized())
+		scene.call(tick, 1.0 / 60.0)
+	scene.set("_steer", Vector2.ZERO)
+	burn.pressed.emit()
+	if int(scene.get("_course_burns")) != 1:
+		failures.append("Manual transfer ignored an aligned course correction")
+	GameState.settings["assisted_controls"] = true
 
 func _touch(index: int, point: Vector2, pressed: bool) -> void:
 	var event := InputEventScreenTouch.new()
