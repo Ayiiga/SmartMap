@@ -23,3 +23,5 @@ The cloud-deck, Moon disc, Europa ice and Titan surface illustrations are genera
 for gameplay. The Europa and Titan scenes are artistic reconstructions.
 
 The crewed Moon rover and lunar sample sprites are generated gameplay artwork.
+
+The heavy-lift rocket, stratosphere, deep-space starfield and lunar dust were generated for the photographic campaign.

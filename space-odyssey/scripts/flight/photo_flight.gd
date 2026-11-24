@@ -1,9 +1,10 @@
 extends RefCounted
 ## Shared flight and waypoint behavior for the photographic routes.
+const HEAVY_LIFT = preload("res://assets/textures/heavy-lift-rocket.webp")
 const LAUNCHPAD = preload("res://assets/textures/earth-launchpad.webp")
 const CLOUDS = preload("res://assets/textures/earth-cloud-deck.webp")
 const ORBIT = preload("res://assets/textures/earth-orbit.webp")
-const DARK_SKY = Color(0.34, 0.45, 0.72)
+const STRATOSPHERE = preload("res://assets/textures/earth-stratosphere.webp")
 const STAGES: Array[String] = ["LIFTOFF", "CLOUD DECK", "UPPER ATMOSPHERE", "EDGE OF SPACE"]
 
 static func ascent_stage(altitude: float) -> int:
@@ -16,7 +17,8 @@ static func ascent_stage(altitude: float) -> int:
 static func ascent_texture(stage: int) -> Texture2D:
 	match stage:
 		0: return LAUNCHPAD
-		1, 2: return CLOUDS
+		1: return CLOUDS
+		2: return STRATOSPHERE
 		_: return ORBIT
 
 static func landing_step(height: float, descent: float, offset: float, steering: float, brake: bool, assisted: bool, delta: float) -> Vector2:
