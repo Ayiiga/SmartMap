@@ -13,18 +13,25 @@ func _ready() -> void:
 func _input(event: InputEvent) -> void:
 	if event is InputEventScreenTouch:
 		var touch: InputEventScreenTouch = event
-		if touch.pressed and _finger == -1 and get_global_rect().has_point(touch.position):
+		if touch.pressed and not touch.canceled and _finger == -1 and get_global_rect().has_point(touch.position):
 			_finger = touch.index
 			_update_axis(touch.position)
-		elif not touch.pressed and touch.index == _finger:
-			_finger = -1
-			_axis = Vector2.ZERO
-			axis_changed.emit(_axis)
-			queue_redraw()
+		elif (not touch.pressed or touch.canceled) and touch.index == _finger:
+			reset_touch()
 	elif event is InputEventScreenDrag:
 		var drag: InputEventScreenDrag = event
 		if drag.index == _finger:
 			_update_axis(drag.position)
+
+func reset_touch() -> void:
+	_finger = -1
+	_axis = Vector2.ZERO
+	axis_changed.emit(_axis)
+	queue_redraw()
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		reset_touch()
 
 func _update_axis(global_point: Vector2) -> void:
 	var center: Vector2 = get_global_rect().get_center()

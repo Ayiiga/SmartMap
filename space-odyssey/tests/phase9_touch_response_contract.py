@@ -19,3 +19,19 @@ assert "NOTIFICATION_APPLICATION_PAUSED" in settings
 assert "GameState.save_settings()" in settings
 assert "slider.value_changed.connect(func(_value: float) -> void: _save())" in settings
 print("PASS: immediate flight touch buttons, pause guard, and batched settings saves")
+
+# Structural regression checks: native secondary touches, cancellation and camera IO.
+for source in (mission, expedition):
+    assert "touch.index == 0" in source
+    assert "button.get_global_rect().has_point(touch.position)" in source
+    assert "button.pressed.emit()" in source
+    assert "touch.index == _native_brake_finger" in source
+    assert "touch.canceled" in source
+    assert "_reset_flight_input()" in source
+    assert "_camera_save_timer.wait_time = 0.35" in source
+    assert "_camera_save_timer.start()" in source
+    assert "GameState.save_settings()" not in source
+    assert "NOTIFICATION_APPLICATION_FOCUS_OUT" in source
+stick = (base / "scripts/flight/flight_stick.gd").read_text()
+assert "func reset_touch()" in stick and "touch.canceled" in stick
+print("PASS: independent secondary touch route, reset hooks and deferred camera saves are wired")
