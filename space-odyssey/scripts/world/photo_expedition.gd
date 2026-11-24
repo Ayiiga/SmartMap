@@ -140,12 +140,16 @@ func _make_hud() -> void:
 	_notice.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hud.add_child(_notice)
 	var pause: Button = _top_button(hud, "II PAUSE", 16)
+	_touch_button(pause)
 	pause.pressed.connect(_toggle_pause)
 	_camera = _top_button(hud, "CAMERA", 73)
+	_touch_button(_camera)
 	_camera.pressed.connect(_cycle_camera)
 	var plus: Button = _top_button(hud, "ZOOM +", 130)
+	_touch_button(plus)
 	plus.pressed.connect(func() -> void: _zoom(0.15))
 	var minus: Button = _top_button(hud, "ZOOM -", 187)
+	_touch_button(minus)
 	minus.pressed.connect(func() -> void: _zoom(-0.15))
 	var stick: Control = STICK.new()
 	stick.anchor_top = 1.0
@@ -170,15 +174,18 @@ func _make_hud() -> void:
 	_brake = UI.button("BRAKE")
 	_brake.custom_minimum_size.x = 108
 	row.add_child(_brake)
+	_touch_button(_brake)
 	_brake.button_down.connect(func() -> void: _braking = true)
 	_brake.button_up.connect(func() -> void: _braking = false)
 	_secondary = UI.button("GEAR")
 	_secondary.custom_minimum_size.x = 106
 	row.add_child(_secondary)
+	_touch_button(_secondary)
 	_secondary.pressed.connect(_secondary_action)
 	_action = UI.button("START >", true)
 	_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(_action)
+	_touch_button(_action)
 	_action.pressed.connect(_main_action)
 	_overlay = UI.panel()
 	_overlay.anchor_left = 0.29
@@ -198,6 +205,10 @@ func _make_hud() -> void:
 	content.add_child(scroll)
 	_menu_actions = VBoxContainer.new()
 	scroll.add_child(_menu_actions)
+
+func _touch_button(button: Button) -> void:
+	button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	button.focus_mode = Control.FOCUS_NONE
 
 func _top_button(hud: Control, title: String, y: float) -> Button:
 	var b: Button = UI.button(title)
@@ -272,6 +283,8 @@ func _main_action() -> void:
 	_refresh()
 
 func _secondary_action() -> void:
+	if _paused:
+		return
 	if _phase == "landing":
 		_gear = true
 		_notify("Landing gear deployed.")
@@ -394,7 +407,8 @@ func _update_menu() -> void:
 
 func _option(title: String, callback: Callable) -> void:
 	var b: Button = UI.button(title)
-	b.custom_minimum_size.y = 43
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size.y = 48
 	_menu_actions.add_child(b)
 	b.pressed.connect(callback)
 

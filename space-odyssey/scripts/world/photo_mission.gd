@@ -226,6 +226,7 @@ func _build_interface() -> void:
 	pause.offset_top = 15
 	pause.offset_bottom = 65
 	_control_root.add_child(pause)
+	_touch_button(pause)
 	pause.pressed.connect(_toggle_pause)
 	# Compact camera/zoom controls are anchored to the right edge and never
 	# overlap the bottom joystick or the principal flight action buttons.
@@ -239,6 +240,7 @@ func _build_interface() -> void:
 	_camera_button.custom_minimum_size = Vector2.ZERO
 	_camera_button.add_theme_font_size_override("font_size", 14)
 	_control_root.add_child(_camera_button)
+	_touch_button(_camera_button)
 	_camera_button.pressed.connect(_cycle_camera)
 	_zoom_in_button = UI.button("ZOOM +")
 	_zoom_in_button.anchor_left = 1.0
@@ -249,6 +251,7 @@ func _build_interface() -> void:
 	_zoom_in_button.offset_bottom = 172
 	_zoom_in_button.custom_minimum_size = Vector2.ZERO
 	_control_root.add_child(_zoom_in_button)
+	_touch_button(_zoom_in_button)
 	_zoom_in_button.pressed.connect(func() -> void: _change_zoom(0.15))
 	_zoom_out_button = UI.button("ZOOM -")
 	_zoom_out_button.anchor_left = 1.0
@@ -259,6 +262,7 @@ func _build_interface() -> void:
 	_zoom_out_button.offset_bottom = 223
 	_zoom_out_button.custom_minimum_size = Vector2.ZERO
 	_control_root.add_child(_zoom_out_button)
+	_touch_button(_zoom_out_button)
 	_zoom_out_button.pressed.connect(func() -> void: _change_zoom(-0.15))
 	var stick: Control = FLIGHT_STICK.new()
 	stick.anchor_top = 1.0
@@ -283,16 +287,19 @@ func _build_interface() -> void:
 	_brake_button = UI.button("BRAKE")
 	_brake_button.custom_minimum_size.x = 112
 	controls.add_child(_brake_button)
+	_touch_button(_brake_button)
 	_brake_button.button_down.connect(func() -> void: _braking = true)
 	_brake_button.button_up.connect(func() -> void: _braking = false)
 	_brake_button.mouse_exited.connect(func() -> void: _braking = false)
 	_secondary = UI.button("THRUST +")
 	_secondary.custom_minimum_size.x = 140
 	controls.add_child(_secondary)
+	_touch_button(_secondary)
 	_secondary.pressed.connect(_secondary_action)
 	_action = UI.button("IGNITE ▶", true)
 	_action.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	controls.add_child(_action)
+	_touch_button(_action)
 	_action.pressed.connect(_main_action)
 	_pause_dialog = UI.panel()
 	_pause_dialog.anchor_left = 0.27
@@ -309,6 +316,12 @@ func _build_interface() -> void:
 	_pause_actions = VBoxContainer.new()
 	_pause_actions.add_theme_constant_override("separation", 6)
 	pause_stack.add_child(_pause_actions)
+
+func _touch_button(button: Button) -> void:
+	# Gameplay actions respond on touch-down instead of waiting for release.
+	# Keep scrollable menu buttons on their standard release behavior.
+	button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
+	button.focus_mode = Control.FOCUS_NONE
 
 func _cycle_camera() -> void:
 	if _paused:
@@ -623,7 +636,8 @@ func _update_pause_menu() -> void:
 
 func _pause_button(label: String, callable: Callable) -> void:
 	var b: Button = UI.button(label)
-	b.custom_minimum_size.y = 43
+	b.focus_mode = Control.FOCUS_NONE
+	b.custom_minimum_size.y = 48
 	_pause_actions.add_child(b)
 	b.pressed.connect(callable)
 
