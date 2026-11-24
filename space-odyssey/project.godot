@@ -6,8 +6,8 @@ config_version=5
 config/name="GigaOrbit: Beyond Earth"
 run/main_scene="res://scenes/ui/main_menu.tscn"
 config/features=PackedStringArray("4.4", "GL Compatibility")
-config/description="GigaOrbit: Beyond Earth by Giga3 AI. Offline 3D rocket, astronaut and Moon/Mars mission adventure."
-config/icon="res://icon.svg"
+config/description="GigaOrbit: Beyond Earth by Giga3 AI. Offline rocket flight, astronaut exploration and planetary missions."
+config/icon="res://assets/textures/android-launcher.png"
 
 [autoload]
 GameState="*res://scripts/core/game_state.gd"

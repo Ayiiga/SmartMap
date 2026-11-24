@@ -98,7 +98,7 @@ jobs:
           fi
           grep -q 'PASS: Phase 1' /tmp/godot-test1.log
           grep -q 'PASS: Twelve astronauts' /tmp/godot-test2.log
-          grep -q 'PASS: Bundled original WAV music' /tmp/godot-test3.log
+          grep -q 'PASS: Bundled original music' /tmp/godot-test3.log
           grep -q 'PASS: Moon/Mars guided touchdown' /tmp/godot-test4.log
       - name: Boot real menu, three crew and planet scenes; test landing buttons
         run: |

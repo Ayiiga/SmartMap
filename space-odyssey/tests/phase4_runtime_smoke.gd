@@ -27,6 +27,11 @@ func _run() -> void:
 	await _probe("res://scenes/world/planet_transfer.tscn", "planet_transfer")
 	await _probe("res://scenes/world/planet_landing.tscn", "planet_landing")
 	await _probe("res://scenes/world/photo_mission.tscn", "photo_mission")
+	GameState.destination_planet = "mars"
+	await _probe("res://scenes/world/photo_expedition.tscn", "mars_photo")
+	GameState.completed_planets["mars"] = true
+	GameState.destination_planet = "jupiter"
+	await _probe("res://scenes/world/photo_expedition.tscn", "jupiter_photo")
 	for failure: String in failures:
 		push_error(failure)
 	if failures.is_empty():
@@ -91,6 +96,14 @@ func _probe(path: String, screen: String) -> void:
 				ignite.pressed.emit()
 				if not bool(node.get("_running")):
 					failures.append("Photorealistic launch action did not start flight")
+				ignite.pressed.emit()
+				if bool(node.get("_running")) or "IGNITE" not in ignite.text:
+					failures.append("Pausing the launch did not update the button")
+				node.set("_fuel", 0.0)
+				ignite.pressed.emit()
+				if bool(node.get("_running")):
+					failures.append("The rocket started without propellant")
+				node.set("_fuel", 100.0)
 			node.call("_complete_orbit")
 			if str(node.get("_phase")) != "transfer":
 				failures.append("Photo mission never entered orbital transfer")
@@ -105,6 +118,15 @@ func _probe(path: String, screen: String) -> void:
 			node.call("_finish_landing")
 			if str(node.get("_phase")) != "explore":
 				failures.append("Photo mission never reached playable lunar EVA")
+			var avatar := node.get("_avatar") as TextureRect
+			if not avatar.visible or not avatar.texture.resource_path.ends_with("eva-suit.webp"):
+				failures.append("Moon EVA is missing its visible astronaut")
+			var rover: Button = _find_button(node, "ENTER ROVER")
+			if rover != null:
+				rover.pressed.emit()
+				if not avatar.texture.resource_path.ends_with("eva-rover.webp"):
+					failures.append("Moon rover mode did not change the visible vehicle")
+				rover.pressed.emit()
 			for distance: float in [22.0, 48.0, 76.0]:
 				node.set("_eva_x", distance)
 				node.call("_collect_or_return")
@@ -112,6 +134,28 @@ func _probe(path: String, screen: String) -> void:
 			node.call("_collect_or_return")
 			if str(node.get("_phase")) != "complete":
 				failures.append("Photo sample collection and safe return failed")
+		"mars_photo", "jupiter_photo":
+			node.set("_phase", "explore")
+			node.call("_refresh")
+			var surface: bool = screen == "mars_photo"
+			var mode_button := node.get("_secondary") as Button
+			var vehicle := node.get("_vehicle") as TextureRect
+			if mode_button.visible != surface:
+				failures.append("Planetary rover control visibility is incorrect")
+			if surface:
+				mode_button.pressed.emit()
+				if not vehicle.visible or not vehicle.texture.resource_path.ends_with("eva-rover.webp"):
+					failures.append("Mars rover mode did not display its vehicle")
+			for distance: float in [20.0, 51.0, 82.0]:
+				node.set("_position", distance)
+				node.call("_interact")
+			if surface:
+				node.set("_position", 90.0)
+				node.call("_interact")
+			node.set("_position", 0.0)
+			node.call("_interact")
+			if str(node.get("_phase")) != "complete":
+				failures.append("Expedition could not complete its scan and return tasks")
 		"planet_landing":
 			_expect_button(node, "BRAKE", screen)
 			_expect_button(node, "FUEL +35", screen)

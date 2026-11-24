@@ -2,8 +2,13 @@ extends Control
 ## Offline 2.5D photographic expeditions: real movement, fuel, landing,
 ## scan alignment, repairs, saves, virtual rewards, and real NASA image layers.
 ## Jupiter / Saturn / Neptune are orbital flybys, NOT landable surfaces.
+const SaveStore = preload("res://scripts/core/save_store.gd")
 const UI = preload("res://scripts/ui/space_ui.gd")
 const STICK = preload("res://scripts/flight/flight_stick.gd")
+const EVA_AVATAR = preload("res://assets/textures/eva-suit.webp")
+const EVA_ROVER = preload("res://assets/textures/eva-rover.webp")
+const LANDER_PHOTO = preload("res://assets/textures/lunar-lander.webp")
+const ORBITER = preload("res://assets/textures/orbital-craft.webp")
 const PHOTO_PATHS: Dictionary = {
 	"mars": "res://assets/textures/nasa-mars-jezero.jpg",
 	"europa": "res://assets/textures/nasa-europa-galileo.jpg",
@@ -41,6 +46,7 @@ var _focus: String = "scan"
 var _scene_texture: Texture2D
 var _photo: TextureRect
 var _near: TextureRect
+var _vehicle: TextureRect
 var _telemetry: Label
 var _objective: Label
 var _notice: Label
@@ -102,6 +108,11 @@ func _make_photo() -> void:
 	_near.modulate = Color(1, 1, 1, 0.11)
 	_near.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_near)
+	_vehicle = TextureRect.new()
+	_vehicle.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_vehicle.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_vehicle.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_vehicle)
 	resized.connect(_apply_camera)
 
 func _apply_camera() -> void:
@@ -113,6 +124,7 @@ func _apply_camera() -> void:
 	var factor: float = 0.90 if mode == "wide" else (1.14 if mode == "cockpit" else 1.0)
 	_photo.size = v * maxf(1.08, 1.26 * zoom * factor)
 	_near.size = v * maxf(1.10, 1.34 * zoom * factor)
+	_vehicle.size = Vector2(v.y * 0.44, v.y * 0.34) * zoom
 	_move_background()
 
 func _move_background() -> void:
@@ -120,8 +132,18 @@ func _move_background() -> void:
 		return
 	var v: Vector2 = get_viewport_rect().size
 	var drift: Vector2 = Vector2(-_axis.x * 13 - sin(_timer * 0.45) * 7, -_axis.y * 6)
+	if _phase == "explore":
+		drift.x += (_photo.size.x - v.x) * 0.38 * (1.0 - _position / 50.0)
 	_photo.position = (v - _photo.size) * 0.5 + drift
-	_near.position = (v - _near.size) * 0.5 + drift * 2.3
+	var near_shift := Vector2(drift.x * 1.1, drift.y * 2.3)
+	_near.position = (v - _near.size) * 0.5 + near_shift
+	if _phase == "explore" and _is_surface():
+		var motion: float = sin(_timer * 13.0) * absf(_axis.x - _axis.y) * (1.0 if _rover else 3.0)
+		_vehicle.position = Vector2(v.x * 0.52, v.y * 0.79 + motion) - Vector2(_vehicle.size.x * 0.5, _vehicle.size.y)
+	else:
+		var descent: float = 1.0 - clampf(_altitude / 145.0, 0.0, 1.0) if _phase == "landing" else 0.0
+		_vehicle.position = Vector2(v.x * 0.49 + _offset * 2.0, v.y * lerpf(0.37, 0.60, descent)) - _vehicle.size * 0.5
+
 
 func _make_hud() -> void:
 	var hud: Control = Control.new()
@@ -187,6 +209,7 @@ func _make_hud() -> void:
 	_touch_button(_brake)
 	_brake.button_down.connect(func() -> void: _braking = true)
 	_brake.button_up.connect(func() -> void: _braking = _native_brake_finger >= 0)
+	_brake.mouse_exited.connect(func() -> void: _braking = _native_brake_finger >= 0)
 	_secondary = UI.button("GEAR")
 	_secondary.custom_minimum_size.x = 106
 	row.add_child(_secondary)
@@ -300,9 +323,11 @@ func _process(delta: float) -> void:
 			_running = false
 			if _gear and _descent <= 7.0 and absf(_offset) <= 10.0:
 				_phase = "explore"
+				GameAudio.effect("success")
 				GameState.award_landing("mars", "A" if _descent < 4.0 else "B", true)
 				_notify("Safe Mars landing! Now explore, collect samples and return.")
 			else:
+				GameAudio.effect("impact")
 				_hull = maxf(30.0, _hull - 18.0)
 				_altitude = 145.0
 				_descent = 5.5
@@ -312,6 +337,11 @@ func _process(delta: float) -> void:
 	elif _phase == "explore":
 		var speed: float = 11.0 if _rover and _is_surface() else 5.4
 		_position = clampf(_position + (_axis.x - _axis.y) * speed * delta, 0.0, 100.0)
+	if _running and _fuel <= 0.0:
+		_running = false
+		GameAudio.effect("warning")
+		_notify("Out of propellant. Open Pause > Fuel and Repairs.")
+		_save()
 	_refresh()
 	_save_timer += delta
 	if _save_timer >= 5.0:
@@ -326,6 +356,8 @@ func _main_action() -> void:
 			_notify("Out of propellant. Open Pause > Fuel and Repairs.")
 			return
 		_running = not _running
+		if _running:
+			GameAudio.effect("launch")
 	elif _phase == "explore":
 		_interact()
 	else:
@@ -337,9 +369,11 @@ func _secondary_action() -> void:
 		return
 	if _phase == "landing":
 		_gear = true
+		GameAudio.effect("stage")
 		_notify("Landing gear deployed.")
-	elif _phase == "explore":
+	elif _phase == "explore" and _is_surface():
 		_rover = not _rover
+		GameAudio.effect("stage")
 		_notify("Rover mode." if _rover else "Astronaut walk mode.")
 	elif _phase == "approach":
 		_notify("Use joystick steering to maintain trajectory.")
@@ -391,6 +425,13 @@ func _complete() -> void:
 func _refresh() -> void:
 	if _telemetry == null:
 		return
+	var walking: bool = _phase == "explore" and _is_surface()
+	var cockpit: bool = str(GameState.settings.get("camera_mode", "chase")) == "cockpit"
+	_vehicle.visible = walking or (_phase != "complete" and not cockpit)
+	if walking:
+		_vehicle.texture = EVA_ROVER if _rover else EVA_AVATAR
+	else:
+		_vehicle.texture = LANDER_PHOTO if _phase == "landing" else ORBITER
 	var title: String = _target.to_upper()
 	var flight: String = "MARS SURFACE" if _is_surface() else "ORBITAL FLYBY"
 	_telemetry.text = "%s · %s\nFUEL %d%%  HULL %d%%\nCOINS %d" % [title, flight, int(_fuel), int(_hull), GameState.coins]
@@ -398,7 +439,8 @@ func _refresh() -> void:
 		_telemetry.text += "\nFPS %d / target %d" % [Engine.get_frames_per_second(), Engine.max_fps]
 	_camera.text = "CAM: %s" % str(GameState.settings.get("camera_mode", "chase")).to_upper()
 	_brake.visible = _phase == "landing"
-	_secondary.visible = _phase in ["landing", "explore"]
+	_secondary.visible = _phase == "landing" or walking
+	_secondary.disabled = _phase == "landing" and _gear
 	if _phase == "approach":
 		_objective.text = "APPROACH %d%% · Steer and maintain fuel" % int(_progress)
 		_action.text = "PAUSE" if _running else "START TRANSFER"
@@ -472,6 +514,7 @@ func _refuel() -> void:
 	if _fuel < 99.0 and GameState.use_supply("fuel_cell"):
 		_fuel = minf(100.0, _fuel + 35.0)
 		_notify("Fuel cell fitted: +35%.")
+		_save()
 	else:
 		_notify("No fuel cell in inventory or tank already full.")
 	_update_menu()
@@ -481,6 +524,7 @@ func _repair() -> void:
 		_hull = minf(100.0, _hull + 35.0)
 		_repaired = true
 		_notify("Spacecraft repairs completed: +35% hull.")
+		_save()
 	else:
 		_notify("No repair kit in inventory or hull already full.")
 	_update_menu()
@@ -496,10 +540,7 @@ func _save() -> void:
 		"checks": _checks.duplicate(), "gear": _gear, "rover": _rover,
 		"flag": _flag_planted, "repaired": _repaired,
 	}
-	var file: FileAccess = FileAccess.open(_checkpoint_path(), FileAccess.WRITE)
-	if file != null:
-		file.store_string(JSON.stringify(data))
-		file.close()
+	SaveStore.write_checkpoint(_checkpoint_path(), data)
 	GameState.save_local()
 
 func _restore() -> void:
@@ -527,8 +568,8 @@ func _restore() -> void:
 	_rover = bool(data.get("rover", false))
 	_flag_planted = bool(data.get("flag", false))
 	_repaired = bool(data.get("repaired", false))
-	var checks: Array = data.get("checks", [])
-	if checks.size() == 3:
+	var checks: Variant = data.get("checks", [])
+	if checks is Array and checks.size() == 3:
 		for i in range(3):
 			_checks[i] = bool(checks[i])
 

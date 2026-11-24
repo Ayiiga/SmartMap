@@ -1,6 +1,5 @@
 from pathlib import Path
 import json
-import wave
 
 ROOT = Path(__file__).resolve().parents[1]
 read = lambda p: (ROOT / p).read_text()
@@ -29,14 +28,13 @@ for button in ["TEST ROCKET SOUND", "TEST SHIP SPEAKER", "RESET SETTINGS", "BACK
     assert button in settings, button
 assert "signal radio_message" in audio
 assert "AudioStreamWAV" in audio
-assert "assets/audio/afro_space_theme.wav" in audio
-wav_path = ROOT / "assets/audio/afro_space_theme.wav"
-assert wav_path.is_file(), "Original music file not bundled"
-with wave.open(str(wav_path), "rb") as wav:
-    assert wav.getnchannels() == 1
-    assert wav.getframerate() == 22050
-    assert wav.getnframes() > 180000
-    assert any(byte != 0 for byte in wav.readframes(4096)), "WAV is silent"
+assert "assets/audio/afro_space_theme.ogg" in audio
+assert "theme.loop = true" in audio
+theme_path = ROOT / "assets/audio/afro_space_theme.ogg"
+assert theme_path.is_file(), "Original music file not bundled"
+assert theme_path.stat().st_size > 100_000
+with theme_path.open("rb") as theme:
+    assert theme.read(4) == b"OggS"
 assert "tts_get_voices_for_language" in audio
 assert "no external" in audio.lower() or "No copyrighted" in audio
 assert "SHIP RADIO" in comets and "MOVE LEFT" in comets and "MOVE RIGHT" in comets
