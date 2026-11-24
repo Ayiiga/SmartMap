@@ -40,10 +40,10 @@ func _ready() -> void:
 	var actions: HBoxContainer = HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	hero.add_child(actions)
-	var launch: Button = UI.button("▶  AUTO PHOTO MISSION", true)
+	var launch: Button = UI.button("▶  LAUNCH FROM EARTH", true)
 	launch.custom_minimum_size = Vector2(255, 66)
 	actions.add_child(launch)
-	launch.pressed.connect(_auto_photo_mission)
+	launch.pressed.connect(GameState.start_earth_launch)
 	var resume: Button = UI.button("CONTINUE")
 	resume.custom_minimum_size = Vector2(185, 66)
 	resume.disabled = not GameState.can_continue()
@@ -72,17 +72,7 @@ func _ready() -> void:
 	_add(nav, "TROPHIES & AWARDS", func() -> void: _open("rewards_screen"))
 	_add(nav, "SETTINGS", func() -> void: _open("settings_screen"))
 	_add(nav, "EARTH TRAINING (OPTIONAL)", func() -> void: GameState.new_game())
-	nav.add_child(UI.label("🌕 Moon after Earth orbit\n🔴 Mars after Moon + upgrades\n🪐 More worlds planned", 14, UI.MUTED))
-
-func _auto_photo_mission() -> void:
-	# Prefer the next unlocked interactive NASA-imagery expedition.
-	var next: String = GameState.next_photo_destination()
-	if next != "moon":
-		GameState.begin_photo_expedition(next)
-		return
-	GameState.current_mission = "eva_moon" if bool(GameState.completed_planets.get("moon", false)) else "photo_earth_moon"
-	GameState.save_local()
-	get_tree().change_scene_to_file(GameState.PHOTO_MISSION)
+	nav.add_child(UI.label("🌕 Moon after Earth orbit\n🔴 Mars after Moon + upgrades\n🪐 Europa, Titan and outer planets", 14, UI.MUTED))
 
 func _add(parent: VBoxContainer, caption: String, callback: Callable) -> void:
 	var button: Button = UI.button(caption)

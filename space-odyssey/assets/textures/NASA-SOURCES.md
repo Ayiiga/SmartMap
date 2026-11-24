@@ -14,3 +14,10 @@ The listed JPEG/PNG files are imagery sourced from NASA mission pages and bundle
 NASA media policy: https://www.nasa.gov/nasa-brand-center/images-and-media/
 
 The original file source URLs are in .github/workflows/gigaorbit-stage-nasa.yml. Review media usage and any third-party processor credits before external commercialization. Do not use official NASA logos as GigaOrbit brand marks. Future images with third-party rights must be separately reviewed.
+
+GigaOrbit's helmet illustration, fictional crew portraits, EVA suit, rover, lunar lander,
+communications antenna, launchpad and Moon backdrops, rocket, and orbital craft were created for the game with image generation. They depict
+fictional people and hardware and are not part of the NASA photograph collection above.
+
+The cloud-deck, Moon disc, Europa ice and Titan surface illustrations are generated
+for gameplay. The Europa and Titan scenes are artistic reconstructions.

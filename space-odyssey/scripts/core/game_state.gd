@@ -172,6 +172,15 @@ func begin_photo_expedition(target: String) -> bool:
 	get_tree().change_scene_to_file(PHOTO_EXPEDITION)
 	return true
 
+func start_earth_launch() -> void:
+	# A new flight replaces the Moon flight checkpoint but keeps career progress.
+	destination_planet = "moon"
+	current_mission = "photo_fresh_launch"
+	active_session = true
+	has_started = true
+	save_local()
+	get_tree().change_scene_to_file(PHOTO_MISSION)
+
 func next_photo_destination() -> String:
 	# Preserve earned progress; do not skip required Moon/Mars milestones.
 	if not bool(completed_planets.get("moon", false)):
@@ -336,7 +345,7 @@ func continue_game() -> bool:
 	var destination: String = TRAINING
 	if current_mission.begins_with("photo_expedition_") and planet_unlocked(destination_planet):
 		destination = PHOTO_EXPEDITION
-	elif current_mission in ["photo_earth_moon", "photo_transfer_moon"]:
+	elif current_mission in ["photo_earth_moon", "photo_transfer_moon", "photo_fresh_launch"]:
 		destination = PHOTO_MISSION
 	elif current_mission == "launch_001":
 		destination = FLIGHT

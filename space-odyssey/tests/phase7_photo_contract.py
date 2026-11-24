@@ -5,13 +5,13 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 read = lambda p: (root / p).read_text(encoding="utf-8")
-mission = read("scripts/world/photo_mission.gd")
+mission = read("scripts/world/photo_mission.gd") + read("scripts/flight/photo_flight.gd")
 menu = read("scripts/ui/main_menu.gd")
 state = read("scripts/core/game_state.gd")
 scene = read("scenes/world/photo_mission.tscn")
-shader = read("assets/shaders/rocket_photo_mask.gdshader")
 workflow = Path(__file__).resolve().parents[2] / ".github/workflows/space-odyssey-android.yml"
-for name in ("launch-rocket.webp", "earth-orbit.webp", "lunar-rover.webp", "astronaut-eva.webp"):
+for name in ("earth-launchpad.webp", "earth-orbit.webp", "moon-surface.webp", "eva-suit.webp", "eva-rover.webp", "eva-antenna.webp",
+             "lunar-lander.webp", "flight-rocket.webp", "orbital-craft.webp"):
     assert (root / "assets/textures" / name).is_file(), name
     assert f'res://assets/textures/{name}' in mission, f"Photo not integrated into playable scene: {name}"
 for key in ("launch", "transfer", "landing", "explore", "complete"):
@@ -25,7 +25,7 @@ for safe_api in ("GameState.record_flight_step", "GameState.award_landing",
                  "GameState.collect_moon_sample", "GameState.complete_moon_eva",
                  "GameState.buy_supply", "GameState.use_supply"):
     assert safe_api in mission, f"Game progression not attached to persistent wallet: {safe_api}"
-assert "GameState.PHOTO_MISSION" in menu and "func _auto_photo_mission(" in menu
+assert "GameState.start_earth_launch" in menu and "photo_fresh_launch" in state
 for new_control in ("_cycle_camera", "_change_zoom", "_perform_eva_action", "_select_eva_mission", "_auto_eva_mission"):
     assert f"func {new_control}(" in mission, f"Missing interactive feature: {new_control}"
 for task in ("Lunar Repair Specialist", "Lunar Flag Explorer", "Ghana flag raised"):
@@ -42,7 +42,6 @@ assert 'ANDROID UI v3' in settings
 assert 'CenterContainer.new()' not in settings, "Settings still uses compressed layout"
 assert 'var row: VBoxContainer = _setting_row(' in settings
 assert "[node name=\"PhotoMission\" type=\"Control\"]" in scene
-assert "shader_type canvas_item" in shader
 assert "permissions/internet=false" in read("export_presets.cfg")
 assert "phase7_photo_contract.py" in workflow.read_text(encoding="utf-8"), "Photo mission not covered by build gate"
 print("PASS: playable image-layered 2.5D mission assets, controls, rewards, offline checkpoint routing")

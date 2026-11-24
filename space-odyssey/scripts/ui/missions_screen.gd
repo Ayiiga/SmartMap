@@ -8,7 +8,7 @@ func _ready() -> void:
 	var auto: Button = UI.button("AUTO CHOOSE PHOTO MISSION", true)
 	col.add_child(auto)
 	auto.pressed.connect(_start_auto_photo)
-	var photo: Button = UI.button("EARTH TO MOON · PHOTOGRAPHIC 2.5D")
+	var photo: Button = UI.button("EARTH LAUNCH TO MOON")
 	col.add_child(photo)
 	photo.pressed.connect(_start_photo)
 	col.add_child(UI.separator())
@@ -37,7 +37,7 @@ func _ready() -> void:
 	var moon: Button = UI.button("FLY TO THE MOON", true)
 	moon.disabled = not GameState.flight_complete
 	col.add_child(moon)
-	moon.pressed.connect(func() -> void: GameState.begin_transfer("moon"))
+	moon.pressed.connect(GameState.start_earth_launch)
 	col.add_child(UI.label("Best grade: %s" % str(GameState.landing_grades.get("moon", "Not landed yet")), 17, UI.MUTED))
 	col.add_child(UI.separator())
 	col.add_child(UI.label("05  ·  MARS EXPEDITION & LANDING", 23, UI.ACCENT))
@@ -60,7 +60,7 @@ func _ready() -> void:
 		var label: String = body.to_upper()
 		var unlocked: bool = GameState.planet_unlocked(body)
 		var completed: bool = bool(GameState.completed_planets.get(body, false))
-		var activity: String = "LAND + SAMPLE" if body == "mars" else "ORBITAL PROBE + SCAN"
+		var activity: String = "LAND + SAMPLE" if body in ["mars", "europa", "titan"] else "ORBITAL PROBE + SCAN"
 		var btn: Button = UI.button("%s: %s%s" % [label, activity, " ✓" if completed else ""])
 		btn.disabled = not unlocked
 		col.add_child(btn)
@@ -102,9 +102,7 @@ func _start_auto_photo() -> void:
 		_start_expedition(next)
 
 func _start_photo() -> void:
-	GameState.current_mission = "photo_earth_moon"
-	GameState.save_local()
-	get_tree().change_scene_to_file(GameState.PHOTO_MISSION)
+	GameState.start_earth_launch()
 
 func _start_photo_eva() -> void:
 	if not bool(GameState.completed_planets.get("moon", false)):

@@ -38,6 +38,21 @@ static func save_data(payload: Dictionary) -> bool:
 		return false
 	return true
 
+static func write_checkpoint(path: String, payload: Dictionary) -> bool:
+	var temporary: String = path + ".tmp"
+	var file: FileAccess = FileAccess.open(temporary, FileAccess.WRITE)
+	if file == null:
+		push_warning("Could not open mission checkpoint for writing.")
+		return false
+	file.store_string(JSON.stringify(payload))
+	file.flush()
+	var write_error: Error = file.get_error()
+	file.close()
+	if write_error != OK or DirAccess.rename_absolute(temporary, path) != OK:
+		push_warning("Could not replace mission checkpoint.")
+		return false
+	return true
+
 static func delete_all_saves() -> void:
 	for path: String in [FILE_PATH, BACKUP_PATH, TEMP_PATH]:
 		if FileAccess.file_exists(path):

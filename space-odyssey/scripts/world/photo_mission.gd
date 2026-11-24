@@ -2,12 +2,21 @@ extends Control
 ## GigaOrbit photograph-led 2.5D Earth-to-Moon mission.
 ## Real touch controls, simulated flight, checkpoints, EVA and GameState economy.
 ## Source photographs are bundled locally; camera motion comes from parallax and scale.
+const Flight = preload("res://scripts/flight/photo_flight.gd")
+const SaveStore = preload("res://scripts/core/save_store.gd")
 const UI = preload("res://scripts/ui/space_ui.gd")
 const FLIGHT_STICK = preload("res://scripts/flight/flight_stick.gd")
-const LAUNCH_PHOTO = preload("res://assets/textures/launch-rocket.webp")
+const LAUNCH_PHOTO = Flight.LAUNCHPAD
 const ORBIT_PHOTO = preload("res://assets/textures/earth-orbit.webp")
-const LUNAR_PHOTO = preload("res://assets/textures/lunar-rover.webp")
-const EVA_PHOTO = preload("res://assets/textures/astronaut-eva.webp")
+const LUNAR_PHOTO = preload("res://assets/textures/moon-surface.webp")
+const ROCKET_SPRITE = preload("res://assets/textures/flight-rocket.webp")
+const ROCKET_PLUME = preload("res://assets/textures/rocket-plume.webp")
+const MOON_DISC = preload("res://assets/textures/moon-disc.webp")
+const ORBITER = preload("res://assets/textures/orbital-craft.webp")
+const EVA_AVATAR = preload("res://assets/textures/eva-suit.webp")
+const EVA_ROVER = preload("res://assets/textures/eva-rover.webp")
+const EVA_ANTENNA = preload("res://assets/textures/eva-antenna.webp")
+const LANDER_PHOTO = preload("res://assets/textures/lunar-lander.webp")
 const CHECKPOINT_PATH: String = "user://gigaorbit_photo_checkpoint_v1.json"
 const STAGES: Array[String] = ["launch", "transfer", "landing", "explore", "complete"]
 const SAMPLES: Array[float] = [22.0, 48.0, 76.0]
@@ -18,6 +27,7 @@ var _paused: bool = false
 var _braking: bool = false
 var _touch_buttons: Array[Button] = []
 var _native_brake_finger: int = -1
+var _pause_toggle: Button
 var _flight_stick: Control
 var _camera_save_timer: Timer
 var _gear: bool = false
@@ -39,10 +49,17 @@ var _comm_repaired: bool = false
 var _pause_page: String = "main"
 var _timer: float = 0.0
 var _last_saved: float = 0.0
+var _ascent_stage: int = -1
+var _touchdown_display: float = 0.0
 var _notice_timer: float = 0.0
 var _parallax: TextureRect
 var _near_layer: TextureRect
 var _photo_ship: TextureRect
+var _plume: TextureRect
+var _destination: TextureRect
+var _avatar: TextureRect
+var _antenna: TextureRect
+var _lander: TextureRect
 var _marker: Label
 var _hud: Label
 var _objective: Label
@@ -67,7 +84,10 @@ func _ready() -> void:
 	_camera_save_timer.timeout.connect(GameState.save_local)
 	_build_photo()
 	_build_interface()
-	_restore_checkpoint()
+	if GameState.current_mission == "photo_fresh_launch":
+		_save_checkpoint()
+	else:
+		_restore_checkpoint()
 	# Explicitly selected Moon transfer uses 2.5D photography, never the
 	# legacy transfer scene's blue/white mesh spheres.
 	if GameState.current_mission == "photo_transfer_moon":
@@ -102,44 +122,34 @@ func _build_photo() -> void:
 	_near_layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
 	_near_layer.modulate = Color(1, 1, 1, 0.10)
 	add_child(_near_layer)
-	_photo_ship = TextureRect.new()
-	_photo_ship.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_photo_ship.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_photo_ship.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	_photo_ship.texture = _make_rocket_crop()
-	_photo_ship.visible = false
-	add_child(_photo_ship)
+	_destination = _foreground(MOON_DISC)
+	_plume = _foreground(ROCKET_PLUME)
+	_photo_ship = _foreground(ROCKET_SPRITE)
+	_lander = _foreground(LANDER_PHOTO)
+	_antenna = _foreground(EVA_ANTENNA)
+	_avatar = _foreground(EVA_AVATAR)
 	_marker = Label.new()
 	_marker.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_marker.text = "◎  SAFE LANDING ZONE"
 	_marker.add_theme_color_override("font_color", Color("f3cf72"))
 	_marker.add_theme_font_size_override("font_size", 22)
 	_marker.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_marker.add_theme_color_override("font_shadow_color", Color.BLACK)
+	_marker.add_theme_constant_override("shadow_offset_y", 2)
 	add_child(_marker)
 	_marker.visible = false
 	resized.connect(_fit_photo)
 	_fit_photo()
 
-func _make_rocket_crop() -> AtlasTexture:
-	# Cut a photographic center section from the supplied rocket-launch photo.
-	# A feathered silhouette shader removes its rectangular photograph edge.
-	var atlas: AtlasTexture = AtlasTexture.new()
-	atlas.atlas = LAUNCH_PHOTO
-	var w: float = float(LAUNCH_PHOTO.get_width())
-	var h: float = float(LAUNCH_PHOTO.get_height())
-	atlas.region = Rect2(w * 0.31, h * 0.035, w * 0.38, h * 0.50)
-	var mask: ShaderMaterial = ShaderMaterial.new()
-	mask.shader = preload("res://assets/shaders/rocket_photo_mask.gdshader")
-	_photo_ship_placeholder(mask)
-	return atlas
-
-func _photo_ship_placeholder(mask: ShaderMaterial) -> void:
-	# Material is applied to the cut-out TextureRect after construction.
-	call_deferred("_apply_ship_mask", mask)
-
-func _apply_ship_mask(mask: ShaderMaterial) -> void:
-	if is_instance_valid(_photo_ship):
-		_photo_ship.material = mask
+func _foreground(texture: Texture2D) -> TextureRect:
+	var layer := TextureRect.new()
+	layer.texture = texture
+	layer.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	layer.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	layer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.hide()
+	add_child(layer)
+	return layer
 
 func _fit_photo() -> void:
 	if _parallax == null:
@@ -153,8 +163,17 @@ func _fit_photo() -> void:
 		zoom *= 1.12
 	_parallax.size = view_size * maxf(1.08, 1.30 * zoom)
 	_near_layer.size = view_size * maxf(1.10, 1.38 * zoom)
-	_photo_ship.size = Vector2(view_size.y * 0.34 * zoom, view_size.y * 0.56 * zoom)
-	_photo_ship.visible = _phase in ["transfer", "landing"] and mode != "cockpit"
+	_photo_ship.size = Vector2(view_size.y * 0.46, view_size.y * 0.52) * zoom
+	_photo_ship.pivot_offset = _photo_ship.size * 0.5
+	_plume.size = Vector2(view_size.y * 0.15, view_size.y * 0.37) * zoom
+	_photo_ship.visible = _phase == "launch" or (_phase == "transfer" and mode != "cockpit")
+	_lander.visible = _phase in ["landing", "explore"]
+	_destination.visible = _phase == "transfer"
+	_lander.size = Vector2(view_size.y * 0.42, view_size.y * 0.38) * zoom
+	_avatar.size = Vector2(view_size.y * 0.44, view_size.y * 0.34) * zoom
+	_antenna.size = Vector2(view_size.y * 0.30, view_size.y * 0.28) * zoom
+	_plume.visible = _phase == "launch" and _running and _photo_ship.visible and not _paused
+	_update_eva_art()
 	_move_photo()
 
 func _move_photo() -> void:
@@ -172,33 +191,96 @@ func _move_photo() -> void:
 	_near_layer.position = -(_near_layer.size - v) * 0.5 + drift * 2.2 + Vector2(-forward * 1.2 + near_pan * 0.65, 0)
 	var mode: String = str(GameState.settings.get("camera_mode", "chase"))
 	var ship_x: float = 0.49 if mode != "external" else 0.68
-	_photo_ship.position = Vector2(v.x * ship_x, v.y * 0.40) - _photo_ship.size * 0.5 + Vector2(_steer.x * 28, 0)
-	_marker.position = Vector2(v.x * 0.38, v.y * 0.66)
-	_marker.size = Vector2(v.x * 0.24, 40)
+	var ascent: float = pow(clampf(_altitude / 120000.0, 0.0, 1.0), 0.4)
+	var ship_y: float = lerpf(0.65, 0.26, ascent) if _phase == "launch" else lerpf(0.58, 0.28, _distance / 100.0)
+	_photo_ship.rotation = _steer.x * (0.06 if _phase == "launch" else 0.12)
+	_photo_ship.position = Vector2(v.x * ship_x, v.y * ship_y) - _photo_ship.size * 0.5 + Vector2(_steer.x * 28, 0)
+	var apparent_size: float = v.y * lerpf(0.08, 0.63, _distance / 100.0)
+	_destination.size = Vector2(apparent_size, apparent_size)
+	_destination.position = Vector2(v.x * 0.70, v.y * 0.43) - _destination.size * 0.5 - _steer * 28.0
+	var engine_position: Vector2 = Vector2(0.0, _photo_ship.size.y * 0.49).rotated(_photo_ship.rotation)
+	var engine_flicker: float = sin(_timer * 37.0) * 0.07
+	_plume.position = _photo_ship.position + _photo_ship.pivot_offset + engine_position - Vector2(_plume.size.x * 0.5, 4.0)
+	_plume.pivot_offset = Vector2(_plume.size.x * 0.5, 0.0)
+	_plume.rotation = _photo_ship.rotation
+	_plume.scale.y = 0.85 + _throttle * 0.18 + engine_flicker
+	var descent_progress: float = 1.0 - clampf(_altitude / 160.0, 0.0, 1.0)
+	var lander_x: float = ship_x if _phase == "landing" or _touchdown_display > 0.0 else 0.31 - _eva_x * 0.012
+	var lander_y: float = lerpf(0.30, 0.63, descent_progress) if _phase == "landing" or _touchdown_display > 0.0 else 0.68
+	_lander.position = Vector2(v.x * lander_x + _offset * 2.0, v.y * lander_y) - _lander.size * 0.5
+	var motion: float = sin(_timer * 13.0) * absf(Flight.movement(_steer)) * (1.0 if _rover else 3.0)
+	_avatar.position = Vector2(v.x * 0.52, v.y * 0.79 + motion) - Vector2(_avatar.size.x * 0.5, _avatar.size.y)
+	var antenna_offset: float = (52.0 - _eva_x) * v.x * 0.018
+	_antenna.position = Vector2(v.x * 0.53 + antenna_offset, v.y * 0.76) - Vector2(_antenna.size.x * 0.5, _antenna.size.y)
+	var marker_x: float = v.x * 0.5
+	var marker_y: float = v.y * 0.70
+	if _phase == "explore":
+		marker_x = v.x * 0.5 + clampf((_eva_goal() - _eva_x) * v.x * 0.012, -v.x * 0.28, v.x * 0.28)
+		marker_y = v.y * 0.44
+	_marker.position = Vector2(marker_x - 150.0, marker_y)
+	_marker.size = Vector2(300.0, 40)
 
 func _refresh_photo() -> void:
 	match _phase:
 		"launch":
+			_ascent_stage = -1
 			_parallax.texture = LAUNCH_PHOTO
-			_near_layer.texture = LAUNCH_PHOTO
-			_photo_ship.visible = false
+			_update_ascent()
+			_photo_ship.texture = ROCKET_SPRITE
 			_marker.visible = false
 		"transfer":
 			_parallax.texture = ORBIT_PHOTO
-			_near_layer.texture = EVA_PHOTO
-			_photo_ship.visible = str(GameState.settings.get("camera_mode", "chase")) != "cockpit"
+			_near_layer.texture = ORBIT_PHOTO
+			_photo_ship.texture = ORBITER
 			_marker.visible = false
 		"landing":
 			_parallax.texture = LUNAR_PHOTO
 			_near_layer.texture = LUNAR_PHOTO
-			_photo_ship.visible = str(GameState.settings.get("camera_mode", "chase")) != "cockpit"
 			_marker.visible = true
 		"explore", "complete":
 			_parallax.texture = LUNAR_PHOTO
-			_near_layer.texture = EVA_PHOTO
+			_near_layer.texture = LUNAR_PHOTO
 			_photo_ship.visible = false
-			_marker.visible = false
+			_marker.visible = _phase == "explore" and _touchdown_display <= 0.0
+	if _phase != "launch":
+		_parallax.modulate = Color.WHITE
+		_near_layer.modulate.a = 0.10
 	_fit_photo()
+
+func _update_ascent() -> void:
+	var stage: int = Flight.ascent_stage(_altitude)
+	if _ascent_stage == stage:
+		return
+	_near_layer.texture = _parallax.texture
+	_near_layer.modulate = Color(1, 1, 1, 0.78 if _ascent_stage >= 0 else 0.0)
+	_ascent_stage = stage
+	_parallax.texture = Flight.ascent_texture(stage)
+	_parallax.modulate = Flight.DARK_SKY if stage == 2 else Color.WHITE
+	if stage > 0:
+		_notice_message(Flight.STAGES[stage])
+		GameAudio.effect("stage")
+
+func _eva_goal() -> float:
+	match _eva_mission:
+		"repair": return 0.0 if _comm_repaired else 52.0
+		"flag": return 0.0 if _flag_planted else 84.0
+	var next: int = Flight.waypoint(SAMPLES, _samples, _eva_x)
+	return SAMPLES[next] if next >= 0 else 0.0
+
+func _eva_caption(goal: float) -> String:
+	if goal == 0.0:
+		return "LANDER"
+	if _eva_mission == "repair":
+		return "REPAIR ANTENNA"
+	if _eva_mission == "flag":
+		return "FLAG SITE"
+	return "SAMPLE %d" % (SAMPLES.find(goal) + 1)
+
+func _update_eva_art() -> void:
+	_avatar.visible = _phase == "explore" and _touchdown_display <= 0.0
+	_avatar.texture = EVA_ROVER if _rover else EVA_AVATAR
+	_antenna.visible = _phase == "explore" and _eva_mission == "repair"
+	_antenna.modulate = Color.WHITE if _comm_repaired else Color(0.8, 0.8, 0.8)
 
 func _build_interface() -> void:
 	_control_root = Control.new()
@@ -234,8 +316,10 @@ func _build_interface() -> void:
 	pause.offset_right = -16
 	pause.offset_top = 15
 	pause.offset_bottom = 65
+	pause.custom_minimum_size = Vector2.ZERO
 	_control_root.add_child(pause)
 	_touch_button(pause)
+	_pause_toggle = pause
 	pause.pressed.connect(_toggle_pause)
 	# Compact camera/zoom controls are anchored to the right edge and never
 	# overlap the bottom joystick or the principal flight action buttons.
@@ -335,8 +419,14 @@ func _touch_button(button: Button) -> void:
 	_touch_buttons.append(button)
 
 func _input(event: InputEvent) -> void:
-	# The first finger uses normal GUI mouse emulation. Additional fingers
-	# can operate gameplay buttons while the first finger steers the craft.
+	if not is_instance_valid(_pause_dialog):
+		return
+	if event is InputEventMouseButton and event.device == InputEvent.DEVICE_ID_EMULATION:
+		# Native touch owns flight buttons. Keep emulation for the scrollable pause UI.
+		var emulated_target: Button = Flight.touch_target(_touch_buttons, event.position)
+		if emulated_target != null and (not _paused or emulated_target == _pause_toggle):
+			get_viewport().set_input_as_handled()
+		return
 	if not event is InputEventScreenTouch:
 		return
 	var touch: InputEventScreenTouch = event
@@ -345,21 +435,18 @@ func _input(event: InputEvent) -> void:
 		_braking = false
 		get_viewport().set_input_as_handled()
 		return
-	if touch.index == 0 or not touch.pressed or touch.canceled or _paused:
+	if not touch.pressed or touch.canceled:
 		return
-	for button in _touch_buttons:
-		if not is_instance_valid(button) or not button.is_visible_in_tree() or button.disabled:
-			continue
-		if not button.get_global_rect().has_point(touch.position):
-			continue
-		if button == _brake_button:
-			if not _braking:
-				_native_brake_finger = touch.index
-				_braking = true
-		elif not button.button_pressed:
-			button.pressed.emit()
-		get_viewport().set_input_as_handled()
+	var button: Button = Flight.touch_target(_touch_buttons, touch.position)
+	if button == null or (_paused and button != _pause_toggle):
 		return
+	if button == _brake_button:
+		if not _braking:
+			_native_brake_finger = touch.index
+			_braking = true
+	else:
+		button.pressed.emit()
+	get_viewport().set_input_as_handled()
 
 func _reset_flight_input() -> void:
 	_native_brake_finger = -1
@@ -391,6 +478,7 @@ func _change_zoom(amount: float) -> void:
 	GameState.settings["camera_zoom"] = clampf(float(GameState.settings.get("camera_zoom", 1.0)) + amount, 0.85, 1.7)
 	_camera_save_timer.start()
 	_fit_photo()
+	_refresh_interface()
 	_notice_message("Zoom: %d%%" % roundi(float(GameState.settings["camera_zoom"]) * 100.0))
 
 func _physics_process(delta: float) -> void:
@@ -398,6 +486,12 @@ func _physics_process(delta: float) -> void:
 		return
 	_timer += delta
 	_move_photo()
+	if _phase == "launch":
+		_near_layer.modulate.a = move_toward(_near_layer.modulate.a, 0.0, delta * 1.8)
+	if _touchdown_display > 0.0:
+		_touchdown_display = maxf(0.0, _touchdown_display - delta)
+		_refresh_interface()
+		return
 	if _notice_timer > 0.0:
 		_notice_timer -= delta
 		if _notice_timer <= 0.0:
@@ -410,32 +504,37 @@ func _physics_process(delta: float) -> void:
 		"launch":
 			var acceleration: float = _throttle * 92.0 + (13.0 if bool(GameState.settings.get("assisted_controls", true)) else 0.0) - 10.5
 			_speed = clampf(_speed + acceleration * delta, 0.0, 1850.0)
-			_altitude += _speed * delta * 4.0
+			_altitude += _speed * delta * 6.0
+			_update_ascent()
 			_fuel = maxf(0.0, _fuel - delta * (_throttle * 0.34 + 0.02))
 			if _altitude >= 120000.0:
 				_complete_orbit()
 		"transfer":
-			var direction_penalty: float = clampf(1.0 - absf(_steer.x) * 0.15, 0.6, 1.0)
-			_distance = minf(100.0, _distance + delta * (4.5 + _throttle * 0.8) * direction_penalty)
+			var direction_penalty: float = clampf(1.0 - absf(_steer.x) * 0.18, 0.65, 1.0)
+			_distance = minf(100.0, _distance + delta * (6.0 + _throttle * 1.6) * direction_penalty)
 			_fuel = maxf(0.0, _fuel - delta * (_throttle * 0.08 + 0.01))
 			if _distance >= 100.0:
 				_enter_landing()
 		"landing":
-			var braking: float = 7.2 if _braking else 0.0
-			_descent = clampf(_descent + (1.4 - _throttle * 3.0 - braking) * delta, 0.2, 18.0)
-			_offset = clampf(_offset + _steer.x * 7.4 * delta, -60.0, 60.0)
+			var assisted: bool = bool(GameState.settings.get("assisted_controls", true))
+			var result := Flight.landing_step(_altitude, _descent, _offset, _steer.x, _braking, assisted, delta)
+			_descent = result.x
+			_offset = result.y
 			_altitude = maxf(0.0, _altitude - _descent * delta)
 			_fuel = maxf(0.0, _fuel - delta * (_throttle * 0.16 + (0.3 if _braking else 0.0)))
 			if _altitude <= 0.0:
-				if _gear and _descent <= 7.0 and absf(_offset) < 11.0:
+				if _gear and _descent <= 7.0 and absf(_offset) <= (18.0 if assisted else 10.0):
 					_finish_landing()
 				else:
 					_fail_landing()
 		"explore":
-			var move_speed: float = 11.0 if _rover else 4.5
-			_eva_x = clampf(_eva_x + _steer.x * move_speed * delta, 0.0, 100.0)
-			# Optional joystick vertical axis drives forwards for one-handed play.
-			_eva_x = clampf(_eva_x - _steer.y * move_speed * delta, 0.0, 100.0)
+			var move_speed: float = 21.0 if _rover else 11.0
+			_eva_x = clampf(_eva_x + Flight.movement(_steer) * move_speed * delta, 0.0, 100.0)
+	if _running and _fuel <= 0.0:
+		_running = false
+		GameAudio.effect("warning")
+		_notice_message("Out of propellant. Open Pause > Supplies.")
+		_save_checkpoint()
 	_refresh_interface()
 	_last_saved += delta
 	if _last_saved >= 5.0:
@@ -447,27 +546,30 @@ func _complete_orbit() -> void:
 		for step in range(GameState.flight_step + 1, 4):
 			GameState.record_flight_step(step)
 	_phase = "transfer"
-	_running = false
+	_running = true
 	_fuel = maxf(20.0, _fuel)
-	_notice_message("Orbit reached! +300 coins on first clear.")
+	_notice_message("Earth orbit reached. Trans-lunar flight underway.")
 	_refresh_photo()
 	_save_checkpoint()
 
 func _enter_landing() -> void:
 	_phase = "landing"
-	_running = false
+	_running = true
+	_gear = bool(GameState.settings.get("assisted_controls", true))
 	_altitude = 160.0
 	_descent = 5.8
 	_throttle = 0.43
 	_offset = 12.0
-	_notice_message("Moon approach: prepare the landing gear.")
+	_notice_message("Moon approach. Descent underway.")
 	_refresh_photo()
 	_save_checkpoint()
 
 func _finish_landing() -> void:
 	_running = false
 	_phase = "explore"
+	_touchdown_display = 1.5
 	GameState.award_landing("moon", "A" if _descent < 4.0 else "B", true)
+	GameAudio.effect("success")
 	_notice_message("Touchdown! First landing awards coins + science.")
 	_refresh_photo()
 	_save_checkpoint()
@@ -475,36 +577,45 @@ func _finish_landing() -> void:
 func _fail_landing() -> void:
 	_running = false
 	_hull = maxf(30.0, _hull - 25.0)
+	GameAudio.effect("impact")
 	_altitude = 160.0
 	_descent = 5.8
 	_offset = 12.0
-	_gear = false
+	_gear = bool(GameState.settings.get("assisted_controls", true))
 	_notice_message("Unsafe landing. Retry free; repairs use a repair kit.")
 	_save_checkpoint()
 
 func _main_action() -> void:
-	if _paused:
+	if _paused or _touchdown_display > 0.0:
 		return
 	match _phase:
 		"launch", "transfer", "landing":
+			if not _running and _fuel <= 0.0:
+				_notice_message("Out of propellant. Open Pause > Supplies.")
+				return
 			_running = not _running
+			if _running:
+				GameAudio.effect("launch")
 			_notice_message("Flight active." if _running else "Flight controls paused.")
 		"explore":
 			_perform_eva_action()
 		"complete":
 			_to_menu()
+	_refresh_interface()
 
 func _secondary_action() -> void:
-	if _paused:
+	if _paused or _touchdown_display > 0.0:
 		return
 	match _phase:
 		"launch", "transfer":
 			_throttle = minf(1.0, _throttle + 0.10)
 		"landing":
 			_gear = true
+			GameAudio.effect("stage")
 			_notice_message("Landing gear deployed.")
 		"explore":
 			_rover = not _rover
+			GameAudio.effect("stage")
 			_notice_message("Rover drive engaged." if _rover else "Astronaut walking.")
 		"complete":
 			_to_menu()
@@ -517,6 +628,7 @@ func _perform_eva_action() -> void:
 		if not _comm_repaired and absf(_eva_x - 52.0) <= 11.0:
 			if GameState.use_supply("repair_kit"):
 				_comm_repaired = true
+				_update_eva_art()
 				GameAudio.effect("scan")
 				_notice_message("Communications antenna repaired! Return to the lander.")
 			else:
@@ -578,13 +690,14 @@ func _select_eva_mission(kind: String) -> void:
 func _collect_or_return() -> void:
 	var nearest: int = -1
 	for i in range(3):
-		if not _samples[i] and absf(_eva_x - SAMPLES[i]) < 9.0:
+		if not _samples[i] and absf(_eva_x - SAMPLES[i]) <= 9.0:
 			nearest = i
 			break
 	if nearest >= 0:
 		_samples[nearest] = true
+		GameAudio.effect("scan")
 		_notice_message("Lunar sample %d/3 secured!" % _count_samples())
-	elif _count_samples() == 3 and _eva_x < 9.0:
+	elif _count_samples() == 3 and _eva_x <= 9.0:
 		if not GameState.moon_eva_sample_collected:
 			GameState.collect_moon_sample()
 		if GameState.complete_moon_eva():
@@ -606,34 +719,41 @@ func _count_samples() -> int:
 func _refresh_interface() -> void:
 	if _hud == null:
 		return
+	_plume.visible = _phase == "launch" and _running and _photo_ship.visible and not _paused
+	_update_eva_art()
+	_marker.visible = _phase == "landing" or (_phase == "explore" and _touchdown_display <= 0.0)
 	match _phase:
 		"launch":
 			_hud.text = "EARTH LAUNCH\nALT %d m · SPD %d m/s\nFUEL %d%%" % [int(_altitude), int(_speed), int(_fuel)]
-			_objective.text = "Reach Earth orbit · joystick steers · press IGNITE"
-			_action.text = "PAUSE ENGINE" if _running else "IGNITE / RESUME ▶"
+			_objective.text = "%s · %s" % [Flight.STAGES[clampi(_ascent_stage, 0, 3)], "Steer the rocket" if _running else "Ignite to launch"]
+			_action.text = "PAUSE FLIGHT" if _running else ("IGNITE ▶" if _altitude < 1.0 else "RESUME FLIGHT ▶")
 			_secondary.text = "THRUST +"
 		"transfer":
 			_hud.text = "MOON TRANSFER\nPROGRESS %d%%\nFUEL %d%%" % [int(_distance), int(_fuel)]
-			_objective.text = "Navigate toward the Moon · guided time-compressed flight"
-			_action.text = "PAUSE" if _running else "BEGIN TRANSFER ▶"
+			_objective.text = "EARTH ORBIT → MOON TRANSFER" if _distance < 25.0 else "COAST TO THE MOON"
+			_action.text = "PAUSE FLIGHT" if _running else "RESUME TRANSFER ▶"
 			_secondary.text = "THRUST +"
 		"landing":
 			_hud.text = "MOON LANDING\nHEIGHT %d m · DESCENT %.1f m/s\nFUEL %d%% · OFFSET %d m" % [int(_altitude), _descent, int(_fuel), int(_offset)]
-			_objective.text = "Steer toward center · hold BRAKE · deploy GEAR"
-			_action.text = "PAUSE DESCENT" if _running else "START DESCENT ▶"
+			_objective.text = "GUIDED DESCENT · Release stick to center" if bool(GameState.settings.get("assisted_controls", true)) else "MANUAL DESCENT · Steer, brake and deploy gear"
+			_marker.text = "◎  LANDING ZONE"
+			_action.text = "PAUSE DESCENT" if _running else "RESUME DESCENT ▶"
 			_secondary.text = "GEAR ✓" if _gear else "DEPLOY GEAR"
 		"explore":
 			# Short lines fit the small status panel; none can wrap into vertical text.
 			_hud.text = "MOON EVA: %s\nRANGE: %d m\nSAMPLES: %d/3\nFUEL: %d%%\nCOINS: %d" % [_eva_mission.to_upper(), int(_eva_x), _count_samples(), int(_fuel), GameState.coins]
-			if _eva_mission == "repair":
-				_objective.text = "REPAIR ANTENNA AT 52 m > RETURN TO 0 m"
-				_action.text = "REPAIR / RETURN"
-			elif _eva_mission == "flag":
-				_objective.text = "RAISE GHANA FLAG AT 84 m > RETURN TO 0 m"
-				_action.text = "PLANT FLAG / RETURN"
+			var goal: float = _eva_goal()
+			var caption: String = _eva_caption(goal)
+			var reach: float = 9.0 if _eva_mission == "samples" or goal == 0.0 else 11.0
+			_marker.text = Flight.marker_text(caption, goal, _eva_x, reach)
+			_objective.text = "TOUCHDOWN CONFIRMED" if _touchdown_display > 0.0 else _marker.text
+			if goal == 0.0:
+				_action.text = "RETURN TO LANDER"
 			else:
-				_objective.text = "COLLECT SAMPLES AT 22, 48, 76 m > RETURN"
-				_action.text = "COLLECT / RETURN"
+				match _eva_mission:
+					"repair": _action.text = "REPAIR ANTENNA"
+					"flag": _action.text = "PLANT FLAG"
+					_: _action.text = "COLLECT SAMPLE"
 			_secondary.text = "EXIT ROVER" if _rover else "ENTER ROVER"
 		"complete":
 			_hud.text = "MISSION COMPLETE ✓\nCOINS %d · SCIENCE %d" % [GameState.coins, GameState.science_points]
@@ -643,8 +763,9 @@ func _refresh_interface() -> void:
 	_camera_button.text = "CAM: %s" % str(GameState.settings.get("camera_mode", "chase")).to_upper()
 	_zoom_in_button.disabled = float(GameState.settings.get("camera_zoom", 1.0)) >= 1.69
 	_zoom_out_button.disabled = float(GameState.settings.get("camera_zoom", 1.0)) <= 0.86
+	_action.disabled = _touchdown_display > 0.0
 	_brake_button.visible = _phase == "landing"
-	_secondary.disabled = _phase == "landing" and _gear
+	_secondary.disabled = _touchdown_display > 0.0 or (_phase == "landing" and _gear)
 
 func _notice_message(message: String) -> void:
 	_notice.text = message
@@ -655,6 +776,7 @@ func _toggle_pause() -> void:
 	_reset_flight_input()
 	_flush_camera_settings()
 	_pause_dialog.visible = _paused
+	_refresh_interface()
 	if _paused:
 		_pause_page = "main"
 	if _paused:
@@ -706,6 +828,7 @@ func _use_fuel() -> void:
 	elif GameState.use_supply("fuel_cell"):
 		_fuel = minf(100.0, _fuel + 35.0)
 		_notice_message("Fuel refilled by 35%.")
+		_save_checkpoint()
 	else:
 		_notice_message("Buy a fuel cell in the workshop.")
 	_update_pause_menu()
@@ -716,6 +839,7 @@ func _use_repair() -> void:
 	elif GameState.use_supply("repair_kit"):
 		_hull = minf(100.0, _hull + 35.0)
 		_notice_message("Hull integrity restored.")
+		_save_checkpoint()
 	else:
 		_notice_message("Buy a repair kit.")
 	_update_pause_menu()
@@ -731,10 +855,7 @@ func _save_checkpoint() -> void:
 		"gear": _gear, "rover": _rover,
 		"eva_mission": _eva_mission, "flag_planted": _flag_planted, "comm_repaired": _comm_repaired,
 	}
-	var file: FileAccess = FileAccess.open(CHECKPOINT_PATH, FileAccess.WRITE)
-	if file != null:
-		file.store_string(JSON.stringify(payload))
-		file.close()
+	SaveStore.write_checkpoint(CHECKPOINT_PATH, payload)
 	GameState.save_local()
 
 func _restore_checkpoint() -> void:
@@ -762,15 +883,15 @@ func _restore_checkpoint() -> void:
 	_descent = clampf(float(restored.get("descent", 5.8)), 0.2, 18.0)
 	_offset = clampf(float(restored.get("offset", 12.0)), -60.0, 60.0)
 	_eva_x = clampf(float(restored.get("eva_x", 0.0)), 0.0, 100.0)
-	_gear = bool(restored.get("gear", false))
+	_gear = bool(restored.get("gear", false)) or (_phase == "landing" and bool(GameState.settings.get("assisted_controls", true)))
 	_rover = bool(restored.get("rover", false))
 	_eva_mission = str(restored.get("eva_mission", "samples"))
 	if _eva_mission not in ["samples", "repair", "flag"]:
 		_eva_mission = "samples"
 	_flag_planted = bool(restored.get("flag_planted", false))
 	_comm_repaired = bool(restored.get("comm_repaired", false))
-	var read_samples: Array = restored.get("samples", [])
-	if read_samples.size() == 3:
+	var read_samples: Variant = restored.get("samples", [])
+	if read_samples is Array and read_samples.size() == 3:
 		for i in range(3):
 			_samples[i] = bool(read_samples[i])
 

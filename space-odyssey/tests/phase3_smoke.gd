@@ -8,10 +8,10 @@ func _initialize() -> void:
 
 func _check() -> void:
 	var errors: Array[String] = []
-	var soundtrack: AudioStream = load("res://assets/audio/afro_space_theme.wav") as AudioStream
+	var soundtrack: AudioStream = load("res://assets/audio/afro_space_theme.ogg") as AudioStream
 	if soundtrack == null:
-		errors.append("Original offline African-inspired music WAV not imported")
-	elif soundtrack.get_length() < 8.0:
+		errors.append("Original offline African-inspired music not imported")
+	elif soundtrack.get_length() < 40.0:
 		errors.append("Original offline soundtrack truncated")
 	var mission_file: FileAccess = FileAccess.open("res://resources/missions/comet_001.json", FileAccess.READ)
 	if mission_file == null:
@@ -28,5 +28,5 @@ func _check() -> void:
 	if not errors.is_empty():
 		quit(1)
 		return
-	print("PASS: Bundled original WAV music, offline mission data, safe Godot resource loading")
+	print("PASS: Bundled original music, offline mission data, safe Godot resource loading")
 	quit(0)

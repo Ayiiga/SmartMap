@@ -15,8 +15,8 @@ state = read("scripts/core/game_state.gd")
 lander = read("scripts/flight/odyssey_lander.gd")
 eva = read("scripts/world/moon_eva.gd")
 
-assets = ("gigaorbit-icon.webp", "earth-orbit.webp", "launch-rocket.webp",
-          "lunar-rover.webp", "astronaut-eva.webp")
+assets = ("gigaorbit-icon.webp", "earth-orbit.webp", "earth-launchpad.webp",
+          "moon-surface.webp", "eva-suit.webp")
 for name in assets:
     photo = root / "assets" / "textures" / name
     assert photo.is_file() and 10_000 < photo.stat().st_size < 5_000_000, f"missing real photo {name}"

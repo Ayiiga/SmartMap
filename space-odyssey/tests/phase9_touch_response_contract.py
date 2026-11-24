@@ -10,7 +10,7 @@ for name, source in [("Earth-Moon mission", mission), ("Planetary expeditions", 
     assert "Control.FOCUS_NONE" in source, name
     for action in ("_main_action", "_secondary_action", "_cycle_camera"):
         assert f".pressed.connect({action})" in source, (name, action)
-assert 'func _secondary_action() -> void:\n\tif _paused:\n\t\treturn' in expedition
+assert 'func _secondary_action() -> void:\n\tif _paused or _touchdown_display > 0.0:\n\t\treturn' in expedition
 assert "func _flush_settings()" in settings
 assert "_save_timer.wait_time = 0.35" in settings
 assert "GameState.apply_settings()" in settings
@@ -22,8 +22,9 @@ print("PASS: immediate flight touch buttons, pause guard, and batched settings s
 
 # Structural regression checks: native secondary touches, cancellation and camera IO.
 for source in (mission, expedition):
-    assert "touch.index == 0" in source
-    assert "button.get_global_rect().has_point(touch.position)" in source
+    assert "touch.index == 0" not in source
+    assert "Flight.touch_target(_touch_buttons, touch.position)" in source
+    assert "InputEvent.DEVICE_ID_EMULATION" in source
     assert "button.pressed.emit()" in source
     assert "touch.index == _native_brake_finger" in source
     assert "touch.canceled" in source
@@ -34,4 +35,4 @@ for source in (mission, expedition):
     assert "NOTIFICATION_APPLICATION_FOCUS_OUT" in source
 stick = (base / "scripts/flight/flight_stick.gd").read_text()
 assert "func reset_touch()" in stick and "touch.canceled" in stick
-print("PASS: independent secondary touch route, reset hooks and deferred camera saves are wired")
+print("PASS: native input for all touch fingers, reset hooks and deferred camera saves are wired")

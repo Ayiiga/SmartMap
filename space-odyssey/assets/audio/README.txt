@@ -1,1 +1,1 @@
-Reserved for later phases. No runtime files required in Phase 1.
+Original GigaOrbit score. A 64-beat stereo loop at 94 BPM with ambient chords, plucked melody, bass and percussion. All waveforms were synthesized for the game. Effects are synthesized locally by GameAudio. No sampled recordings or network access are required. Optional spoken radio depends on an installed Android voice.

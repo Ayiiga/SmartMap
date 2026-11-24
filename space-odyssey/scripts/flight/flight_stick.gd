@@ -11,9 +11,11 @@ func _ready() -> void:
 	set_process_input(true)
 
 func _input(event: InputEvent) -> void:
+	if not is_visible_in_tree():
+		return
 	if event is InputEventScreenTouch:
 		var touch: InputEventScreenTouch = event
-		if touch.pressed and not touch.canceled and _finger == -1 and get_global_rect().has_point(touch.position):
+		if touch.pressed and not touch.canceled and _finger == -1 and get_global_rect().grow(13.0).has_point(touch.position):
 			_finger = touch.index
 			_update_axis(touch.position)
 		elif (not touch.pressed or touch.canceled) and touch.index == _finger:
