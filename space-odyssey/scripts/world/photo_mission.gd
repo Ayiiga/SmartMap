@@ -16,6 +16,10 @@ var _phase: String = "launch"
 var _running: bool = false
 var _paused: bool = false
 var _braking: bool = false
+var _touch_buttons: Array[Button] = []
+var _native_brake_finger: int = -1
+var _flight_stick: Control
+var _camera_save_timer: Timer
 var _gear: bool = false
 var _rover: bool = false
 var _steer: Vector2 = Vector2.ZERO
@@ -56,6 +60,11 @@ var _control_root: Control
 
 func _ready() -> void:
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_camera_save_timer = Timer.new()
+	_camera_save_timer.one_shot = true
+	_camera_save_timer.wait_time = 0.35
+	add_child(_camera_save_timer)
+	_camera_save_timer.timeout.connect(GameState.save_local)
 	_build_photo()
 	_build_interface()
 	_restore_checkpoint()
@@ -265,6 +274,7 @@ func _build_interface() -> void:
 	_touch_button(_zoom_out_button)
 	_zoom_out_button.pressed.connect(func() -> void: _change_zoom(-0.15))
 	var stick: Control = FLIGHT_STICK.new()
+	_flight_stick = stick
 	stick.anchor_top = 1.0
 	stick.anchor_bottom = 1.0
 	stick.offset_left = 18
@@ -272,7 +282,7 @@ func _build_interface() -> void:
 	stick.offset_top = -169
 	stick.offset_bottom = -16
 	_control_root.add_child(stick)
-	stick.connect("axis_changed", func(v: Vector2) -> void: _steer = v)
+	stick.connect("axis_changed", func(v: Vector2) -> void: _steer = Vector2.ZERO if _paused else v)
 	var controls: HBoxContainer = HBoxContainer.new()
 	controls.anchor_left = 1.0
 	controls.anchor_right = 1.0
@@ -289,8 +299,8 @@ func _build_interface() -> void:
 	controls.add_child(_brake_button)
 	_touch_button(_brake_button)
 	_brake_button.button_down.connect(func() -> void: _braking = true)
-	_brake_button.button_up.connect(func() -> void: _braking = false)
-	_brake_button.mouse_exited.connect(func() -> void: _braking = false)
+	_brake_button.button_up.connect(func() -> void: _braking = _native_brake_finger >= 0)
+	_brake_button.mouse_exited.connect(func() -> void: _braking = _native_brake_finger >= 0)
 	_secondary = UI.button("THRUST +")
 	_secondary.custom_minimum_size.x = 140
 	controls.add_child(_secondary)
@@ -322,6 +332,46 @@ func _touch_button(button: Button) -> void:
 	# Keep scrollable menu buttons on their standard release behavior.
 	button.action_mode = BaseButton.ACTION_MODE_BUTTON_PRESS
 	button.focus_mode = Control.FOCUS_NONE
+	_touch_buttons.append(button)
+
+func _input(event: InputEvent) -> void:
+	# The first finger uses normal GUI mouse emulation. Additional fingers
+	# can operate gameplay buttons while the first finger steers the craft.
+	if not event is InputEventScreenTouch:
+		return
+	var touch: InputEventScreenTouch = event
+	if touch.index == _native_brake_finger and (not touch.pressed or touch.canceled):
+		_native_brake_finger = -1
+		_braking = false
+		get_viewport().set_input_as_handled()
+		return
+	if touch.index == 0 or not touch.pressed or touch.canceled or _paused:
+		return
+	for button in _touch_buttons:
+		if not is_instance_valid(button) or not button.is_visible_in_tree() or button.disabled:
+			continue
+		if not button.get_global_rect().has_point(touch.position):
+			continue
+		if button == _brake_button:
+			if not _braking:
+				_native_brake_finger = touch.index
+				_braking = true
+		elif not button.button_pressed:
+			button.pressed.emit()
+		get_viewport().set_input_as_handled()
+		return
+
+func _reset_flight_input() -> void:
+	_native_brake_finger = -1
+	_braking = false
+	_steer = Vector2.ZERO
+	if is_instance_valid(_flight_stick):
+		_flight_stick.call("reset_touch")
+
+func _flush_camera_settings() -> void:
+	if is_instance_valid(_camera_save_timer) and not _camera_save_timer.is_stopped():
+		_camera_save_timer.stop()
+		GameState.save_local()
 
 func _cycle_camera() -> void:
 	if _paused:
@@ -330,7 +380,7 @@ func _cycle_camera() -> void:
 	var index: int = CAMERA_MODES.find(current)
 	var next: String = CAMERA_MODES[(index + 1) % CAMERA_MODES.size()]
 	GameState.settings["camera_mode"] = next
-	GameState.save_settings()
+	_camera_save_timer.start()
 	_refresh_photo()
 	_refresh_interface()
 	_notice_message("Camera: %s view (photographic 2.5D)" % next.capitalize())
@@ -339,7 +389,7 @@ func _change_zoom(amount: float) -> void:
 	if _paused:
 		return
 	GameState.settings["camera_zoom"] = clampf(float(GameState.settings.get("camera_zoom", 1.0)) + amount, 0.85, 1.7)
-	GameState.save_settings()
+	_camera_save_timer.start()
 	_fit_photo()
 	_notice_message("Zoom: %d%%" % roundi(float(GameState.settings["camera_zoom"]) * 100.0))
 
@@ -602,6 +652,8 @@ func _notice_message(message: String) -> void:
 
 func _toggle_pause() -> void:
 	_paused = not _paused
+	_reset_flight_input()
+	_flush_camera_settings()
 	_pause_dialog.visible = _paused
 	if _paused:
 		_pause_page = "main"
@@ -727,6 +779,7 @@ func _clear_checkpoint() -> void:
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(CHECKPOINT_PATH))
 
 func _to_menu() -> void:
+	_flush_camera_settings()
 	_save_checkpoint()
 	GameState.save_local()
 	get_tree().change_scene_to_file(GameState.MENU)
@@ -735,5 +788,8 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if not _paused:
 			_toggle_pause()
-	if what == NOTIFICATION_APPLICATION_PAUSED:
-		_save_checkpoint()
+	if what == NOTIFICATION_APPLICATION_PAUSED or what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		_reset_flight_input()
+		_flush_camera_settings()
+		if is_instance_valid(_flight_stick):
+			_save_checkpoint()
