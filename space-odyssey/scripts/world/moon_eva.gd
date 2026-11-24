@@ -9,6 +9,10 @@ const SAMPLE_POINT: Vector3 = Vector3(12.0, 0.75, -11.0)
 const LANDER_POINT: Vector3 = Vector3(0.0, 0.0, 12.0)
 var _player: AstronautController
 var _sample: MeshInstance3D
+var _sample_marker: Label3D
+var _rover: Node3D
+var _rover_wheels: Array[Node3D] = []
+var _rover_button: Button
 var _goal: Label
 var _hint: Label
 var _power: Label
@@ -24,6 +28,10 @@ func _ready() -> void:
 	_player.planet_gravity = 1.62
 	add_child(_player)
 	_player.interact_requested.connect(_interact)
+	var vehicle := RocketArt.build_rover(_player)
+	_rover = vehicle["body"] as Node3D
+	_rover_wheels.assign(vehicle["wheels"])
+	_rover.hide()
 	_build_hud()
 	_update_hud()
 	GameAudio.communicate("Moon expedition. Follow the cyan marker, collect the geological sample, then return it to the lander.")
@@ -69,7 +77,8 @@ func _build_world() -> void:
 	_sample = _rock(SAMPLE_POINT, 0.8, Color("6ce9ff"))
 	if GameState.moon_eva_sample_collected:
 		_sample.visible = false
-	_marker("SAMPLE SITE", SAMPLE_POINT + Vector3(0, 2.0, 0))
+	_sample_marker = _marker("SAMPLE SITE", SAMPLE_POINT + Vector3(0, 2.0, 0))
+	_sample_marker.visible = _sample.visible
 	_marker("LANDER / RETURN", LANDER_POINT + Vector3(0, 8.8, 0))
 	_rock(Vector3(-80, 38, -160), 3.5, Color("397fa8"))
 
@@ -102,7 +111,7 @@ func _rock(pos: Vector3, radius: float, color: Color) -> MeshInstance3D:
 	add_child(item)
 	return item
 
-func _marker(caption: String, pos: Vector3) -> void:
+func _marker(caption: String, pos: Vector3) -> Label3D:
 	var marker: Label3D = Label3D.new()
 	marker.text = caption
 	marker.font_size = 38
@@ -111,6 +120,7 @@ func _marker(caption: String, pos: Vector3) -> void:
 	marker.modulate = Color("9adffc")
 	marker.position = pos
 	add_child(marker)
+	return marker
 
 func _build_hud() -> void:
 	var layer: CanvasLayer = CanvasLayer.new()
@@ -139,6 +149,16 @@ func _build_hud() -> void:
 	pause.offset_bottom = 72
 	root.add_child(pause)
 	pause.pressed.connect(_pause)
+	_rover_button = UI.button("DRIVE ROVER")
+	_rover_button.anchor_left = 1.0
+	_rover_button.anchor_right = 1.0
+	_rover_button.offset_left = -220
+	_rover_button.offset_right = -18
+	_rover_button.offset_top = 82
+	_rover_button.offset_bottom = 134
+	_rover_button.z_index = 2
+	root.add_child(_rover_button)
+	_rover_button.pressed.connect(_toggle_rover)
 	_hint = UI.label("Left joystick: move · Right side: look · INTERACT: collect", 16, UI.ACCENT)
 	_hint.anchor_left = 0.25
 	_hint.anchor_right = 0.76
@@ -166,7 +186,23 @@ func _process(delta: float) -> void:
 	if _player.global_position.y < -8.0:
 		_player.position = Vector3(0, 1.5, 4)
 		_player.velocity = Vector3.ZERO
+	if _player.driving_rover:
+		_rover.rotation.y = (_player.get_node("Visual") as Node3D).rotation.y
+		var speed := Vector2(_player.velocity.x, _player.velocity.z).length()
+		for wheel: Node3D in _rover_wheels:
+			wheel.rotate_x(-speed * delta / 0.36)
 	_update_hud()
+
+func _toggle_rover() -> void:
+	_player.driving_rover = not _player.driving_rover
+	var driving: bool = _player.driving_rover
+	_rover.visible = driving
+	var suit := _player.get_node("Visual") as Node3D
+	suit.visible = not driving
+	_rover.rotation.y = suit.rotation.y
+	(_player.get_node("CameraPivot/SpringArm") as SpringArm3D).spring_length = 6.5 if driving else 4.8
+	_rover_button.text = "EXIT ROVER" if driving else "DRIVE ROVER"
+	GameAudio.effect("stage")
 
 func _update_hud() -> void:
 	if GameState.moon_eva_sample_collected:
@@ -174,14 +210,15 @@ func _update_hud() -> void:
 		_hint.text = "Bring the sample to the rocket · INTERACT to finish"
 	else:
 		_goal.text = "Collect the cyan lunar sample"
-		_hint.text = "Walk to the cyan rock · INTERACT when nearby"
-	_power.text = "Moon gravity 1.62 m/s²  ·  Suit power %d%%" % int(_player.power)
+		_hint.text = "Follow the sample marker · INTERACT when nearby"
+	_power.text = "ROVER · SPEED %.1f m/s" % Vector2(_player.velocity.x, _player.velocity.z).length() if _player.driving_rover else "Moon gravity 1.62 m/s² · Suit power %d%%" % int(_player.power)
 
 func _interact() -> void:
 	if not GameState.moon_eva_sample_collected:
 		if _player.position.distance_to(SAMPLE_POINT) <= 4.2:
 			GameState.collect_moon_sample()
 			_sample.visible = false
+			_sample_marker.hide()
 			GameState.save_moon_eva_position(_player.position)
 			GameAudio.effect("scan")
 			GameAudio.communicate("Sample secured. Return to the landing craft to complete your exploration mission.")

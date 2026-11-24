@@ -60,14 +60,23 @@ func _build_environment() -> void:
 	add_child(sky)
 	var light: DirectionalLight3D = DirectionalLight3D.new()
 	light.rotation_degrees = Vector3(-43, -25, 0)
-	light.light_energy = 1.25
+	light.light_energy = 1.48
 	light.shadow_enabled = false
 	add_child(light)
 	_box("Launch concrete", Vector3(0, -0.45, 0), Vector3(90, 0.9, 90), Color("54616c"))
 	_box("Rocket platform", Vector3(0, 0.06, 0), Vector3(15, 0.15, 15), Color("334556"))
-	_box("Tower", Vector3(-8.5, 13, -1.0), Vector3(2.4, 26.0, 2.4), Color("8695a7"))
+	for x: float in [-9.42, -7.58]:
+		for z: float in [-2.06, 0.06]:
+			_box("Service tower support", Vector3(x, 12.2, z), Vector3(0.29, 24.4, 0.29), Color("8b9ca5"))
 	for i: int in range(6):
-		_box("Tower crossbar", Vector3(-6.8, 4.0 + float(i) * 3.8, -1.0), Vector3(3.4, 0.38, 0.65), Color("c2a881"))
+		var level: float = 2.2 + float(i) * 3.8
+		_box("Tower platform", Vector3(-8.5, level, -1.0), Vector3(2.49, 0.17, 2.64), Color("545f67"))
+		for z: float in [-2.07, 0.07]:
+			var brace := _box("Tower brace", Vector3(-8.5, level + 1.9, z), Vector3(0.13, 4.2, 0.14), Color("81919e"))
+			brace.rotation.z = 0.45 if i % 2 == 0 else -0.45
+	for x: float in [-6.9, 6.9]:
+		_box("Pad stripe", Vector3(x, 0.145, 0), Vector3(0.17, 0.019, 14.2), Color("e0b767"))
+	_box("Service arm", Vector3(-5.0, 10.15, -0.66), Vector3(5.8, 0.24, 0.63), Color("b49b75"))
 	for i: int in range(36):
 		var a: float = float(i) * 2.39996
 		var n: float = 40.0 + float(i % 11) * 8.0
@@ -75,7 +84,7 @@ func _build_environment() -> void:
 	_camera = Camera3D.new()
 	_camera.current = true
 	_camera.fov = 68.0
-	_camera.position = Vector3(0, 6, 20)
+	_camera.position = Vector3(8, 8.2, 19.5)
 	add_child(_camera)
 	_camera.look_at(Vector3(0, 8, 0), Vector3.UP)
 
@@ -85,7 +94,7 @@ func _material(color: Color) -> Material:
 	mat.roughness = 0.85
 	return mat
 
-func _box(name_str: String, pos: Vector3, size3: Vector3, color: Color) -> void:
+func _box(name_str: String, pos: Vector3, size3: Vector3, color: Color) -> MeshInstance3D:
 	var item: MeshInstance3D = MeshInstance3D.new()
 	item.name = name_str
 	var mesh: BoxMesh = BoxMesh.new()
@@ -94,6 +103,7 @@ func _box(name_str: String, pos: Vector3, size3: Vector3, color: Color) -> void:
 	item.position = pos
 	item.material_override = _material(color)
 	add_child(item)
+	return item
 
 func _sphere(name_str: String, pos: Vector3, radius: float, color: Color) -> void:
 	var item: MeshInstance3D = MeshInstance3D.new()
@@ -215,7 +225,7 @@ func _process(delta: float) -> void:
 			_next_step()
 	else:
 		_auto_step_timer = 0.0
-	var desired: Vector3 = _rocket.global_position + Vector3(0, 6.2, 19.5)
+	var desired: Vector3 = _rocket.global_position + Vector3(8.0 if _rocket.phase == RocketVehicle.Phase.READY else 6.2, 8.2, 19.5)
 	_camera.global_position = _camera.global_position.lerp(desired, minf(1.0, delta * 3.4))
 	_camera.look_at(_rocket.global_position + Vector3(0, 7, 0), Vector3.UP)
 	var sky_factor: float = clampf(_rocket.altitude_m / 42000.0, 0.0, 1.0)
@@ -223,6 +233,7 @@ func _process(delta: float) -> void:
 	if _debris != null and is_instance_valid(_debris):
 		_debris_velocity += 9.81 * delta
 		_debris.position.y -= _debris_velocity * delta
+		_debris.position.x -= 2.8 * delta
 		_debris.rotation.z += 0.45 * delta
 		if _debris.position.y < -10.0:
 			_debris.queue_free()
@@ -312,17 +323,9 @@ func _stage() -> void:
 		_set_status("Wait for Stage 1 to run low on fuel.")
 
 func _drop_stage() -> void:
-	_debris = Node3D.new()
-	_debris.position = _rocket.position + Vector3(0, 5, 0)
-	add_child(_debris)
-	var mesh: CylinderMesh = CylinderMesh.new()
-	mesh.height = 7.8
-	mesh.top_radius = 1.3
-	mesh.bottom_radius = 1.3
-	var piece: MeshInstance3D = MeshInstance3D.new()
-	piece.mesh = mesh
-	piece.material_override = _material(Color("c7d7e2"))
-	_debris.add_child(piece)
+	if is_instance_valid(_debris):
+		_debris.queue_free()
+	_debris = _rocket.detach_stage_visual(self)
 	_debris_velocity = 0.0
 
 func _orbit() -> void:

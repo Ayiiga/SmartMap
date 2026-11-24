@@ -10,7 +10,7 @@ menu = read("scripts/ui/main_menu.gd")
 state = read("scripts/core/game_state.gd")
 scene = read("scenes/world/photo_mission.tscn")
 workflow = Path(__file__).resolve().parents[2] / ".github/workflows/space-odyssey-android.yml"
-for name in ("earth-launchpad.webp", "earth-orbit.webp", "moon-surface.webp", "eva-suit.webp", "eva-rover.webp", "eva-antenna.webp",
+for name in ("earth-launchpad.webp", "earth-orbit.webp", "moon-surface.webp", "eva-suit.webp", "moon-rover.webp", "lunar-sample.webp", "eva-antenna.webp",
              "lunar-lander.webp", "flight-rocket.webp", "orbital-craft.webp"):
     assert (root / "assets/textures" / name).is_file(), name
     assert f'res://assets/textures/{name}' in mission, f"Photo not integrated into playable scene: {name}"

@@ -21,3 +21,5 @@ fictional people and hardware and are not part of the NASA photograph collection
 
 The cloud-deck, Moon disc, Europa ice and Titan surface illustrations are generated
 for gameplay. The Europa and Titan scenes are artistic reconstructions.
+
+The crewed Moon rover and lunar sample sprites are generated gameplay artwork.

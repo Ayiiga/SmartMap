@@ -14,7 +14,8 @@ const ROCKET_PLUME = preload("res://assets/textures/rocket-plume.webp")
 const MOON_DISC = preload("res://assets/textures/moon-disc.webp")
 const ORBITER = preload("res://assets/textures/orbital-craft.webp")
 const EVA_AVATAR = preload("res://assets/textures/eva-suit.webp")
-const EVA_ROVER = preload("res://assets/textures/eva-rover.webp")
+const EVA_ROVER = preload("res://assets/textures/moon-rover.webp")
+const SAMPLE_ROCK = preload("res://assets/textures/lunar-sample.webp")
 const EVA_ANTENNA = preload("res://assets/textures/eva-antenna.webp")
 const LANDER_PHOTO = preload("res://assets/textures/lunar-lander.webp")
 const CHECKPOINT_PATH: String = "user://gigaorbit_photo_checkpoint_v1.json"
@@ -32,6 +33,8 @@ var _flight_stick: Control
 var _camera_save_timer: Timer
 var _gear: bool = false
 var _rover: bool = false
+var _rover_velocity: float = 0.0
+var _rover_heading: float = 1.0
 var _steer: Vector2 = Vector2.ZERO
 var _throttle: float = 0.80
 var _fuel: float = 100.0
@@ -60,6 +63,8 @@ var _destination: TextureRect
 var _avatar: TextureRect
 var _antenna: TextureRect
 var _lander: TextureRect
+var _landing_plume: TextureRect
+var _rocks: Array[TextureRect] = []
 var _marker: Label
 var _hud: Label
 var _objective: Label
@@ -125,7 +130,11 @@ func _build_photo() -> void:
 	_destination = _foreground(MOON_DISC)
 	_plume = _foreground(ROCKET_PLUME)
 	_photo_ship = _foreground(ROCKET_SPRITE)
+	_landing_plume = _foreground(ROCKET_PLUME)
+	_landing_plume.modulate = Color(0.57, 0.78, 1.0, 0.88)
 	_lander = _foreground(LANDER_PHOTO)
+	for i: int in range(SAMPLES.size()):
+		_rocks.append(_foreground(SAMPLE_ROCK))
 	_antenna = _foreground(EVA_ANTENNA)
 	_avatar = _foreground(EVA_AVATAR)
 	_marker = Label.new()
@@ -170,9 +179,14 @@ func _fit_photo() -> void:
 	_lander.visible = _phase in ["landing", "explore"]
 	_destination.visible = _phase == "transfer"
 	_lander.size = Vector2(view_size.y * 0.42, view_size.y * 0.38) * zoom
+	_lander.pivot_offset = _lander.size * 0.5
+	_landing_plume.size = Vector2(view_size.y * 0.080, view_size.y * 0.18) * zoom
+	for rock: TextureRect in _rocks:
+		rock.size = Vector2(view_size.y * 0.10, view_size.y * 0.064) * zoom
 	_avatar.size = Vector2(view_size.y * 0.44, view_size.y * 0.34) * zoom
 	_antenna.size = Vector2(view_size.y * 0.30, view_size.y * 0.28) * zoom
 	_plume.visible = _phase == "launch" and _running and _photo_ship.visible and not _paused
+	_landing_plume.visible = _phase == "landing" and _running and not _paused and _fuel > 0.0
 	_update_eva_art()
 	_move_photo()
 
@@ -193,7 +207,7 @@ func _move_photo() -> void:
 	var ship_x: float = 0.49 if mode != "external" else 0.68
 	var ascent: float = pow(clampf(_altitude / 120000.0, 0.0, 1.0), 0.4)
 	var ship_y: float = lerpf(0.65, 0.26, ascent) if _phase == "launch" else lerpf(0.58, 0.28, _distance / 100.0)
-	_photo_ship.rotation = _steer.x * (0.06 if _phase == "launch" else 0.12)
+	_photo_ship.rotation = (_steer.x * 0.13) if _phase == "launch" else (0.14 - 0.29 * _distance / 100.0 + _steer.x * 0.23)
 	_photo_ship.position = Vector2(v.x * ship_x, v.y * ship_y) - _photo_ship.size * 0.5 + Vector2(_steer.x * 28, 0)
 	var apparent_size: float = v.y * lerpf(0.08, 0.63, _distance / 100.0)
 	_destination.size = Vector2(apparent_size, apparent_size)
@@ -208,8 +222,20 @@ func _move_photo() -> void:
 	var lander_x: float = ship_x if _phase == "landing" or _touchdown_display > 0.0 else 0.31 - _eva_x * 0.012
 	var lander_y: float = lerpf(0.30, 0.63, descent_progress) if _phase == "landing" or _touchdown_display > 0.0 else 0.68
 	_lander.position = Vector2(v.x * lander_x + _offset * 2.0, v.y * lander_y) - _lander.size * 0.5
-	var motion: float = sin(_timer * 13.0) * absf(Flight.movement(_steer)) * (1.0 if _rover else 3.0)
+	_lander.rotation = _steer.x * 0.12 if _phase == "landing" else 0.0
+	var nozzle := Vector2(0, _lander.size.y * 0.29).rotated(_lander.rotation)
+	_landing_plume.position = _lander.position + _lander.pivot_offset + nozzle - Vector2(_landing_plume.size.x * 0.5, 0)
+	_landing_plume.pivot_offset = Vector2(_landing_plume.size.x * 0.5, 0)
+	_landing_plume.rotation = _lander.rotation
+	_landing_plume.scale.y = (1.0 if _braking else 0.55) + sin(_timer * 29.0) * 0.06
+	var rover_motion: float = absf(_rover_velocity) / 22.0
+	var motion: float = sin(_timer * 13.0) * (rover_motion * 3.0 if _rover else absf(Flight.movement(_steer)) * 3.0)
 	_avatar.position = Vector2(v.x * 0.52, v.y * 0.79 + motion) - Vector2(_avatar.size.x * 0.5, _avatar.size.y)
+	_avatar.flip_h = _rover and _rover_heading < 0.0
+	for i: int in range(_rocks.size()):
+		var rock := _rocks[i]
+		var gap: float = SAMPLES[i] - _eva_x
+		rock.position = Vector2(v.x * (0.54 + gap * 0.014), v.y * 0.815) - rock.size * Vector2(0.5, 0.72)
 	var antenna_offset: float = (52.0 - _eva_x) * v.x * 0.018
 	_antenna.position = Vector2(v.x * 0.53 + antenna_offset, v.y * 0.76) - Vector2(_antenna.size.x * 0.5, _antenna.size.y)
 	var marker_x: float = v.x * 0.5
@@ -279,6 +305,8 @@ func _eva_caption(goal: float) -> String:
 func _update_eva_art() -> void:
 	_avatar.visible = _phase == "explore" and _touchdown_display <= 0.0
 	_avatar.texture = EVA_ROVER if _rover else EVA_AVATAR
+	for i: int in range(_rocks.size()):
+		_rocks[i].visible = _avatar.visible and _eva_mission == "samples" and not _samples[i]
 	_antenna.visible = _phase == "explore" and _eva_mission == "repair"
 	_antenna.modulate = Color.WHITE if _comm_repaired else Color(0.8, 0.8, 0.8)
 
@@ -452,6 +480,7 @@ func _reset_flight_input() -> void:
 	_native_brake_finger = -1
 	_braking = false
 	_steer = Vector2.ZERO
+	_rover_velocity = 0.0
 	if is_instance_valid(_flight_stick):
 		_flight_stick.call("reset_touch")
 
@@ -528,8 +557,14 @@ func _physics_process(delta: float) -> void:
 				else:
 					_fail_landing()
 		"explore":
-			var move_speed: float = 21.0 if _rover else 11.0
-			_eva_x = clampf(_eva_x + Flight.movement(_steer) * move_speed * delta, 0.0, 100.0)
+			var axis: float = Flight.movement(_steer)
+			var move_speed: float = axis * 11.0
+			if _rover:
+				_rover_velocity = move_toward(_rover_velocity, axis * 22.0, (34.0 if axis == 0.0 else 25.0) * delta)
+				move_speed = _rover_velocity
+				if absf(_rover_velocity) > 0.35:
+					_rover_heading = signf(_rover_velocity)
+			_eva_x = clampf(_eva_x + move_speed * delta, 0.0, 100.0)
 	if _running and _fuel <= 0.0:
 		_running = false
 		GameAudio.effect("warning")
@@ -615,6 +650,7 @@ func _secondary_action() -> void:
 			_notice_message("Landing gear deployed.")
 		"explore":
 			_rover = not _rover
+			_rover_velocity = 0.0
 			GameAudio.effect("stage")
 			_notice_message("Rover drive engaged." if _rover else "Astronaut walking.")
 		"complete":
@@ -688,12 +724,9 @@ func _select_eva_mission(kind: String) -> void:
 	_save_checkpoint()
 
 func _collect_or_return() -> void:
-	var nearest: int = -1
-	for i in range(3):
-		if not _samples[i] and absf(_eva_x - SAMPLES[i]) <= 9.0:
-			nearest = i
-			break
-	if nearest >= 0:
+	var nearest: int = Flight.waypoint(SAMPLES, _samples, _eva_x)
+	if nearest >= 0 and absf(_eva_x - SAMPLES[nearest]) <= 9.0:
+		_rover_velocity = 0.0
 		_samples[nearest] = true
 		GameAudio.effect("scan")
 		_notice_message("Lunar sample %d/3 secured!" % _count_samples())
@@ -720,6 +753,7 @@ func _refresh_interface() -> void:
 	if _hud == null:
 		return
 	_plume.visible = _phase == "launch" and _running and _photo_ship.visible and not _paused
+	_landing_plume.visible = _phase == "landing" and _running and not _paused and _fuel > 0.0
 	_update_eva_art()
 	_marker.visible = _phase == "landing" or (_phase == "explore" and _touchdown_display <= 0.0)
 	match _phase:
@@ -742,6 +776,8 @@ func _refresh_interface() -> void:
 		"explore":
 			# Short lines fit the small status panel; none can wrap into vertical text.
 			_hud.text = "MOON EVA: %s\nRANGE: %d m\nSAMPLES: %d/3\nFUEL: %d%%\nCOINS: %d" % [_eva_mission.to_upper(), int(_eva_x), _count_samples(), int(_fuel), GameState.coins]
+			if _rover:
+				_hud.text += "\nROVER: %.1f m/s" % absf(_rover_velocity)
 			var goal: float = _eva_goal()
 			var caption: String = _eva_caption(goal)
 			var reach: float = 9.0 if _eva_mission == "samples" or goal == 0.0 else 11.0

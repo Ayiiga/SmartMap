@@ -120,6 +120,15 @@ func separate_stage() -> bool:
 	stage_separated.emit()
 	return true
 
+func detach_stage_visual(parent: Node3D) -> Node3D:
+	if not is_instance_valid(_lower_stage):
+		return null
+	var stage := _lower_stage.duplicate() as Node3D
+	parent.add_child(stage)
+	stage.global_transform = _lower_stage.global_transform
+	stage.show()
+	return stage
+
 func insert_guided_orbit() -> bool:
 	if not can_insert_orbit():
 		return false
@@ -130,6 +139,8 @@ func insert_guided_orbit() -> bool:
 	vertical_speed_m_s = 0.0
 	horizontal_speed_m_s = ORBIT_VELOCITY_M_S
 	throttle = 0.0
+	if is_instance_valid(_flame):
+		_flame.hide()
 	orbit_reached.emit()
 	return true
 
@@ -188,7 +199,7 @@ func _physics_process(delta: float) -> void:
 		_rocket_visual.rotation.y = deg_to_rad(heading_deg)
 	if _flame != null:
 		_flame.visible = thrust_n > 1000.0
-		_flame.scale.y = 0.7 + throttle * 0.8
+		_flame.scale.y = 0.64 + throttle * 0.86 + sin(flight_seconds * 28.0) * 0.06
 
 func snapshot() -> Dictionary:
 	return {

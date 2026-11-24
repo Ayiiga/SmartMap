@@ -78,12 +78,28 @@ func _probe(path: String, screen: String) -> void:
 		"launch_world":
 			if node.find_child("FlightStick", true, false) == null:
 				failures.append("GigaOrbit rocket steering joystick missing")
+			var rocket := node.get("_rocket") as RocketVehicle
+			rocket.phase = RocketVehicle.Phase.SEPARATION
+			if not rocket.separate_stage() or not is_instance_valid(node.get("_debris")):
+				failures.append("Classic staging did not leave behind the modelled first stage")
 		"moon_eva":
 			_expect_button(node, "PAUSE / SAVE", screen)
 			var astronaut: Node3D = node.get("_player") as Node3D
 			if astronaut == null:
 				failures.append("Moon EVA astronaut missing")
 			else:
+				var drive := _find_button(node, "DRIVE ROVER")
+				if drive == null:
+					failures.append("Classic lunar EVA is missing a rover button")
+				else:
+					drive.pressed.emit()
+					if not bool(astronaut.get("driving_rover")) or not (node.get("_rover") as Node3D).visible:
+						failures.append("Classic rover did not enter driving mode")
+					astronaut.move_stick = Vector2(1.0, 0.0)
+					astronaut.call("_physics_process", 0.1)
+					if Vector2(astronaut.velocity.x, astronaut.velocity.z).length() <= 0.0:
+						failures.append("Classic rover did not respond to steering")
+					astronaut.move_stick = Vector2.ZERO
 				astronaut.position = Vector3(12.0, 1.0, -11.0)
 				node.call("_interact")
 				if not GameState.moon_eva_sample_collected:
@@ -179,7 +195,7 @@ func _flight_and_surface(scene: Node, screen: String) -> void:
 	if surface:
 		rover.pressed.emit()
 		var vehicle := scene.get("_avatar" if moon else "_vehicle") as TextureRect
-		if not vehicle.visible or not vehicle.texture.resource_path.ends_with("eva-rover.webp"):
+		if not vehicle.visible or not vehicle.texture.resource_path.ends_with("moon-rover.webp" if moon else "eva-rover.webp"):
 			failures.append("%s rover mode did not show its vehicle" % screen)
 	elif rover.visible:
 		failures.append("%s flyby displayed a rover control" % screen)
@@ -202,6 +218,10 @@ func _flight_and_surface(scene: Node, screen: String) -> void:
 			failures.append("%s waypoint %d was unreachable" % [screen, goal])
 			return
 		action.pressed.emit()
+		if moon and goal > 0.0:
+			var rock := scene.get("_rocks")[[22.0, 48.0, 76.0].find(goal)] as TextureRect
+			if rock.visible:
+				failures.append("Collected Moon sample remained visible")
 	if scene.get("_phase") != "complete":
 		failures.append("%s could not complete its mission and return" % screen)
 

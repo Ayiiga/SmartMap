@@ -38,11 +38,9 @@ func _make_space() -> void:
 	camera.look_at(Vector3(0, 0, -12), Vector3.UP)
 	_sphere(Vector3(-29, 1, -32), 11.0, Color("2b779d"))
 	_sphere(Vector3(33, 7, -51), 8.0 if _target == "moon" else 10.0, Color("a5aab2") if _target == "moon" else Color("bb6747"))
-	var builder: Dictionary = RocketArt.build(self, 0)
-	_ship = builder["root"] as Node3D
-	(builder["lower_stage"] as Node3D).visible = false
-	_ship.scale = Vector3.ONE * 0.43
-	_ship.rotation_degrees.x = -90.0
+	_ship = RocketArt.build_orbiter(self)
+	_ship.scale = Vector3.ONE * 1.22
+	_ship.rotation_degrees.z = -62.0
 	_ship.position = Vector3(-21, 1, 0)
 	var rand: RandomNumberGenerator = RandomNumberGenerator.new()
 	rand.seed = 948712
