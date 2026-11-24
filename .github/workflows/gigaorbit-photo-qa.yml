@@ -1,0 +1,39 @@
+name: GigaOrbit Photorealistic Mission QA
+on:
+  pull_request:
+    paths:
+      - 'space-odyssey/**'
+      - '.github/workflows/gigaorbit-photo-qa.yml'
+  push:
+    branches:
+      - 'fix/gigaorbit-photo-ci-release-gate'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  photo-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify offline photographic gameplay and asset wiring
+        working-directory: space-odyssey
+        run: |
+          set -euo pipefail
+          python3 tests/phase7_photo_contract.py
+          python3 tests/phase8_planetary_photo_contract.py
+          python3 tests/phase6_android_polish_contract.py
+  photo-runtime:
+    needs: photo-contract
+    runs-on: ubuntu-latest
+    container:
+      image: barichello/godot-ci:4.4.1
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse photographic mission in Godot
+        working-directory: space-odyssey
+        shell: bash
+        run: |
+          set -euo pipefail
+          godot --headless --editor --path . --quit > /tmp/gigaorbit-photo-import.log 2>&1 || { cat /tmp/gigaorbit-photo-import.log; exit 1; }
+          cat /tmp/gigaorbit-photo-import.log
+          if grep -Eiq 'SCRIPT ERROR|Parse Error|ERROR:' /tmp/gigaorbit-photo-import.log; then exit 1; fi

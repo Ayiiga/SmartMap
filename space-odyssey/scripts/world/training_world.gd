@@ -13,6 +13,7 @@ var _performance: Label
 var _crew_label: Label
 var _crew_overlay: CanvasLayer
 const Crew = preload("res://scripts/player/crew_catalog.gd")
+const CREW_PHOTOS = preload("res://assets/textures/crew-portraits.webp")
 const RocketArt = preload("res://scripts/rocket/rocket_art.gd")
 var _targets: Dictionary = {}
 var _sample_mesh: MeshInstance3D
@@ -347,7 +348,7 @@ func _switch_crew() -> void:
 	column.add_theme_constant_override("separation", 9)
 	margins.add_child(column)
 	column.add_child(UI.label("SELECT ASTRONAUT", 31))
-	column.add_child(UI.label("Tap any name to switch instantly. Progress will remain saved.", 17, UI.MUTED))
+	column.add_child(UI.label("Choose a fictional astronaut portrait and name. Progress stays saved offline.", 17, UI.MUTED))
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -359,22 +360,42 @@ func _switch_crew() -> void:
 	for role: String in Crew.GROUPS:
 		list.add_child(UI.label(role.to_upper(), 20, UI.ACCENT))
 		var grid: GridContainer = GridContainer.new()
-		grid.columns = 4
+		grid.columns = 2
 		grid.add_theme_constant_override("h_separation", 10)
 		grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		list.add_child(grid)
 		for crew_id: String in Crew.GROUPS[role]:
 			var entry: Dictionary = Crew.profile_for(crew_id)
+			var card: HBoxContainer = HBoxContainer.new()
+			card.add_theme_constant_override("separation", 7)
+			grid.add_child(card)
+			var portrait: TextureRect = _crew_photo(crew_id)
+			card.add_child(portrait)
 			var button: Button = UI.button(str(entry["name"]))
 			button.text = str(entry["name"]) + ("  ✓" if crew_id == GameState.selected_astronaut else "")
-			button.custom_minimum_size = Vector2(240, 58)
+			button.custom_minimum_size = Vector2(148, 68)
+			button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			button.disabled = crew_id == GameState.selected_astronaut
-			grid.add_child(button)
+			card.add_child(button)
 			button.pressed.connect(_select_crew.bind(crew_id))
 	var close: Button = UI.button("BACK TO TRAINING", true)
 	column.add_child(close)
 	close.pressed.connect(_close_crew_picker)
 	get_tree().paused = true
+
+func _crew_photo(crew_id: String) -> TextureRect:
+	# Compact 4x3 original portrait atlas: fictional crew, not real NASA astronauts.
+	var slot: int = maxi(0, Crew.IDS.find(crew_id))
+	var region: AtlasTexture = AtlasTexture.new()
+	region.atlas = CREW_PHOTOS
+	region.region = Rect2((slot % 4) * 100, floori(float(slot) / 4.0) * 100, 100, 100)
+	var photo: TextureRect = TextureRect.new()
+	photo.texture = region
+	photo.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	photo.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+	photo.custom_minimum_size = Vector2(68, 68)
+	photo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return photo
 
 func _select_crew(crew_id: String) -> void:
 	GameState.set_astronaut(crew_id)

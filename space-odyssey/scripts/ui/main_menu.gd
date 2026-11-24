@@ -1,80 +1,87 @@
 extends Control
-## Landscape mission hub: three-person crew, earned rewards and planet progression.
+## Clean cinematic Android menu: one primary launch CTA and useful secondary destinations.
 const UI = preload("res://scripts/ui/space_ui.gd")
 
 func _ready() -> void:
 	UI.backdrop(self)
-	var margins: MarginContainer = MarginContainer.new()
-	margins.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	for edge: String in ["left", "right", "top", "bottom"]:
-		margins.add_theme_constant_override("margin_%s" % edge, 26)
-	add_child(margins)
-	var layout: HBoxContainer = HBoxContainer.new()
-	layout.add_theme_constant_override("separation", 24)
-	margins.add_child(layout)
-	var left: VBoxContainer = VBoxContainer.new()
-	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	left.add_theme_constant_override("separation", 15)
-	layout.add_child(left)
-	left.add_child(UI.label("SPACE ODYSSEY", 49, Color("f5f8ff")))
-	left.add_child(UI.label("JOURNEY BEYOND EARTH  ·  OFFLINE 3D ADVENTURE", 18, Color("81cfff")))
-	var summary: PanelContainer = UI.panel()
-	left.add_child(summary)
-	var details: VBoxContainer = VBoxContainer.new()
-	details.add_theme_constant_override("separation", 9)
-	summary.add_child(details)
-	details.add_child(UI.label("YOUR 3-PERSON SPACE CREW", 21, Color("eac875")))
-	for role: String in ["Flight Cadets", "Rocket Pilots", "Science Explorers"]:
-		var name: String = str(GameState.crew_slots.get(role, "")).capitalize()
-		details.add_child(UI.label("%s    %s" % [role.to_upper(), name], 18, UI.ACCENT))
-	left.add_child(UI.label("GAME COINS  %d    ·    SCIENCE  %d" % [GameState.coins, GameState.science_points], 25, Color("f7c95c")))
-	var roadmap: PanelContainer = UI.panel()
-	left.add_child(roadmap)
-	var path: VBoxContainer = VBoxContainer.new()
-	path.add_theme_constant_override("separation", 10)
-	roadmap.add_child(path)
-	path.add_child(UI.label("EXPLORE THE SOLAR SYSTEM", 22, UI.ACCENT))
-	path.add_child(UI.label("EARTH ✓" if GameState.flight_complete else "EARTH  ·  LAUNCH FIRST", 19, Color("a5ecce") if GameState.flight_complete else UI.MUTED))
-	path.add_child(UI.label("MOON  ·  %s" % ("LANDED · Grade " + str(GameState.landing_grades.get("moon", "C")) if GameState.completed_planets.get("moon", false) else "UNLOCKED AFTER ORBIT" if GameState.flight_complete else "LOCKED"), 20, Color("f5d477")))
-	path.add_child(UI.label("MARS  ·  %s" % ("LANDED · Grade " + str(GameState.landing_grades.get("mars", "C")) if GameState.completed_planets.get("mars", false) else "READY" if GameState.planet_unlocked("mars") else "UPGRADE ENGINE + LANDING GEAR"), 19, Color("d8a48b")))
-	path.add_child(UI.label("JUPITER'S MOONS  ·  SATURN  ·  BEYOND  ·  PLANNED", 16, UI.MUTED))
-	left.add_child(UI.label("Launch  →  Moon landing  →  Upgrade  →  Mars landing", 18, Color("9de7ed")))
-	var panel: PanelContainer = UI.panel()
-	panel.custom_minimum_size.x = 365
-	layout.add_child(panel)
-	var buttons_scroll: ScrollContainer = ScrollContainer.new()
-	buttons_scroll.custom_minimum_size = Vector2(320, 590)
-	buttons_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	panel.add_child(buttons_scroll)
-	var buttons: VBoxContainer = VBoxContainer.new()
-	buttons.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	buttons.add_theme_constant_override("separation", 8)
-	buttons_scroll.add_child(buttons)
-	_add(buttons, "1  ASSEMBLE 3 ASTRONAUTS", true, func() -> void: _open("crew_screen"))
-	_add(buttons, "2  LAUNCH ROCKET", true, func() -> void: GameState.new_rocket_game())
-	var moon: Button = _add(buttons, "3  FLY TO THE MOON", GameState.flight_complete, func() -> void: GameState.begin_transfer("moon"))
-	moon.disabled = not GameState.flight_complete
-	var mars: Button = _add(buttons, "4  FLY TO MARS", GameState.planet_unlocked("mars"), func() -> void: GameState.begin_transfer("mars"))
-	mars.disabled = not GameState.planet_unlocked("mars")
-	_add(buttons, "ROCKET WORKSHOP / UPGRADES", false, func() -> void: _open("workshop_screen"))
-	_add(buttons, "TROPHIES / GRADES / REWARDS", false, func() -> void: _open("rewards_screen"))
-	var resume: Button = _add(buttons, "CONTINUE SAVED MISSION", false, func() -> void: GameState.continue_game())
+	var margin: MarginContainer = MarginContainer.new()
+	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	for edge: String in ["left", "right"]:
+		margin.add_theme_constant_override("margin_%s" % edge, 36)
+	for edge: String in ["top", "bottom"]:
+		margin.add_theme_constant_override("margin_%s" % edge, 24)
+	add_child(margin)
+	var page: HBoxContainer = HBoxContainer.new()
+	page.add_theme_constant_override("separation", 30)
+	margin.add_child(page)
+	var hero: VBoxContainer = VBoxContainer.new()
+	hero.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hero.add_theme_constant_override("separation", 15)
+	page.add_child(hero)
+	var brand: HBoxContainer = HBoxContainer.new()
+	brand.add_theme_constant_override("separation", 14)
+	hero.add_child(brand)
+	var icon: TextureRect = TextureRect.new()
+	icon.texture = preload("res://assets/textures/gigaorbit-icon.webp")
+	icon.custom_minimum_size = Vector2(80, 80)
+	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	brand.add_child(icon)
+	var words: VBoxContainer = VBoxContainer.new()
+	brand.add_child(words)
+	words.add_child(UI.label("GigaOrbit", 50, UI.FG))
+	words.add_child(UI.label("BEYOND EARTH · LAUNCH. EXPLORE. DISCOVER.", 17, Color("6ce1ff")))
+	var blank: Control = Control.new()
+	blank.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hero.add_child(blank)
+	hero.add_child(UI.label("YOUR NEXT ADVENTURE", 17, UI.ACCENT))
+	hero.add_child(UI.label("From Earth to the Moon — then explore Mars.", 26, UI.FG))
+	hero.add_child(UI.label("Launch a rocket, land safely, collect lunar samples and earn coins to upgrade your spacecraft.", 18, UI.MUTED))
+	var actions: HBoxContainer = HBoxContainer.new()
+	actions.add_theme_constant_override("separation", 14)
+	hero.add_child(actions)
+	var launch: Button = UI.button("▶  LAUNCH FROM EARTH", true)
+	launch.custom_minimum_size = Vector2(255, 66)
+	actions.add_child(launch)
+	launch.pressed.connect(GameState.start_earth_launch)
+	var resume: Button = UI.button("CONTINUE")
+	resume.custom_minimum_size = Vector2(185, 66)
 	resume.disabled = not GameState.can_continue()
-	_add(buttons, "MISSIONS / PLANET MAP", false, func() -> void: _open("missions_screen"))
-	_add(buttons, "COMET DODGING", false, func() -> void: GameState.start_comet_mission()).disabled = not GameState.flight_complete
-	_add(buttons, "EARTH TRAINING (OPTIONAL)", false, func() -> void: GameState.new_game())
-	_add(buttons, "MUSIC / SOUND / SETTINGS", false, func() -> void: _open("settings_screen"))
-	_add(buttons, "EXIT", false, func() -> void: get_tree().quit())
-	buttons.add_child(UI.label("All rewards are virtual · No cash payouts · No internet", 13, UI.MUTED))
+	actions.add_child(resume)
+	resume.pressed.connect(func() -> void: GameState.continue_game())
+	hero.add_child(UI.label("🪙 %d COINS   ·   %d SCIENCE   ·   %d BADGES" % [GameState.coins, GameState.science_points, GameState.badges.size()], 20, Color("ffd477")))
+	hero.add_child(UI.label("Offline progress · No cash prizes · No forced adverts", 14, UI.MUTED))
+	var classic: Button = UI.button("CLASSIC ROCKET PILOT")
+	classic.custom_minimum_size = Vector2(220, 54)
+	hero.add_child(classic)
+	classic.pressed.connect(func() -> void: GameState.new_rocket_game())
+	var spacer: Control = Control.new()
+	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hero.add_child(spacer)
+	var side: PanelContainer = UI.panel()
+	side.custom_minimum_size = Vector2(305, 0)
+	page.add_child(side)
+	var nav: VBoxContainer = VBoxContainer.new()
+	nav.add_theme_constant_override("separation", 12)
+	side.add_child(nav)
+	nav.add_child(UI.label("MISSION CONTROL", 22, Color("ffd477")))
+	nav.add_child(UI.label("Crew ready: %s" % ("YES ✓" if GameState.crew_confirmed else "SELECT YOUR CREW"), 15, UI.MUTED))
+	_add(nav, "ASSEMBLE 3 ASTRONAUTS", func() -> void: _open("crew_screen"))
+	_add(nav, "MISSIONS & PLANETS", func() -> void: _open("missions_screen"))
+	_add(nav, "FUEL & ROCKET SHOP", func() -> void: _open("workshop_screen"))
+	_add(nav, "TROPHIES & AWARDS", func() -> void: _open("rewards_screen"))
+	_add(nav, "SETTINGS", func() -> void: _open("settings_screen"))
+	_add(nav, "EARTH TRAINING (OPTIONAL)", func() -> void: GameState.new_game())
+	nav.add_child(UI.label("🌕 Moon after Earth orbit\n🔴 Mars after Moon + upgrades\n🪐 Europa, Titan and outer planets", 14, UI.MUTED))
 
-func _add(parent: VBoxContainer, caption: String, primary: bool, callback: Callable) -> Button:
-	var action: Button = UI.button(caption, primary)
-	parent.add_child(action)
-	action.pressed.connect(callback)
-	return action
+func _add(parent: VBoxContainer, caption: String, callback: Callable) -> void:
+	var button: Button = UI.button(caption)
+	button.custom_minimum_size.y = 55.0
+	parent.add_child(button)
+	button.pressed.connect(callback)
 
-func _open(scene_name: String) -> void:
-	get_tree().change_scene_to_file("res://scenes/ui/%s.tscn" % scene_name)
+func _open(name: String) -> void:
+	get_tree().change_scene_to_file("res://scenes/ui/%s.tscn" % name)
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:

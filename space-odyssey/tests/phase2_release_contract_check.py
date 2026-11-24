@@ -57,7 +57,7 @@ for script in scripts:
 
 project = (root / 'project.godot').read_text()
 preset = (root / 'export_presets.cfg').read_text()
-assert 'SPACE ODYSSEY' in project
+assert 'GigaOrbit: Beyond Earth' in project
 assert 'gl_compatibility' in project
 assert 'window/handheld/orientation=0' in project
 assert 'platform="Android"' in preset

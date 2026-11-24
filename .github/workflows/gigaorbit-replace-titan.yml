@@ -1,0 +1,28 @@
+name: Replace incompatible Titan image with verified NASA JPEG
+on:
+  push:
+    branches: ['feature/gigaorbit-photo-mars-outer-system']
+    paths: ['.github/workflows/gigaorbit-replace-titan.yml']
+permissions:
+  contents: write
+jobs:
+  import-titan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download and verify NASA Cassini source
+        run: |
+          set -euo pipefail
+          cd space-odyssey
+          curl -fsSL --retry 3 --max-time 70 'https://assets.science.nasa.gov/content/dam/science/psd/photojournal/pia/pia14/pia14909/PIA14909.jpg' -o assets/textures/nasa-titan-cassini.jpg
+          test "$(wc -c < assets/textures/nasa-titan-cassini.jpg)" -gt 12000
+          file --mime-type assets/textures/nasa-titan-cassini.jpg | grep 'image/jpeg'
+          sha256sum assets/textures/nasa-titan-cassini.jpg
+      - name: Commit compatible JPEG instead of corrupted PNG
+        run: |
+          set -euo pipefail
+          git config user.name "gigaorbit-ci"
+          git config user.email "actions@users.noreply.github.com"
+          git add space-odyssey/assets/textures/nasa-titan-cassini.jpg
+          git commit -m "assets(gigaorbit): add Godot-compatible NASA Titan photo" || exit 0
+          git push origin HEAD:feature/gigaorbit-photo-mars-outer-system

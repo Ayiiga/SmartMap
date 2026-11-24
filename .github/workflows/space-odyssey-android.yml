@@ -34,6 +34,11 @@ jobs:
           python3 tests/beginner_accessibility_contract.py
           python3 tests/phase3_radio_audio_contract.py
           python3 tests/phase4_progression_contract.py
+          python3 tests/phase5_gigaorbit_contract.py
+          python3 tests/phase6_android_polish_contract.py
+          python3 tests/phase7_photo_contract.py
+          python3 tests/phase8_planetary_photo_contract.py
+          python3 tests/phase9_touch_response_contract.py
   test-build:
     needs: static-source
     runs-on: ubuntu-latest
@@ -93,7 +98,7 @@ jobs:
           fi
           grep -q 'PASS: Phase 1' /tmp/godot-test1.log
           grep -q 'PASS: Twelve astronauts' /tmp/godot-test2.log
-          grep -q 'PASS: Bundled original WAV music' /tmp/godot-test3.log
+          grep -q 'PASS: Bundled original music' /tmp/godot-test3.log
           grep -q 'PASS: Moon/Mars guided touchdown' /tmp/godot-test4.log
       - name: Boot real menu, three crew and planet scenes; test landing buttons
         run: |
@@ -104,7 +109,7 @@ jobs:
             echo 'Runtime errors detected in real Godot scenes' >&2
             exit 1
           fi
-          grep -q 'PASS: Main menu, 3-crew screen' /tmp/odyssey-ui.log
+          grep -q 'PASS: Main menu, crew' /tmp/odyssey-ui.log
       - name: Create disposable debug-signing key
         run: |
           set -eu
@@ -122,6 +127,32 @@ jobs:
           test -s build/SPACE_ODYSSEY_Debug.apk
           unzip -tq build/SPACE_ODYSSEY_Debug.apk
           sha256sum build/SPACE_ODYSSEY_Debug.apk > build/SPACE_ODYSSEY_Debug.apk.sha256
+      - name: Export side-by-side quality test APK
+        run: |
+          set -eu
+          godot --headless --path . --export-debug "Android Side by Side" build/GigaOrbit_SideBySide.apk > /tmp/godot-sidebyside-export.log 2>&1 || { cat /tmp/godot-sidebyside-export.log; exit 1; }
+          cat /tmp/godot-sidebyside-export.log
+          test -s build/GigaOrbit_SideBySide.apk
+          unzip -tq build/GigaOrbit_SideBySide.apk
+          sha256sum build/GigaOrbit_SideBySide.apk > build/GigaOrbit_SideBySide.apk.sha256
+      - name: Assign unique package ID to this QA build
+        # Use POSIX utilities already present in the Godot container.
+        # Production updates require a persistent signing key, not this QA ID.
+        run: |
+          set -eu
+          PACKAGE="com.giga3enterprise.gigaorbit.qa${GITHUB_RUN_ID}"
+          grep -q 'package/unique_name="com.giga3enterprise.gigaorbit.freshqa1123"' export_presets.cfg
+          sed -i "s|com.giga3enterprise.gigaorbit.freshqa1123|${PACKAGE}|" export_presets.cfg
+          grep -q "package/unique_name=\"${PACKAGE}\"" export_presets.cfg
+          echo "Unique QA install package: ${PACKAGE}"
+      - name: Export independent clean-install APK
+        run: |
+          set -eu
+          godot --headless --path . --export-debug "Android Fresh QA" build/GigaOrbit_FreshQA.apk > /tmp/godot-fresh-export.log 2>&1 || { cat /tmp/godot-fresh-export.log; exit 1; }
+          cat /tmp/godot-fresh-export.log
+          test -s build/GigaOrbit_FreshQA.apk
+          unzip -tq build/GigaOrbit_FreshQA.apk
+          sha256sum build/GigaOrbit_FreshQA.apk > build/GigaOrbit_FreshQA.apk.sha256
       - name: Upload verified APK
         uses: actions/upload-artifact@v4
         with:
@@ -129,5 +160,9 @@ jobs:
           path: |
             space-odyssey/build/SPACE_ODYSSEY_Debug.apk
             space-odyssey/build/SPACE_ODYSSEY_Debug.apk.sha256
+            space-odyssey/build/GigaOrbit_SideBySide.apk
+            space-odyssey/build/GigaOrbit_SideBySide.apk.sha256
+            space-odyssey/build/GigaOrbit_FreshQA.apk
+            space-odyssey/build/GigaOrbit_FreshQA.apk.sha256
           if-no-files-found: error
           retention-days: 30

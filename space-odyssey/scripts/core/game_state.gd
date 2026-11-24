@@ -10,7 +10,10 @@ const TRAINING: String = "res://scenes/world/training_world.tscn"
 const FLIGHT: String = "res://scenes/world/launch_world.tscn"
 const TRANSFER: String = "res://scenes/world/planet_transfer.tscn"
 const LANDING: String = "res://scenes/world/planet_landing.tscn"
+const MOON_EVA: String = "res://scenes/world/moon_eva.tscn"
 const COMETS: String = "res://scenes/world/comet_field.tscn"
+const PHOTO_MISSION: String = "res://scenes/world/photo_mission.tscn"
+const PHOTO_EXPEDITION: String = "res://scenes/world/photo_expedition.tscn"
 const DEFAULT_SETTINGS: Dictionary = {
 	"graphics": 0,
 	"target_fps": 30,
@@ -21,6 +24,9 @@ const DEFAULT_SETTINGS: Dictionary = {
 	"sound_volume": 0.65,
 	"voice_enabled": true,
 	"camera_inverted": false,
+	"camera_mode": "chase",
+	"camera_zoom": 1.0,
+	"voice_volume": 0.8,
 	"assisted_controls": true,
 	"debug_overlay": false
 }
@@ -34,9 +40,14 @@ var landing_grades: Dictionary = {}
 var landing_attempts: Dictionary = {"moon": 0, "mars": 0}
 var badges: Array[String] = []
 var upgrades: Dictionary = {"engine": 1, "fuel": 1, "landing_gear": 1}
+# Consumables are offline inventory, kept separate from permanent rocket upgrades.
+var supplies: Dictionary = {"fuel_cell": 0, "repair_kit": 0}
 var destination_planet: String = "moon"
 var landing_checkpoint: Dictionary = {}
 var checkpoint_revive: bool = false
+var moon_eva_complete: bool = false
+var moon_eva_sample_collected: bool = false
+var moon_eva_position: Array = [0.0, 1.5, 4.0]
 var comet_best: int = 0
 var comet_completed: bool = false
 var comet_clear_count: int = 0
@@ -66,6 +77,10 @@ func planet_unlocked(planet: String) -> bool:
 		return flight_complete or flight_rewards_claimed
 	if planet == "mars":
 		return bool(completed_planets.get("moon", false)) and int(upgrades.get("engine", 1)) >= 2 and int(upgrades.get("landing_gear", 1)) >= 2
+	if planet in ["europa", "jupiter", "saturn", "titan"]:
+		return bool(completed_planets.get("mars", false))
+	if planet == "neptune":
+		return bool(completed_planets.get("saturn", false))
 	return false
 
 func can_upgrade(part: String) -> bool:
@@ -83,6 +98,36 @@ func buy_upgrade(part: String) -> bool:
 	save_local()
 	progress_changed.emit()
 	return true
+
+func supply_price(item: String) -> int:
+	return int({"fuel_cell": 80, "repair_kit": 100}.get(item, 100000))
+
+func buy_supply(item: String) -> bool:
+	if not supplies.has(item) or int(supplies[item]) >= 20 or coins < supply_price(item):
+		return false
+	coins -= supply_price(item)
+	supplies[item] = int(supplies[item]) + 1
+	save_local()
+	progress_changed.emit()
+	return true
+
+func use_supply(item: String) -> bool:
+	if not supplies.has(item) or int(supplies[item]) <= 0:
+		return false
+	supplies[item] = int(supplies[item]) - 1
+	save_local()
+	progress_changed.emit()
+	return true
+
+func can_repair_checkpoint(planet: String) -> bool:
+	return planet_unlocked(planet) and int(supplies.get("repair_kit", 0)) > 0 and str(landing_checkpoint.get("planet", "")) == planet and not landing_checkpoint.is_empty()
+
+func repair_lander_checkpoint(planet: String) -> bool:
+	if not can_repair_checkpoint(planet):
+		return false
+	if not use_supply("repair_kit"):
+		return false
+	return begin_landing(planet, true)
 
 func confirm_crew() -> bool:
 	if not ready_crew():
@@ -113,16 +158,54 @@ func ready_crew() -> bool:
 func pilot_name() -> String:
 	return str(Crew.profile_for(str(crew_slots.get("Rocket Pilots", "ayiiga")))["name"])
 
+func begin_photo_expedition(target: String) -> bool:
+	# Offline, no external assets loaded at runtime. Gas/ice giants use flybys.
+	if target not in ["mars", "europa", "jupiter", "saturn", "titan", "neptune"]:
+		return false
+	if not planet_unlocked(target):
+		return false
+	destination_planet = target
+	current_mission = "photo_expedition_" + target
+	active_session = true
+	has_started = true
+	save_local()
+	get_tree().change_scene_to_file(PHOTO_EXPEDITION)
+	return true
+
+func start_earth_launch() -> void:
+	# A new flight replaces the Moon flight checkpoint but keeps career progress.
+	destination_planet = "moon"
+	current_mission = "photo_fresh_launch"
+	active_session = true
+	has_started = true
+	save_local()
+	get_tree().change_scene_to_file(PHOTO_MISSION)
+
+func next_photo_destination() -> String:
+	# Preserve earned progress; do not skip required Moon/Mars milestones.
+	if not bool(completed_planets.get("moon", false)):
+		return "moon"
+	for target in ["mars", "europa", "jupiter", "saturn", "titan", "neptune"]:
+		if planet_unlocked(target) and not bool(completed_planets.get(target, false)):
+			return target
+	return "moon"
+
 func begin_transfer(planet: String) -> bool:
 	if not ready_crew() or not planet_unlocked(planet):
 		return false
+	if planet == "mars":
+		# The Mars selection now enters the actual photo-landing mission,
+		# not the legacy transfer scene made from untextured 3D spheres.
+		return begin_photo_expedition("mars")
 	destination_planet = planet
-	current_mission = "transfer_" + planet
+	# Moon uses the photographic 2.5D playable transfer/landing instead of the
+	# legacy scene with untextured blue and white sphere planets.
+	current_mission = "photo_transfer_moon" if planet == "moon" else "transfer_" + planet
 	checkpoint_revive = false
 	active_session = true
 	has_started = true
 	save_local()
-	get_tree().change_scene_to_file(TRANSFER)
+	get_tree().change_scene_to_file(PHOTO_MISSION if planet == "moon" else TRANSFER)
 	return true
 
 func begin_landing(planet: String, using_checkpoint: bool = false) -> bool:
@@ -139,6 +222,42 @@ func begin_landing(planet: String, using_checkpoint: bool = false) -> bool:
 	save_local()
 	get_tree().change_scene_to_file(LANDING)
 	return true
+
+func begin_moon_eva() -> bool:
+	if not bool(completed_planets.get("moon", false)):
+		return false
+	current_mission = "eva_moon"
+	active_session = true
+	has_started = true
+	save_local()
+	get_tree().change_scene_to_file(MOON_EVA)
+	return true
+
+func collect_moon_sample() -> void:
+	if not bool(completed_planets.get("moon", false)) or moon_eva_sample_collected:
+		return
+	moon_eva_sample_collected = true
+	save_local()
+	progress_changed.emit()
+
+func complete_moon_eva() -> bool:
+	if not moon_eva_sample_collected or not bool(completed_planets.get("moon", false)):
+		return false
+	moon_eva_sample_collected = false
+	moon_eva_position = [0.0, 1.5, 4.0]
+	if not moon_eva_complete:
+		moon_eva_complete = true
+		science_points += 125
+		coins += 200
+		if "Lunar Field Scientist" not in badges:
+			badges.append("Lunar Field Scientist")
+	save_local()
+	progress_changed.emit()
+	return true
+
+func save_moon_eva_position(pos: Vector3) -> void:
+	moon_eva_position = [clampf(pos.x, -60.0, 60.0), maxf(0.5, pos.y), clampf(pos.z, -60.0, 60.0)]
+	save_local()
 
 func save_landing_checkpoint(snapshot: Dictionary) -> void:
 	if snapshot.is_empty():
@@ -224,7 +343,11 @@ func continue_game() -> bool:
 	load_local()
 	active_session = true
 	var destination: String = TRAINING
-	if current_mission == "launch_001":
+	if current_mission.begins_with("photo_expedition_") and planet_unlocked(destination_planet):
+		destination = PHOTO_EXPEDITION
+	elif current_mission in ["photo_earth_moon", "photo_transfer_moon", "photo_fresh_launch"]:
+		destination = PHOTO_MISSION
+	elif current_mission == "launch_001":
 		destination = FLIGHT
 	elif current_mission == "comet_001" and flight_complete:
 		destination = COMETS
@@ -233,7 +356,14 @@ func continue_game() -> bool:
 			checkpoint_revive = true
 		destination = LANDING
 	elif current_mission.begins_with("transfer_") and planet_unlocked(destination_planet):
-		destination = TRANSFER
+		if destination_planet == "moon":
+			# Continue an older saved Moon transfer in the photo-led scene.
+			current_mission = "photo_transfer_moon"
+			destination = PHOTO_MISSION
+		else:
+			destination = TRANSFER
+	elif current_mission == "eva_moon" and bool(completed_planets.get("moon", false)):
+		destination = PHOTO_MISSION
 	get_tree().change_scene_to_file(destination)
 	return true
 
@@ -251,8 +381,12 @@ func save_local() -> bool:
 		"landing_attempts": landing_attempts,
 		"badges": badges,
 		"upgrades": upgrades,
+		"supplies": supplies,
 		"destination_planet": destination_planet,
 		"landing_checkpoint": landing_checkpoint,
+		"moon_eva_complete": moon_eva_complete,
+		"moon_eva_sample_collected": moon_eva_sample_collected,
+		"moon_eva_position": moon_eva_position,
 		"comet_best": comet_best,
 		"comet_completed": comet_completed,
 		"comet_clear_count": comet_clear_count,
@@ -301,6 +435,10 @@ func load_local() -> void:
 		badges.clear()
 		for item: Variant in badges_data:
 			badges.append(str(item))
+	var saved_supplies: Variant = data.get("supplies", {})
+	if saved_supplies is Dictionary:
+		for item: String in supplies:
+			supplies[item] = clampi(int(saved_supplies.get(item, 0)), 0, 20)
 	var saved_upgrades: Variant = data.get("upgrades", {})
 	if saved_upgrades is Dictionary:
 		for item: String in upgrades:
@@ -309,6 +447,11 @@ func load_local() -> void:
 	var recovered_landing: Variant = data.get("landing_checkpoint", {})
 	if recovered_landing is Dictionary:
 		landing_checkpoint = recovered_landing
+	moon_eva_complete = bool(data.get("moon_eva_complete", false))
+	moon_eva_sample_collected = bool(data.get("moon_eva_sample_collected", false))
+	var eva_pos: Variant = data.get("moon_eva_position", [])
+	if eva_pos is Array and eva_pos.size() == 3:
+		moon_eva_position = eva_pos
 	comet_best = maxi(0, int(data.get("comet_best", 0)))
 	comet_completed = bool(data.get("comet_completed", false))
 	comet_clear_count = maxi(0, int(data.get("comet_clear_count", 0)))
@@ -445,9 +588,13 @@ func erase_progress() -> void:
 	landing_attempts = {"moon": 0, "mars": 0}
 	badges = []
 	upgrades = {"engine": 1, "fuel": 1, "landing_gear": 1}
+	supplies = {"fuel_cell": 0, "repair_kit": 0}
 	destination_planet = "moon"
 	landing_checkpoint = {}
 	checkpoint_revive = false
+	moon_eva_complete = false
+	moon_eva_sample_collected = false
+	moon_eva_position = [0.0, 1.5, 4.0]
 	science_points = 0
 	comet_best = 0
 	comet_completed = false
