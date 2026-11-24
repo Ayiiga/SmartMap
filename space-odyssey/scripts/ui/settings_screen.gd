@@ -19,8 +19,14 @@ var _feedback: Label
 var _delete_confirm: bool = false
 var _delete_button: Button
 var _loading: bool = true
+var _save_timer: Timer
 
 func _ready() -> void:
+	_save_timer = Timer.new()
+	_save_timer.one_shot = true
+	_save_timer.wait_time = 0.35
+	add_child(_save_timer)
+	_save_timer.timeout.connect(_flush_settings)
 	UI.backdrop(self)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -159,8 +165,14 @@ func _save() -> void:
 	GameState.settings["assisted_controls"] = _assist.button_pressed
 	GameState.settings["camera_inverted"] = _invert.button_pressed
 	GameState.settings["debug_overlay"] = _debug.button_pressed
-	GameState.save_settings()
-	_feedback.text = "✓ Changes applied and saved offline."
+	GameState.apply_settings()
+	_save_timer.start()
+	_feedback.text = "✓ Changes applied. Autosaving…"
+
+func _flush_settings() -> void:
+	if not _loading:
+		GameState.save_settings()
+		_feedback.text = "✓ Settings saved offline."
 
 func _restore_defaults() -> void:
 	_loading = true
@@ -196,6 +208,8 @@ func _test_radio() -> void:
 
 func _menu() -> void:
 	_save()
+	_save_timer.stop()
+	_flush_settings()
 	get_tree().change_scene_to_file(GameState.MENU)
 
 func _delete_save() -> void:
@@ -210,5 +224,8 @@ func _delete_save() -> void:
 	_feedback.text = "Progress deleted. Your current sound settings remain active."
 
 func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_PAUSED:
+		_save_timer.stop()
+		_flush_settings()
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_menu()
